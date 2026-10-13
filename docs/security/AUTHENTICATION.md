@@ -82,13 +82,17 @@ Never recorded: passwords, reset tokens, session or CSRF tokens, TOTP secrets or
 | `PASSWORD_RESET_TTL_MINUTES`                      | 30                               | Reset link lifetime                        |
 | `MFA_ENCRYPTION_KEYS` / `MFA_ENCRYPTION_KEY_ID`   | required                         | `id:base64key` list and the current key id |
 
+## Done in Phase 3
+
+- Administrators suspend and restore members, resend invitations and send password reset links (`access.manage`), all audited. Suspension takes effect on the member's next request.
+- Invitations: a new person gets an account with no password and a single-use, hashed **invitation** token (72 hours, `INVITATION_TTL_HOURS`) to set one. Someone who already has an account is simply added.
+- Organisations can **require two-step verification**; see [AUTHORIZATION.md](AUTHORIZATION.md).
+
 ## Not yet implemented
 
-| Item                                            | Status                        | Acceptance criteria to close it                                                                                                                        |
-| ----------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| SSO (OIDC, SAML)                                | Designed, not built           | Real IdP integration tests (e.g. Keycloak in CI) for login, logout, JIT provisioning and attribute mapping; per-tenant enforcement of SSO-only sign-in |
-| WebAuthn / passkeys                             | Deferred                      | Enrolment and sign-in tests with a virtual authenticator in Playwright                                                                                 |
-| Breached-password check (k-anonymity API)       | Deferred                      | Opt-in per deployment; in-house installs may have no internet                                                                                          |
-| Admin-initiated lock, unlock and password reset | Phase 3 (user administration) | Audited, permission-gated endpoints with tests                                                                                                         |
-| Tenant-enforced MFA policy                      | Phase 3                       | Members of a tenant requiring MFA are forced into enrolment after sign-in                                                                              |
-| Email change with verification                  | Phase 3                       | Confirmation to old and new address                                                                                                                    |
+| Item                                      | Status              | Acceptance criteria to close it                                                                                                                        |
+| ----------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SSO (OIDC, SAML)                          | Designed, not built | Real IdP integration tests (e.g. Keycloak in CI) for login, logout, JIT provisioning and attribute mapping; per-tenant enforcement of SSO-only sign-in |
+| WebAuthn / passkeys                       | Deferred            | Enrolment and sign-in tests with a virtual authenticator in Playwright                                                                                 |
+| Breached-password check (k-anonymity API) | Deferred            | Opt-in per deployment; in-house installs may have no internet                                                                                          |
+| Email change with verification            | Phase 21            | Confirmation to old and new address                                                                                                                    |

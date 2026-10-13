@@ -19,6 +19,7 @@ export function ResetForm() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token') ?? '';
+  const isInvite = params.get('invite') === '1';
   const [formError, setFormError] = useState<string>();
   const form = useForm<Values>({
     resolver: zodResolver(newPasswordWithConfirmSchema),
@@ -30,7 +31,7 @@ export function ResetForm() {
     setFormError(undefined);
     try {
       await apiFetch('/v1/auth/password/reset', { method: 'POST', body: { token, newPassword } });
-      router.replace('/login?reason=password-reset');
+      router.replace(isInvite ? '/login?reason=account-ready' : '/login?reason=password-reset');
     } catch (error) {
       if (error instanceof ApiError) {
         const fieldError = error.fieldErrors.find((e) => e.path === 'newPassword');
@@ -57,8 +58,14 @@ export function ResetForm() {
   return (
     <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-[26px] font-semibold tracking-tight">Choose a new password</h1>
-        <p className="text-muted-foreground">You’ll be signed out everywhere and asked to sign in again.</p>
+        <h1 className="text-[26px] font-semibold tracking-tight">
+          {isInvite ? 'Set up your account' : 'Choose a new password'}
+        </h1>
+        <p className="text-muted-foreground">
+          {isInvite
+            ? 'Choose a password to finish joining your organisation on Smart HR.'
+            : 'You’ll be signed out everywhere and asked to sign in again.'}
+        </p>
       </div>
       {formError && (
         <Alert tone="error">

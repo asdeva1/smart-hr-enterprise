@@ -12,6 +12,7 @@
 import { checkPasswordPolicy, hashPassword, normalizeEmail, PASSWORD_PROBLEM_MESSAGES } from '@smart-hr/auth';
 import { loadEnv, z } from '@smart-hr/config';
 import { createDatabaseClient } from '@smart-hr/database';
+import { RbacService } from '../rbac/rbac.service.js';
 
 const env = loadEnv(
   z.object({
@@ -62,6 +63,9 @@ try {
       ...(setPassword ? { failedLoginCount: 0, lockedUntil: null } : {}),
     },
   });
+
+  // Built-in roles (organisation administrator, auditor, …) for the new organisation.
+  await new RbacService().ensureSystemRoles(db, tenant.id);
 
   await db.tenantMembership.upsert({
     where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },

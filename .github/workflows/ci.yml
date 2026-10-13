@@ -129,6 +129,12 @@ jobs:
               node apps/api/dist/cli/bootstrap.js
           done
 
+      # Same post-migration step every deployment runs; must be idempotent.
+      - name: Sync built-in roles (twice, to prove idempotency)
+        run: |
+          node apps/api/dist/cli/sync-system-roles.js
+          node apps/api/dist/cli/sync-system-roles.js
+
       - name: Start API and worker
         run: |
           nohup node apps/api/dist/main.js > api.log 2>&1 &

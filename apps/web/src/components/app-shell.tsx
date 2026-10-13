@@ -1,15 +1,19 @@
 import {
   BookOpen,
+  Building2,
   CalendarDays,
   ChartColumn,
   CircleCheck,
   Clock,
   FileText,
+  KeyRound,
   Layers,
   LayoutGrid,
-  Settings,
+  ScrollText,
+  ShieldCheck,
   Sparkles,
   Tag,
+  UserCog,
   Users,
   Wallet,
   type LucideIcon,
@@ -17,6 +21,7 @@ import {
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SessionView } from '@/lib/api';
+import { can } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { ShellHeader } from './shell-header';
 
@@ -26,6 +31,8 @@ interface NavItem {
   href?: string;
   /** Phase in which the module ships; items without an href are shown but not yet clickable. */
   phase?: number;
+  /** Hidden unless the member holds this permission. The API enforces it regardless. */
+  permission?: string;
 }
 
 const NAV: { section?: string; items: NavItem[] }[] = [
@@ -50,11 +57,15 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    section: 'Admin',
+    section: 'Administration',
     items: [
+      { label: 'Organisation', icon: Building2, href: '/admin/organisation', permission: 'org.view' },
+      { label: 'People and access', icon: UserCog, href: '/admin/people', permission: 'access.view' },
+      { label: 'Roles', icon: KeyRound, href: '/admin/roles', permission: 'access.view' },
+      { label: 'Security policy', icon: ShieldCheck, href: '/admin/security', permission: 'security.manage' },
+      { label: 'Audit log', icon: ScrollText, href: '/admin/audit', permission: 'audit.view' },
       { label: 'AI assistant', icon: Sparkles, phase: 19 },
       { label: 'Plans and billing', icon: Tag, phase: 5 },
-      { label: 'Settings', icon: Settings, phase: 3 },
     ],
   },
 ];
@@ -80,46 +91,51 @@ export function AppShell({
           </span>
           Smart HR
         </div>
-        {NAV.map((group) => (
-          <div key={group.section ?? 'top'} className="flex flex-col gap-0.5">
-            {group.section && (
-              <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.08em] text-sidebar-muted uppercase">
-                {group.section}
-              </div>
-            )}
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.label === active;
-              const content = (
-                <>
-                  <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
-                  {item.label}
-                  {!item.href && item.phase !== undefined && (
-                    <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
-                  )}
-                </>
-              );
-              const classes = cn(
-                'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
-                isActive && 'bg-sidebar-accent font-semibold text-white',
-              );
-              return item.href ? (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
-                >
-                  {content}
-                </Link>
-              ) : (
-                <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
-                  {content}
-                </span>
-              );
-            })}
-          </div>
-        ))}
+        {NAV.map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !item.permission || can(session, item.permission)),
+        }))
+          .filter((group) => group.items.length > 0)
+          .map((group) => (
+            <div key={group.section ?? 'top'} className="flex flex-col gap-0.5">
+              {group.section && (
+                <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.08em] text-sidebar-muted uppercase">
+                  {group.section}
+                </div>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = item.label === active;
+                const content = (
+                  <>
+                    <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+                    {item.label}
+                    {!item.href && item.phase !== undefined && (
+                      <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
+                    )}
+                  </>
+                );
+                const classes = cn(
+                  'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
+                  isActive && 'bg-sidebar-accent font-semibold text-white',
+                );
+                return item.href ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
+                    {content}
+                  </span>
+                );
+              })}
+            </div>
+          ))}
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <ShellHeader session={session} />

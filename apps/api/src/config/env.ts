@@ -32,8 +32,9 @@ export const apiEnvSchema = baseServerEnvSchema
     AUTH_RATE_LIMIT_RESET_PER_EMAIL: z.coerce.number().int().min(1).default(3),
     AUTH_RATE_LIMIT_RESET_PER_IP: z.coerce.number().int().min(1).default(20),
 
-    // Password reset
+    // Password reset and invitations
     PASSWORD_RESET_TTL_MINUTES: minutes(30),
+    INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
 
     // MFA
     MFA_ISSUER: z.string().min(1).max(64).default('Smart HR'),

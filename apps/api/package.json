@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "bootstrap:tenant": "node --env-file-if-exists=../../.env dist/cli/bootstrap.js"
+    "bootstrap:tenant": "node --env-file-if-exists=../../.env dist/cli/bootstrap.js",
+    "sync:system-roles": "node --env-file-if-exists=../../.env dist/cli/sync-system-roles.js"
   },
   "dependencies": {
     "@nestjs/common": "12.1.3",

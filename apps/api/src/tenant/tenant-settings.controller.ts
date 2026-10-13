@@ -4,7 +4,7 @@ import { withContext, type DatabaseClient } from '@smart-hr/database';
 import { NotFoundError } from '@smart-hr/shared';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
-import { CurrentAuth, CurrentTenant, RequireTenant, RequireTenantAdmin } from '../auth/auth.decorators.js';
+import { CurrentAuth, CurrentTenant, RequirePermission, RequireTenant } from '../auth/auth.decorators.js';
 import type { AuthContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -60,9 +60,9 @@ export class TenantSettingsController {
     return setting;
   }
 
-  @RequireTenantAdmin()
+  @RequirePermission('settings.manage')
   @Put(':key')
-  @ApiOperation({ summary: 'Create or update a setting (organisation admins)' })
+  @ApiOperation({ summary: 'Create or update a setting (settings.manage)' })
   async put(
     @Param('key', { schema: settingKey }) key: string,
     @Body({ schema: settingBody }) body: z.infer<typeof settingBody>,

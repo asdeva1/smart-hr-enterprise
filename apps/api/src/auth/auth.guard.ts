@@ -2,10 +2,11 @@ import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@ne
 import { Reflector } from '@nestjs/core';
 import { safeEqual } from '@smart-hr/auth';
 import { withContext, type DatabaseClient } from '@smart-hr/database';
-import { AppError } from '@smart-hr/shared';
+import { AppError, type Permission } from '@smart-hr/shared';
 import type { AppRequest } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
 import { API_ENV, DATABASE } from '../infra/tokens.js';
+import { ASSIGNMENT_SELECT, permissionSetFrom } from '../rbac/rbac.service.js';
 import { AUTH_META } from './auth.decorators.js';
 import { CSRF_HEADER, SESSION_COOKIE } from './auth.types.js';
 import { SessionService } from './session.service.js';
@@ -14,7 +15,8 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Global guard. Authentication is the default: a route must opt out with @Public().
- * Order of checks: origin → session → second factor → CSRF → recent auth → platform admin → tenant.
+ * Order of checks: origin → session → second factor → CSRF → recent auth → platform admin → tenant
+ * (membership, organisation MFA policy, owner flag, permissions).
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -85,20 +87,45 @@ export class AuthGuard implements CanActivate {
     }
 
     const needsAdmin = this.flag(ctx, AUTH_META.tenantAdmin);
-    if (needsAdmin || this.flag(ctx, AUTH_META.tenant)) {
+    const required =
+      this.reflector.getAllAndOverride<Permission[] | undefined>(AUTH_META.permissions, [
+        ctx.getHandler(),
+        ctx.getClass(),
+      ]) ?? [];
+    if (needsAdmin || required.length > 0 || this.flag(ctx, AUTH_META.tenant)) {
       const tenantId = auth.session.activeTenantId;
       if (!tenantId) throw new AppError('TENANT_REQUIRED', 'Choose an organisation first', 403);
-      // Re-checked every request: a suspended membership or tenant loses access immediately.
+      // Re-checked every request: a suspended membership or tenant, or a removed role, takes effect immediately.
       const membership = await withContext(this.db, { tenantId, userId: auth.user.id }, (tx) =>
         tx.tenantMembership.findFirst({
           where: { tenantId, userId: auth.user.id, status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
+          include: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
         }),
       );
       if (!membership) throw new AppError('FORBIDDEN', 'You no longer have access to this organisation', 403);
+
+      // Organisation policy: members must turn on two-step verification before using the organisation.
+      if (membership.tenant.requireMfa && !auth.user.mfaEnabledAt) {
+        throw new AppError(
+          'MFA_ENROLMENT_REQUIRED',
+          'Your organisation requires two-step verification. Turn it on to continue.',
+          403,
+        );
+      }
+
+      const permissions = permissionSetFrom(tenantId, membership.isTenantAdmin, membership.assignments);
       if (needsAdmin && !membership.isTenantAdmin) {
         throw new AppError('FORBIDDEN', 'You do not have permission to do this', 403);
       }
-      auth.tenant = { id: tenantId, isTenantAdmin: membership.isTenantAdmin };
+      if (!required.every((code) => permissions.hasAnywhere(code))) {
+        throw new AppError('FORBIDDEN', 'You do not have permission to do this', 403);
+      }
+      auth.tenant = {
+        id: tenantId,
+        membershipId: membership.id,
+        isTenantAdmin: membership.isTenantAdmin,
+        permissions,
+      };
     }
 
     return true;

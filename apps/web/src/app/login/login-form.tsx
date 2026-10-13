@@ -22,6 +22,10 @@ const REASONS: Record<string, { tone: 'info' | 'warning' | 'success'; text: stri
     tone: 'success',
     text: 'Your password has been changed. Sign in with your new password.',
   },
+  'account-ready': {
+    tone: 'success',
+    text: 'Your account is ready. Sign in with your email and new password.',
+  },
 };
 
 function errorText(error: unknown): string {

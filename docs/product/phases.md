@@ -1,31 +1,32 @@
 # Phase plan
 
-| Phase | Scope                                                    | Status |
-| ----- | -------------------------------------------------------- | ------ |
-| 0     | Repository verification and architecture                 | Done   |
-| 1     | Monorepo, API, worker, web shell, database bootstrap, CI | Done   |
-| 2     | Authentication and security                              | Done   |
-| 3     | Organization (tenant → company → branch → department)    |        |
-| 4     | RBAC and audit                                           |        |
-| 5     | Subscription plans and entitlements                      |        |
-| 6     | SaaS onboarding and tenant administration                |        |
-| 7     | In-house licensing and configuration                     |        |
-| 8     | Employee management and UI                               |        |
-| 9     | Attendance                                               |        |
-| 10    | Leave and holidays                                       |        |
-| 11    | Approvals and notifications                              |        |
-| 12    | Documents and eSignature                                 |        |
-| 13    | Recruitment and onboarding                               |        |
-| 14    | Payroll and statutory compliance                         |        |
-| 15    | Finance                                                  |        |
-| 16    | Expenses, vendors and assets                             |        |
-| 17    | Configurable Operations workspaces                       |        |
-| 18    | Dashboards and reporting                                 |        |
-| 19    | Claude AI infrastructure and features                    |        |
-| 20    | ESS and MSS                                              |        |
-| 21    | Integrations and search                                  |        |
-| 22    | AWS staging deployment and Vercel integration            |        |
-| 23    | Security, performance and cost testing                   |        |
-| 24    | UAT and production readiness                             |        |
+Each phase ends with passing CI (lint, types, unit, integration, migrations, browser tests) before the next starts. Order follows the master brief's roadmap.
 
-Each phase ends with passing CI and an approval before the next starts.
+| Phase | Scope                                                                                       | Status |
+| ----- | ------------------------------------------------------------------------------------------- | ------ |
+| 0     | Repository and architecture verification                                                    | Done   |
+| 1     | Foundation: monorepo, API, worker, web shell, database, CI                                  | Done   |
+| 2     | Authentication and session security, MFA                                                    | Done   |
+| 3     | Organisation (company, branch, department) and scoped RBAC, user administration, MFA policy | Done   |
+| 4     | Audit and shared services: approval engine, notifications, configuration, master data       | Next   |
+| 5     | Plans and entitlements                                                                      |        |
+| 6     | SaaS onboarding and tenant administration                                                   |        |
+| 7     | In-house deployment foundation and licensing                                                |        |
+| 8     | Employee management                                                                         |        |
+| 9     | Attendance                                                                                  |        |
+| 10    | Leave and holidays                                                                          |        |
+| 11    | Approval and notification integration with HR modules                                       |        |
+| 12    | Documents and e-signatures                                                                  |        |
+| 13    | Recruitment and onboarding                                                                  |        |
+| 14    | Payroll and statutory compliance                                                            |        |
+| 15    | Finance and accounting                                                                      |        |
+| 16    | Expenses, procurement, vendors and assets                                                   |        |
+| 17    | Inventory and optional ERP modules                                                          |        |
+| 18    | Configurable Operations platform                                                            |        |
+| 19    | Productivity and analytics                                                                  |        |
+| 20    | Claude AI infrastructure and features                                                       |        |
+| 21    | Employee and manager self-service                                                           |        |
+| 22    | Integrations and search                                                                     |        |
+| 23    | AWS staging and Vercel deployment (needs explicit approval to provision)                    |        |
+| 24    | Security, performance and cost validation                                                   |        |
+| 25    | UAT and production readiness                                                                |        |

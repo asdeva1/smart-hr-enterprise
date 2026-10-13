@@ -1,7 +1,7 @@
-import { createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
-import { AppError } from '@smart-hr/shared';
+import { applyDecorators, createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
+import { AppError, type Permission } from '@smart-hr/shared';
 import type { AppRequest } from '../common/request-context.js';
-import type { AuthContext } from './auth.types.js';
+import type { AuthContext, TenantContext } from './auth.types.js';
 
 export const AUTH_META = {
   public: 'auth:public',
@@ -10,6 +10,7 @@ export const AUTH_META = {
   tenantAdmin: 'auth:tenantAdmin',
   platformAdmin: 'auth:platformAdmin',
   recentAuth: 'auth:recentAuth',
+  permissions: 'auth:permissions',
 } as const;
 
 /** No session required. Every other route requires one by default. */
@@ -21,8 +22,15 @@ export const AllowMfaPending = () => SetMetadata(AUTH_META.allowMfaPending, true
 /** Requires an active tenant; membership is re-checked on every request. */
 export const RequireTenant = () => SetMetadata(AUTH_META.tenant, true);
 
-/** Requires the caller to administer the active tenant. Replaced by fine-grained permissions in Phase 3. */
+/** Requires an organisation owner. Use only for owner-level actions such as granting ownership. */
 export const RequireTenantAdmin = () => SetMetadata(AUTH_META.tenantAdmin, true);
+
+/**
+ * Requires every listed permission somewhere in the active tenant (any scope). Services then check the
+ * scope of the specific record with `PermissionSet.allows`. Implies @RequireTenant.
+ */
+export const RequirePermission = (...permissions: [Permission, ...Permission[]]) =>
+  applyDecorators(SetMetadata(AUTH_META.permissions, permissions), SetMetadata(AUTH_META.tenant, true));
 
 export const RequirePlatformAdmin = () => SetMetadata(AUTH_META.platformAdmin, true);
 
@@ -36,8 +44,8 @@ export const CurrentAuth = createParamDecorator((_data: unknown, ctx: ExecutionC
   return auth;
 });
 
-/** The active tenant, verified by the guard. Only usable with @RequireTenant. */
-export const CurrentTenant = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
+/** The active tenant, verified by the guard. Only usable with @RequireTenant or @RequirePermission. */
+export const CurrentTenant = createParamDecorator((_data: unknown, ctx: ExecutionContext): TenantContext => {
   const tenant = ctx.switchToHttp().getRequest<AppRequest>().auth?.tenant;
   if (!tenant) throw new AppError('TENANT_REQUIRED', 'Choose an organisation first', 403);
   return tenant;

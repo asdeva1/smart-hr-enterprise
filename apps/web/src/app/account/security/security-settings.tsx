@@ -626,6 +626,12 @@ export function SecuritySettings({ session }: { session: SessionView }) {
           Signed in as {session.user.displayName} ({session.user.email})
         </p>
       </div>
+      {session.activeTenant?.mfaEnrolmentRequired && (
+        <Alert tone="warning">
+          {session.activeTenant.name} requires two-step verification. Turn it on below to continue using the
+          organisation.
+        </Alert>
+      )}
       <Section title="Password" description="Changing your password signs you out on every other device.">
         <ChangePassword />
       </Section>

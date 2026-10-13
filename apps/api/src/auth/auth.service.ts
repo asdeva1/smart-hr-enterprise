@@ -29,6 +29,7 @@ import type { RequestMeta } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
 import { API_ENV, DATABASE } from '../infra/tokens.js';
 import { MailService } from '../notifications/mail.service.js';
+import { ASSIGNMENT_SELECT, permissionSetFrom } from '../rbac/rbac.service.js';
 import type { AuthContext, SessionView } from './auth.types.js';
 import { RateLimiterService } from './rate-limiter.service.js';
 import { SessionService, type IssuedSession } from './session.service.js';
@@ -284,6 +285,14 @@ export class AuthService {
   async view(session: UserSession, user: User): Promise<SessionView> {
     const memberships = session.mfaPending ? [] : await this.activeMemberships(user.id);
     const active = memberships.find((m) => m.tenantId === session.activeTenantId);
+    const activeDetail = active
+      ? await withContext(this.db, { tenantId: active.tenantId, userId: user.id }, (tx) =>
+          tx.tenantMembership.findUnique({
+            where: { id: active.id },
+            select: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
+          }),
+        )
+      : null;
     return {
       user: {
         id: user.id,
@@ -293,9 +302,20 @@ export class AuthService {
         mfaEnabled: user.mfaEnabledAt !== null,
       },
       mfaPending: session.mfaPending,
-      activeTenant: active
-        ? { id: active.tenantId, name: active.tenant.name, isTenantAdmin: active.isTenantAdmin }
-        : null,
+      activeTenant:
+        active && activeDetail
+          ? {
+              id: active.tenantId,
+              name: active.tenant.name,
+              isTenantAdmin: active.isTenantAdmin,
+              permissions: permissionSetFrom(
+                active.tenantId,
+                active.isTenantAdmin,
+                activeDetail.assignments,
+              ).codes(),
+              mfaEnrolmentRequired: activeDetail.tenant.requireMfa && user.mfaEnabledAt === null,
+            }
+          : null,
       memberships: memberships.map((m) => ({
         tenantId: m.tenantId,
         name: m.tenant.name,

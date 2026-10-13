@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { hashToken } from '@smart-hr/auth';
-import { withContext, type AuditOutcome, type DatabaseClient } from '@smart-hr/database';
+import {
+  withContext,
+  type AuditOutcome,
+  type DatabaseClient,
+  type TenantTransaction,
+} from '@smart-hr/database';
 import { Logger } from 'nestjs-pino';
 import type { RequestMeta } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -48,8 +53,8 @@ export class AuditService {
    * Writes one append-only audit event. Audit failures are logged loudly but never break the user's
    * request — except that callers performing security-critical changes write inside their own transaction.
    */
-  async record(entry: AuditEntry, meta: RequestMeta): Promise<void> {
-    const data = {
+  private toRow(entry: AuditEntry, meta: RequestMeta) {
+    return {
       action: entry.action,
       outcome: entry.outcome,
       tenantId: entry.tenantId ?? null,
@@ -61,6 +66,18 @@ export class AuditService {
       requestId: meta.requestId,
       metadata: sanitizeMetadata(entry.metadata ?? {}) as object,
     };
+  }
+
+  /**
+   * Writes the event inside the caller's tenant transaction, so the change and its audit record commit or
+   * roll back together. Use for permission, role, membership and security-policy changes.
+   */
+  async recordInTransaction(tx: TenantTransaction, entry: AuditEntry, meta: RequestMeta): Promise<void> {
+    await tx.auditEvent.createMany({ data: [this.toRow(entry, meta)] });
+  }
+
+  async record(entry: AuditEntry, meta: RequestMeta): Promise<void> {
+    const data = this.toRow(entry, meta);
     try {
       // createMany issues a plain INSERT without RETURNING. `create` would read the row back, which the
       // read policy rightly refuses for events the current context may not see (e.g. a failed sign-in).

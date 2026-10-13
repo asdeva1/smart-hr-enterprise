@@ -1,6 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { isUuid } from '@smart-hr/shared';
-import { PrismaClient, type Prisma } from './generated/client.js';
+import { Prisma, PrismaClient } from './generated/client.js';
 
 export * from './generated/client.js';
 
@@ -74,6 +74,16 @@ export async function withContext<T>(
     }
     return work(tx);
   });
+}
+
+/** True when a write failed on a unique constraint (Prisma P2002). */
+export function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+/** True when a write failed on a foreign key (Prisma P2003) — for tenant-qualified keys, a cross-tenant reference. */
+export function isForeignKeyViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
 }
 
 /** Cheap connectivity probe for readiness checks. */

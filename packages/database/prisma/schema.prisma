@@ -34,11 +34,15 @@ model Tenant {
   slug        String             @unique
   name        String
   status      TenantStatus       @default(ACTIVE)
+  /// Organisation policy: every member must turn on two-step verification before using the organisation.
+  requireMfa  Boolean            @default(false) @map("require_mfa")
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   settings    TenantSetting[]
   memberships TenantMembership[]
   sessions    UserSession[]
+  companies   Company[]
+  roles       Role[]
 
   @@map("tenant")
 }
@@ -63,6 +67,32 @@ enum AuditOutcome {
   DENIED
 
   @@map("audit_outcome")
+}
+
+enum TokenPurpose {
+  PASSWORD_RESET
+  INVITATION
+
+  @@map("token_purpose")
+}
+
+/// Organisation records are archived, never deleted, so history and references stay intact.
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("record_status")
+}
+
+/// Where a role assignment applies. TENANT covers everything; COMPANY covers its branches and departments;
+/// DEPARTMENT covers its sub-departments.
+enum ScopeType {
+  TENANT
+  COMPANY
+  BRANCH
+  DEPARTMENT
+
+  @@map("scope_type")
 }
 
 /// A login identity. Global, not tenant-owned: one person can belong to several tenants.
@@ -97,7 +127,8 @@ model User {
   @@map("app_user")
 }
 
-/// Grants a user access to a tenant. Roles and permissions attach here from Phase 3.
+/// Grants a user access to a tenant. `isTenantAdmin` marks an organisation owner, who holds every permission;
+/// everyone else gets permissions through role assignments.
 model TenantMembership {
   id            String           @id @default(uuid(7)) @db.Uuid
   tenantId      String           @map("tenant_id") @db.Uuid
@@ -108,10 +139,132 @@ model TenantMembership {
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments   RoleAssignment[]
 
   @@unique([tenantId, userId])
+  @@unique([tenantId, id])
   @@index([userId])
   @@map("tenant_membership")
+}
+
+/// A legal entity inside a tenant.
+model Company {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  code         String
+  name         String
+  legalName    String?      @map("legal_name")
+  /// ISO 3166-1 alpha-2.
+  country      String       @db.Char(2)
+  /// ISO 4217.
+  baseCurrency String       @map("base_currency") @db.Char(3)
+  /// IANA time zone id, e.g. Asia/Kolkata.
+  timezone     String
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branches     Branch[]
+  departments  Department[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@map("company")
+}
+
+/// A location of a company. References are tenant-qualified, so a branch can never point at another tenant's company.
+model Branch {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  companyId String       @map("company_id") @db.Uuid
+  code      String
+  name      String
+  city      String?
+  /// ISO 3166-1 alpha-2.
+  country   String?      @db.Char(2)
+  /// IANA time zone id; defaults to the company's when not set.
+  timezone  String?
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company   Company      @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@index([tenantId, companyId])
+  @@map("branch")
+}
+
+/// A department of a company, optionally nested under a parent department of the same company.
+model Department {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  companyId String       @map("company_id") @db.Uuid
+  parentId  String?      @map("parent_id") @db.Uuid
+  code      String
+  name      String
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  company   Company      @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  parent    Department?  @relation("DepartmentTree", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Restrict)
+  children  Department[] @relation("DepartmentTree")
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, id])
+  @@index([tenantId, companyId])
+  @@index([tenantId, parentId])
+  @@map("department")
+}
+
+/// A named set of permissions. System roles are created for every tenant and cannot be edited or deleted.
+model Role {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  tenantId    String           @map("tenant_id") @db.Uuid
+  /// Stable machine name, unique in the tenant.
+  key         String
+  name        String
+  description String?
+  isSystem    Boolean          @default(false) @map("is_system")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permissions RolePermission[]
+  assignments RoleAssignment[]
+
+  @@unique([tenantId, key])
+  @@unique([tenantId, id])
+  @@map("role")
+}
+
+/// One permission code in a role. Codes come from the catalogue in @smart-hr/shared and are validated by the API.
+model RolePermission {
+  tenantId   String @map("tenant_id") @db.Uuid
+  roleId     String @map("role_id") @db.Uuid
+  permission String
+  role       Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([roleId, permission])
+  @@index([tenantId])
+  @@map("role_permission")
+}
+
+/// Gives a member a role within a scope. For TENANT scope, scope_id is the tenant id.
+model RoleAssignment {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  membershipId    String           @map("membership_id") @db.Uuid
+  roleId          String           @map("role_id") @db.Uuid
+  scopeType       ScopeType        @map("scope_type")
+  scopeId         String           @map("scope_id") @db.Uuid
+  createdByUserId String?          @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  membership      TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Cascade)
+  role            Role             @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([membershipId, roleId, scopeType, scopeId])
+  @@index([tenantId, roleId])
+  @@map("role_assignment")
 }
 
 /// A server-side session. The browser holds only an opaque random token; this row holds its SHA-256 hash.
@@ -140,15 +293,16 @@ model UserSession {
   @@map("user_session")
 }
 
-/// Single-use password reset token. Only the SHA-256 hash is stored.
+/// Single-use token to set a password: a reset link, or an invitation to a new account. Only the SHA-256 hash is stored.
 model PasswordResetToken {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String       @id @default(uuid(7)) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  purpose   TokenPurpose @default(PASSWORD_RESET)
+  tokenHash String       @unique @map("token_hash")
+  expiresAt DateTime     @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?    @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("password_reset_token")

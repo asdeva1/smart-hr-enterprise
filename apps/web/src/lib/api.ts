@@ -32,6 +32,10 @@ export class ApiError extends Error {
   get needsSignIn(): boolean {
     return this.status === 401 && ['UNAUTHENTICATED', 'SESSION_EXPIRED', 'MFA_REQUIRED'].includes(this.code);
   }
+
+  get isForbidden(): boolean {
+    return this.status === 403;
+  }
 }
 
 export function apiBaseUrl(): string {
@@ -112,7 +116,14 @@ export async function fetchReadiness(fetchImpl: typeof fetch = fetch): Promise<R
 export interface SessionView {
   user: { id: string; email: string; displayName: string; isPlatformAdmin: boolean; mfaEnabled: boolean };
   mfaPending: boolean;
-  activeTenant: { id: string; name: string; isTenantAdmin: boolean } | null;
+  activeTenant: {
+    id: string;
+    name: string;
+    isTenantAdmin: boolean;
+    /** For showing and hiding UI only. The API checks permissions on every request. */
+    permissions: string[];
+    mfaEnrolmentRequired: boolean;
+  } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];
   expiresAt: string;
   absoluteExpiresAt: string;

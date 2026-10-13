@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { MailService } from '../notifications/mail.service.js';
 import { AccountSecurityController } from './account-security.controller.js';
 import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './auth.guard.js';
@@ -14,7 +13,6 @@ import { SessionService } from './session.service.js';
     AuthService,
     SessionService,
     RateLimiterService,
-    MailService,
     // Every route in the application requires a session unless marked @Public().
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

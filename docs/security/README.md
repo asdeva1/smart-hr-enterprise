@@ -1,6 +1,6 @@
 # Security notes
 
-See also: [Authentication](AUTHENTICATION.md) · [Threat model](THREAT_MODEL.md)
+See also: [Authentication](AUTHENTICATION.md) · [Authorization](AUTHORIZATION.md) · [Threat model](THREAT_MODEL.md)
 
 ## Controls in place (Phases 1–2)
 

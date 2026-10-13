@@ -12,6 +12,7 @@ import { Queue } from 'bullmq';
 import request from 'supertest';
 import { createApp } from '../src/app.factory.js';
 import { loadApiEnv, type ApiEnv } from '../src/config/env.js';
+import { RbacService } from '../src/rbac/rbac.service.js';
 
 export const WEB_ORIGIN = 'http://localhost:3000';
 export const MFA_KEY = randomBytes(32).toString('base64');
@@ -74,7 +75,7 @@ export class Fixtures {
   ) {
     const user = await this.db.user.create({
       data: {
-        email: `${label}-${this.run}-${this.users.length}@test.local`,
+        email: `${label}-${this.run}-${this.users.length}@test.local`.toLowerCase(),
         displayName: label,
         passwordHash: await hashPassword(options.password ?? DEFAULT_PASSWORD),
         status: options.status ?? 'ACTIVE',
@@ -85,12 +86,74 @@ export class Fixtures {
     return user;
   }
 
+  /** Cleans up a user created by the API (e.g. through an invitation). */
+  trackUser(userId: string): void {
+    this.users.push(userId);
+  }
+
   async member(tenantId: string, userId: string, isTenantAdmin = false) {
     return this.db.tenantMembership.create({ data: { tenantId, userId, isTenantAdmin } });
   }
 
+  /** A built-in role of the tenant (created on first use, as the bootstrap command does). */
+  async systemRole(tenantId: string, key: 'org_admin' | 'access_admin' | 'auditor' | 'member') {
+    await new RbacService().ensureSystemRoles(this.db, tenantId);
+    const role = await this.db.role.findUniqueOrThrow({ where: { tenantId_key: { tenantId, key } } });
+    return role.id;
+  }
+
+  /** A custom role with exactly these permissions. */
+  async customRole(tenantId: string, name: string, permissions: string[]) {
+    const role = await this.db.role.create({
+      data: {
+        tenantId,
+        key: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${randomUUID().slice(0, 6)}`,
+        name,
+        permissions: { create: permissions.map((permission) => ({ permission })) },
+      },
+    });
+    return role.id;
+  }
+
+  async assign(
+    tenantId: string,
+    membershipId: string,
+    roleId: string,
+    scope: { type: 'TENANT' | 'COMPANY' | 'BRANCH' | 'DEPARTMENT'; id: string } = {
+      type: 'TENANT',
+      id: tenantId,
+    },
+  ) {
+    return this.db.roleAssignment.create({
+      data: { tenantId, membershipId, roleId, scopeType: scope.type, scopeId: scope.id },
+    });
+  }
+
+  async company(tenantId: string, code: string) {
+    return this.db.company.create({
+      data: {
+        tenantId,
+        code: `${code}-${this.run}`.toUpperCase(),
+        name: code,
+        country: 'IN',
+        baseCurrency: 'INR',
+        timezone: 'Asia/Kolkata',
+      },
+    });
+  }
+
   async cleanup(): Promise<void> {
     // audit_event is append-only by design and keeps no foreign keys, so its rows stay.
+    const inTenants = { tenantId: { in: this.tenants } };
+    await this.db.roleAssignment.deleteMany({ where: inTenants });
+    await this.db.rolePermission.deleteMany({ where: inTenants });
+    await this.db.role.deleteMany({ where: inTenants });
+    // Children before parents.
+    for (let i = 0; i < 10 && (await this.db.department.count({ where: inTenants })) > 0; i++) {
+      await this.db.department.deleteMany({ where: { ...inTenants, children: { none: {} } } });
+    }
+    await this.db.branch.deleteMany({ where: inTenants });
+    await this.db.company.deleteMany({ where: inTenants });
     await this.db.tenantSetting.deleteMany({ where: { tenantId: { in: this.tenants } } });
     await this.db.tenantMembership.deleteMany({
       where: { OR: [{ tenantId: { in: this.tenants } }, { userId: { in: this.users } }] },
@@ -133,7 +196,7 @@ export class Browser {
   }
 
   async send(
-    method: 'post' | 'put' | 'delete',
+    method: 'post' | 'put' | 'patch' | 'delete',
     path: string,
     body?: object,
     headers: Record<string, string> = {},
