@@ -44,6 +44,7 @@ model Tenant {
   companies     Company[]
   roles         Role[]
   notifications Notification[]
+  lookupValues  LookupValue[]
 
   @@map("tenant")
 }
@@ -535,4 +536,29 @@ model ApprovalDelegation {
 
   @@index([tenantId, fromMembershipId])
   @@map("approval_delegation")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 4: master data
+
+/// A value in one of the organisation's reference lists (employment types, designations, grades, …).
+/// The lists themselves are defined in code (`MASTER_DATA_LISTS`); values are archived, never deleted,
+/// so records that use them keep their meaning.
+model LookupValue {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  list        String
+  code        String
+  name        String
+  description String?
+  sortOrder   Int          @default(0) @map("sort_order")
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, list, code])
+  @@unique([tenantId, id])
+  @@index([tenantId, list, status, sortOrder])
+  @@map("lookup_value")
 }

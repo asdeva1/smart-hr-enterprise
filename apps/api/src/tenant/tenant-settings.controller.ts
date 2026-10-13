@@ -1,11 +1,12 @@
 import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Put, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { withContext, type DatabaseClient } from '@smart-hr/database';
-import { NotFoundError } from '@smart-hr/shared';
+import { AppError, ForbiddenError, NotFoundError } from '@smart-hr/shared';
+import { isOrganisationSetting, parseSetting } from '@smart-hr/validation';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
 import { CurrentAuth, CurrentTenant, RequirePermission, RequireTenant } from '../auth/auth.decorators.js';
-import type { AuthContext } from '../auth/auth.types.js';
+import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
 
@@ -15,7 +16,9 @@ export const settingKey = z
 export const settingBody = z.object({ value: z.json() });
 
 /**
- * Organisation settings: the first tenant-scoped API. The tenant always comes from the verified session,
+ * Raw organisation settings, one key at a time. Writes accept only declared settings with valid values
+ * (see ORGANISATION_SETTINGS); the settings page uses /v1/tenant/configuration.
+ * The first tenant-scoped API. The tenant always comes from the verified session,
  * never from the URL or body, and every query runs inside withContext, so RLS applies underneath.
  */
 @ApiTags('organisation settings')
@@ -66,11 +69,23 @@ export class TenantSettingsController {
   async put(
     @Param('key', { schema: settingKey }) key: string,
     @Body({ schema: settingBody }) body: z.infer<typeof settingBody>,
-    @CurrentTenant() tenant: { id: string },
+    @CurrentTenant() tenant: TenantContext,
     @CurrentAuth() auth: AuthContext,
     @Req() req: AppRequest,
   ) {
-    const value = body.value ?? null;
+    // Organisation settings apply everywhere, so a company-scoped grant isn't enough.
+    if (!tenant.permissions.allowsTenantWide('settings.manage')) throw new ForbiddenError();
+    if (!isOrganisationSetting(key)) {
+      throw new AppError('UNKNOWN_SETTING', 'Unknown setting', 400, [
+        { path: 'key', message: 'Unknown setting' },
+      ]);
+    }
+    const parsed = parseSetting(key, body.value);
+    if (!parsed.ok)
+      throw new AppError('VALIDATION_FAILED', parsed.message, 400, [
+        { path: 'value', message: parsed.message },
+      ]);
+    const value = parsed.value;
     const saved = await withContext(this.db, this.ctx(tenant.id, auth), (tx) =>
       tx.tenantSetting.upsert({
         where: { tenantId_key: { tenantId: tenant.id, key } },

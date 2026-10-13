@@ -123,21 +123,23 @@ describe('cross-tenant record access (IDOR)', () => {
 describe('permissions', () => {
   it('lets only organisation admins change settings', async () => {
     const { browser: member } = await signedIn([{ tenantId: tenantA }]);
-    const denied = await member.send('put', '/v1/tenant/settings/locale', { value: 'en-IN' });
+    const denied = await member.send('put', '/v1/tenant/settings/date_format', { value: 'YYYY-MM-DD' });
     expect(denied.status).toBe(403);
 
     const { browser: admin } = await signedIn([{ tenantId: tenantA, admin: true }]);
-    expect((await admin.send('put', '/v1/tenant/settings/locale', { value: 'en-IN' })).status).toBe(200);
+    expect((await admin.send('put', '/v1/tenant/settings/date_format', { value: 'YYYY-MM-DD' })).status).toBe(
+      200,
+    );
   });
 
   it('records setting changes in the tenant’s audit trail', async () => {
     const { user, browser } = await signedIn([{ tenantId: tenantA, admin: true }]);
-    await browser.send('put', '/v1/tenant/settings/currency', { value: 'INR' });
+    await browser.send('put', '/v1/tenant/settings/default_currency', { value: 'INR' });
     const event = await owner.auditEvent.findFirstOrThrow({
       where: { actorUserId: user.id, action: 'tenant.setting.update' },
     });
     expect(event.tenantId).toBe(tenantA);
-    expect(event.metadata).toEqual({ key: 'currency' });
+    expect(event.metadata).toEqual({ key: 'default_currency' });
   });
 
   it('withdraws access immediately when a membership is suspended', async () => {

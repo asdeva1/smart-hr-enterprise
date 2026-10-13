@@ -9,7 +9,9 @@ import {
   KeyRound,
   Layers,
   LayoutGrid,
+  ListChecks,
   ScrollText,
+  Settings,
   ShieldCheck,
   Sparkles,
   Tag,
@@ -63,6 +65,18 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Organisation', icon: Building2, href: '/admin/organisation', permission: 'org.view' },
       { label: 'People and access', icon: UserCog, href: '/admin/people', permission: 'access.view' },
       { label: 'Roles', icon: KeyRound, href: '/admin/roles', permission: 'access.view' },
+      {
+        label: 'Organisation settings',
+        icon: Settings,
+        href: '/admin/settings',
+        permission: 'settings.manage',
+      },
+      {
+        label: 'Reference lists',
+        icon: ListChecks,
+        href: '/admin/master-data',
+        permission: 'master_data.manage',
+      },
       { label: 'Security policy', icon: ShieldCheck, href: '/admin/security', permission: 'security.manage' },
       {
         label: 'Approval policies',

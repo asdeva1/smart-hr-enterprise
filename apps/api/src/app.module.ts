@@ -11,6 +11,7 @@ import type { ApiEnv } from './config/env.js';
 import { HealthController } from './health/health.controller.js';
 import { InfraModule } from './infra/infra.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { MasterDataModule } from './master-data/master-data.module.js';
 import { OrgModule } from './org/org.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
@@ -47,6 +48,7 @@ export class AppModule {
         OrgModule,
         AccessModule,
         ApprovalsModule,
+        MasterDataModule,
       ],
       controllers: [HealthController],
     };

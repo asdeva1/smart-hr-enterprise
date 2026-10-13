@@ -17,7 +17,10 @@ async function signInAsOwner(page: Page) {
 
 test('an owner builds companies, branches and nested departments', async ({ page }) => {
   await signInAsOwner(page);
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Organisation' }).click();
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Organisation', exact: true })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'Organisation' })).toBeVisible();
 
   // Company — with a validation error first.
@@ -95,7 +98,7 @@ test('an owner invites someone, who joins from the email with only their role’
   await signIn(invitee, email, password);
   await expect(invitee.getByRole('heading', { level: 1, name: /Welcome/ })).toBeVisible();
   const nav = invitee.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'Organisation' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Organisation', exact: true })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'People and access' })).toHaveCount(0);
 
   // Going there directly shows a no-access page; the API refuses the data regardless.

@@ -8,6 +8,7 @@ export const PERMISSIONS = {
   'access.view': { module: 'access', label: 'View members, roles and assignments' },
   'access.manage': { module: 'access', label: 'Invite members and manage roles and assignments' },
   'settings.manage': { module: 'settings', label: 'Change organisation settings' },
+  'master_data.manage': { module: 'settings', label: 'Maintain reference lists (designations, grades, …)' },
   'security.manage': { module: 'settings', label: 'Change organisation security policy' },
   'audit.view': { module: 'audit', label: 'View the audit log' },
   'approvals.view_all': { module: 'approvals', label: 'See every approval request in their scope' },

@@ -146,6 +146,7 @@ export class Fixtures {
     // audit_event is append-only by design and keeps no foreign keys, so its rows stay.
     const inTenants = { tenantId: { in: this.tenants } };
     await this.db.notification.deleteMany({ where: inTenants });
+    await this.db.lookupValue.deleteMany({ where: inTenants });
     await this.db.notificationPreference.deleteMany({ where: inTenants });
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
