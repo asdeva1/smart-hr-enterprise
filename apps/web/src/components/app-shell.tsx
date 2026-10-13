@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import type { SessionView } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ShellHeader } from './shell-header';
 
 interface NavItem {
   label: string;
@@ -57,7 +59,15 @@ const NAV: { section?: string; items: NavItem[] }[] = [
   },
 ];
 
-export function AppShell({ active, children }: { active: string; children: ReactNode }) {
+export function AppShell({
+  active,
+  session,
+  children,
+}: {
+  active: string;
+  session: SessionView;
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-h-screen flex-wrap">
       <nav
@@ -112,15 +122,7 @@ export function AppShell({ active, children }: { active: string; children: React
         ))}
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
-        <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-8 py-3">
-          <div className="mr-auto flex flex-col">
-            <b>Smart HR Enterprise</b>
-            <span className="text-xs text-muted-foreground">Development build</span>
-          </div>
-          <Link href="/login" className="text-sm font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </header>
+        <ShellHeader session={session} />
         <main className="flex w-full max-w-[1280px] flex-col gap-6 px-8 pt-7 pb-12">{children}</main>
       </div>
     </div>

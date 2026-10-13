@@ -66,12 +66,27 @@ jobs:
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+      # Real SMTP server with an HTTP API, so browser tests can open the emailed reset link.
+      mailpit:
+        image: axllent/mailpit:v1.31.5
+        ports: ['1025:1025', '8025:8025']
     env:
       DATABASE_URL: postgresql://app_rw:app_rw_ci@localhost:5432/smart_hr
       DATABASE_MIGRATOR_URL: postgresql://app_migrator:app_migrator_ci@localhost:5432/smart_hr
       SHADOW_DATABASE_URL: postgresql://app_migrator:app_migrator_ci@localhost:5432/smart_hr_shadow
       REDIS_URL: redis://localhost:6379
     steps:
+      # Keys and passwords exist only for this run and are masked in the logs. Nothing is committed.
+      - name: Generate run-time secrets
+        run: |
+          gen() { openssl rand -base64 "$1" | tr -d '\n'; }
+          key=$(gen 32); echo "::add-mask::$key"; echo "MFA_ENCRYPTION_KEYS=ci:$key" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY_ID=ci" >> "$GITHUB_ENV"
+          for who in ADMIN RESET MFA; do
+            pw="e2e $(gen 18)"; echo "::add-mask::$pw"
+            echo "E2E_${who}_PASSWORD=$pw" >> "$GITHUB_ENV"
+            echo "E2E_${who}_EMAIL=$(echo "$who" | tr '[:upper:]' '[:lower:]')@e2e.smarthr.test" >> "$GITHUB_ENV"
+          done
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@d9184bf108216479bc5a137cc391f4d7b14c870b # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -103,23 +118,42 @@ jobs:
 
       - name: Build
         run: pnpm build
-      - name: Start API for end-to-end tests
+
+      - name: Create end-to-end test accounts
+        run: |
+          for who in ADMIN RESET MFA; do
+            email_var="E2E_${who}_EMAIL"; pw_var="E2E_${who}_PASSWORD"
+            BOOTSTRAP_TENANT_SLUG=e2e BOOTSTRAP_TENANT_NAME="E2E Organisation" \
+            BOOTSTRAP_ADMIN_EMAIL="${!email_var}" BOOTSTRAP_ADMIN_NAME="E2E ${who}" \
+            BOOTSTRAP_ADMIN_PASSWORD="${!pw_var}" \
+              node apps/api/dist/cli/bootstrap.js
+          done
+
+      - name: Start API and worker
         run: |
           nohup node apps/api/dist/main.js > api.log 2>&1 &
+          nohup node apps/worker/dist/main.js > worker.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:4000/health/ready && exit 0; sleep 1; done
-          cat api.log; exit 1
+          cat api.log worker.log; exit 1
         env:
           NODE_ENV: test
           CORS_ORIGINS: http://localhost:3000
+          APP_PUBLIC_URL: http://localhost:3000
+          SMTP_URL: smtp://localhost:1025
+          MAIL_FROM: Smart HR CI <no-reply@e2e.smarthr.test>
       - run: pnpm --filter @smart-hr/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+        env:
+          MAILPIT_URL: http://localhost:8025
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-report
           path: |
             apps/web/playwright-report
+            apps/web/test-results
             api.log
+            worker.log
           retention-days: 7
 
   images:

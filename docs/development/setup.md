@@ -33,9 +33,28 @@ To start over, `docker compose down -v` deletes the local volumes. This only eve
 
 ```bash
 pnpm install
+# Put an MFA encryption key into .env (MFA_ENCRYPTION_KEYS) — the API refuses to start without one:
+echo "MFA_ENCRYPTION_KEYS=local:$(openssl rand -base64 32)" >> .env
 pnpm db:migrate:deploy
+pnpm build
+```
+
+Create your organisation and first administrator. There is no public sign-up; this command runs as the schema owner and never prints the password:
+
+```bash
+BOOTSTRAP_TENANT_SLUG=demo BOOTSTRAP_TENANT_NAME="Demo Organisation" \
+BOOTSTRAP_ADMIN_EMAIL=you@example.com BOOTSTRAP_ADMIN_NAME="Your Name" \
+BOOTSTRAP_ADMIN_PASSWORD='a long passphrase of your own' \
+pnpm --filter @smart-hr/api bootstrap:tenant
+```
+
+Then start everything and sign in at http://localhost:3000:
+
+```bash
 pnpm dev
 ```
+
+Password-reset emails land in Mailpit at http://localhost:8025.
 
 | App           | URL                                     |
 | ------------- | --------------------------------------- |

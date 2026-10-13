@@ -55,6 +55,9 @@ export default tseslint.config(
       ...nextPlugin.configs['core-web-vitals'].rules,
       // App Router only: there is no pages/ directory for this rule to check.
       '@next/next/no-html-link-for-pages': 'off',
+      // React accepts async event handlers (react-hook-form's handleSubmit returns a promise);
+      // still flag promises passed anywhere else a void callback is expected.
+      '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false } }],
     },
     settings: { next: { rootDir: `${import.meta.dirname}/apps/web` } },
   },

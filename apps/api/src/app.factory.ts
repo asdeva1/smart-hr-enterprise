@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { createLogger } from '@smart-hr/observability';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
@@ -24,10 +25,13 @@ export async function createApp(env: ApiEnv): Promise<NestExpressApplication> {
   app.disable('x-powered-by');
   app.set('trust proxy', 1); // one hop: the AWS load balancer
   app.use(helmet());
+  app.use(cookieParser());
+  app.useBodyParser('json', { limit: '100kb' });
   app.enableCors({
     origin: env.CORS_ORIGINS,
     credentials: true,
-    exposedHeaders: ['x-request-id'],
+    allowedHeaders: ['content-type', 'x-csrf-token', 'x-request-id'],
+    exposedHeaders: ['x-request-id', 'retry-after'],
   });
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ProblemDetailsFilter(logger));
@@ -38,7 +42,7 @@ export async function createApp(env: ApiEnv): Promise<NestExpressApplication> {
     const config = new DocumentBuilder()
       .setTitle('Smart HR Enterprise API')
       .setVersion('0.1.0')
-      .addCookieAuth('session')
+      .addCookieAuth('shr_session')
       .build();
     SwaggerModule.setup('docs', app, () => SwaggerModule.createDocument(app, config));
   }

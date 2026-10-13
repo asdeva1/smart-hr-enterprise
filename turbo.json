@@ -29,7 +29,8 @@
     },
     "test:e2e": {
       "dependsOn": ["build"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["E2E_*", "MAILPIT_URL", "WEB_PORT", "PW_CHROMIUM_PATH"]
     },
     "dev": {
       "dependsOn": ["^build", "db:generate"],

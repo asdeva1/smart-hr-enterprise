@@ -8,12 +8,15 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.factory.js';
 import { loadApiEnv } from '../src/config/env.js';
+import { MFA_KEY } from './helpers.js';
 
 const baseEnv = {
   ...process.env,
   NODE_ENV: 'test',
   LOG_LEVEL: 'silent',
   CORS_ORIGINS: 'http://localhost:3000',
+  MFA_ENCRYPTION_KEYS: `t1:${MFA_KEY}`,
+  MFA_ENCRYPTION_KEY_ID: 't1',
 };
 
 describe('API with healthy dependencies', () => {
@@ -99,7 +102,8 @@ describe('API in production mode', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createApp(loadApiEnv({ ...baseEnv, NODE_ENV: 'production' }));
+    // Production refuses insecure cookies, so pin it rather than inheriting a local developer setting.
+    app = await createApp(loadApiEnv({ ...baseEnv, NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'true' }));
     await app.init();
   });
   afterAll(async () => app?.close());

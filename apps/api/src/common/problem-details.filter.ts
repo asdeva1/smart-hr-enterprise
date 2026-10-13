@@ -76,6 +76,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       this.logger.error({ err: error, requestId: req.id }, 'unhandled error');
     }
 
+    const retryAfter = (error as { retryAfterSeconds?: unknown } | null)?.retryAfterSeconds;
+    if (problem.status === 429 && typeof retryAfter === 'number') {
+      res.setHeader('Retry-After', String(Math.ceil(retryAfter)));
+    }
+
     res.status(problem.status).type('application/problem+json').json(problem);
   }
 }

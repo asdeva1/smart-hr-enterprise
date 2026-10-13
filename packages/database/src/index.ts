@@ -37,11 +37,41 @@ export async function withTenant<T>(
   tenantId: string,
   work: (tx: TenantTransaction) => Promise<T>,
 ): Promise<T> {
-  if (!isUuid(tenantId)) {
+  return withContext(db, { tenantId }, work);
+}
+
+export interface DatabaseContext {
+  /** Active tenant, from the authenticated session. */
+  tenantId?: string | null;
+  /** Signed-in user, from the authenticated session. */
+  userId?: string | null;
+}
+
+/**
+ * Like `withTenant`, but can also carry the signed-in user (`app.user_id`), which some policies use —
+ * for example to let a user list their own memberships before choosing a tenant.
+ * Both values must be UUIDs from the authenticated session.
+ */
+export async function withContext<T>(
+  db: DatabaseClient,
+  context: DatabaseContext,
+  work: (tx: TenantTransaction) => Promise<T>,
+): Promise<T> {
+  const tenantId = context.tenantId ?? null;
+  const userId = context.userId ?? null;
+  if ((tenantId !== null && !isUuid(tenantId)) || (userId !== null && !isUuid(userId))) {
+    throw new InvalidTenantContextError();
+  }
+  if (tenantId === null && userId === null) {
     throw new InvalidTenantContextError();
   }
   return db.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    if (tenantId !== null) {
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    }
+    if (userId !== null) {
+      await tx.$executeRaw`SELECT set_config('app.user_id', ${userId}, true)`;
+    }
     return work(tx);
   });
 }

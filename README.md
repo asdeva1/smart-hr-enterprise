@@ -2,22 +2,24 @@
 
 HR, payroll, finance and configurable operations in one platform — delivered as multi-tenant SaaS, a dedicated managed environment, or an in-house installation, from one codebase.
 
-**Status: Phase 1 (foundation).** The repository contains the monorepo, API, worker, web shell, database with tenant isolation, and CI. Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
+**Status: Phase 2 (authentication).** Foundation plus sign-in, sessions, password recovery, two-step verification, tenant-aware authorization and a security audit trail. Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
 
 ## What's here
 
-| Path                                                  | What it is                                                                                       |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `apps/api`                                            | NestJS 12 REST API. Health checks, problem-details errors, OpenAPI at `/docs` outside production |
-| `apps/worker`                                         | NestJS + BullMQ background worker. Heartbeat job and container health check                      |
-| `apps/web`                                            | Next.js 16 App Router, Tailwind 4, shadcn/ui-style components, TanStack Query                    |
-| `packages/database`                                   | Prisma 7 schema, reviewed SQL migrations, row-level security, `withTenant()` helper              |
-| `packages/config`                                     | Typed environment loading with Zod; fails fast and never prints secret values                    |
-| `packages/observability`                              | Structured pino logging with credential and PII redaction                                        |
-| `packages/shared`                                     | Error types and UUIDv7 ids                                                                       |
-| `packages/{auth,types,validation,ui,entitlements,ai}` | Placeholders; each README says which phase fills it                                              |
-| `docs/`                                               | Decisions (ADRs), development, deployment and security notes                                     |
-| `infra/aws`                                           | Infrastructure as code — empty until Phase 22; nothing is provisioned                            |
+| Path                                  | What it is                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `apps/api`                            | NestJS 12 REST API. Health checks, problem-details errors, OpenAPI at `/docs` outside production |
+| `apps/worker`                         | NestJS + BullMQ background worker. Heartbeat job and container health check                      |
+| `apps/web`                            | Next.js 16 App Router, Tailwind 4, shadcn/ui-style components, TanStack Query                    |
+| `packages/database`                   | Prisma 7 schema, reviewed SQL migrations, row-level security, `withTenant()` helper              |
+| `packages/config`                     | Typed environment loading with Zod; fails fast and never prints secret values                    |
+| `packages/observability`              | Structured pino logging with credential and PII redaction                                        |
+| `packages/shared`                     | Error types, UUIDv7 ids, queue job contracts                                                     |
+| `packages/auth`                       | argon2id, token hashing, AES-GCM secret box, TOTP, recovery codes                                |
+| `packages/validation`                 | Zod schemas shared by web forms and API                                                          |
+| `packages/{types,ui,entitlements,ai}` | Placeholders; each README says which phase fills it                                              |
+| `docs/`                               | Decisions (ADRs), development, deployment and security notes                                     |
+| `infra/aws`                           | Infrastructure as code — empty until Phase 22; nothing is provisioned                            |
 
 ## Quick start
 

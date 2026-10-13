@@ -30,15 +30,163 @@ enum TenantStatus {
 
 /// A customer organisation. In dedicated and in-house deployments there is exactly one.
 model Tenant {
-  id        String          @id @default(uuid(7)) @db.Uuid
-  slug      String          @unique
-  name      String
-  status    TenantStatus    @default(ACTIVE)
-  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  settings  TenantSetting[]
+  id          String             @id @default(uuid(7)) @db.Uuid
+  slug        String             @unique
+  name        String
+  status      TenantStatus       @default(ACTIVE)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  settings    TenantSetting[]
+  memberships TenantMembership[]
+  sessions    UserSession[]
 
   @@map("tenant")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+
+  @@map("membership_status")
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+  DENIED
+
+  @@map("audit_outcome")
+}
+
+/// A login identity. Global, not tenant-owned: one person can belong to several tenants.
+/// Deliberately separate from the employee record (Phase 8), which a user may later be linked to.
+model User {
+  id                   String               @id @default(uuid(7)) @db.Uuid
+  /// Normalised to lower case before storage.
+  email                String               @unique
+  displayName          String               @map("display_name")
+  /// argon2id hash. Null for SSO-only accounts.
+  passwordHash         String?              @map("password_hash")
+  status               UserStatus           @default(ACTIVE)
+  isPlatformAdmin      Boolean              @default(false) @map("is_platform_admin")
+  failedLoginCount     Int                  @default(0) @map("failed_login_count")
+  lockedUntil          DateTime?            @map("locked_until") @db.Timestamptz(6)
+  passwordChangedAt    DateTime?            @map("password_changed_at") @db.Timestamptz(6)
+  lastLoginAt          DateTime?            @map("last_login_at") @db.Timestamptz(6)
+  /// AES-256-GCM ciphertext of the TOTP secret; never stored in plain text.
+  mfaTotpSecret        String?              @map("mfa_totp_secret")
+  /// Secret awaiting confirmation during enrolment.
+  mfaTotpPendingSecret String?              @map("mfa_totp_pending_secret")
+  /// Last accepted TOTP time step, to reject replayed codes.
+  mfaTotpLastStep      BigInt?              @map("mfa_totp_last_step")
+  mfaEnabledAt         DateTime?            @map("mfa_enabled_at") @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  memberships          TenantMembership[]
+  sessions             UserSession[]
+  passwordResetTokens  PasswordResetToken[]
+  recoveryCodes        MfaRecoveryCode[]
+
+  @@map("app_user")
+}
+
+/// Grants a user access to a tenant. Roles and permissions attach here from Phase 3.
+model TenantMembership {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  tenantId      String           @map("tenant_id") @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  status        MembershipStatus @default(ACTIVE)
+  isTenantAdmin Boolean          @default(false) @map("is_tenant_admin")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("tenant_membership")
+}
+
+/// A server-side session. The browser holds only an opaque random token; this row holds its SHA-256 hash.
+model UserSession {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  /// Synchronizer token for CSRF protection, echoed by the browser in a header.
+  csrfToken         String    @map("csrf_token")
+  activeTenantId    String?   @map("active_tenant_id") @db.Uuid
+  /// True between a correct password and a correct second factor; such a session can do nothing else.
+  mfaPending        Boolean   @default(false) @map("mfa_pending")
+  reauthenticatedAt DateTime? @map("reauthenticated_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  idleExpiresAt     DateTime  @map("idle_expires_at") @db.Timestamptz(6)
+  absoluteExpiresAt DateTime  @map("absolute_expires_at") @db.Timestamptz(6)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokeReason      String?   @map("revoke_reason")
+  ipAddress         String?   @map("ip_address")
+  userAgent         String?   @map("user_agent")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeTenant      Tenant?   @relation(fields: [activeTenantId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("user_session")
+}
+
+/// Single-use password reset token. Only the SHA-256 hash is stored.
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_token")
+}
+
+/// Single-use MFA recovery code. Only the SHA-256 hash is stored.
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_recovery_code")
+}
+
+/// Append-only record of security and business events. No foreign keys: audit outlives the records it describes.
+/// UPDATE and DELETE are revoked from the runtime role and blocked by a trigger.
+model AuditEvent {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  occurredAt  DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  /// Null for platform-level events such as sign-in, which happen before a tenant is chosen.
+  tenantId    String?      @map("tenant_id") @db.Uuid
+  actorUserId String?      @map("actor_user_id") @db.Uuid
+  action      String
+  outcome     AuditOutcome
+  targetType  String?      @map("target_type")
+  targetId    String?      @map("target_id")
+  ipAddress   String?      @map("ip_address")
+  userAgent   String?      @map("user_agent")
+  requestId   String?      @map("request_id")
+  metadata    Json         @default("{}")
+
+  @@index([tenantId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_event")
 }
 
 /// Per-tenant configuration values. The first tenant-scoped table, used to prove RLS from day one.

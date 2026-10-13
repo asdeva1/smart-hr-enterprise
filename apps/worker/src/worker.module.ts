@@ -1,17 +1,39 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Global, Inject, Module, type DynamicModule, type OnApplicationShutdown } from '@nestjs/common';
+import {
+  Global,
+  Inject,
+  Module,
+  type DynamicModule,
+  type OnApplicationShutdown,
+  type Provider,
+} from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { createTransport, type Transporter } from 'nodemailer';
 import type { WorkerEnv } from './config/env.js';
-import { REDIS, SYSTEM_QUEUE, WORKER_ENV } from './queues.js';
+import { NotificationsProcessor } from './notifications/notifications.processor.js';
+import { MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, REDIS, SYSTEM_QUEUE, WORKER_ENV } from './queues.js';
 import { HeartbeatScheduler } from './system/heartbeat.scheduler.js';
 import { SystemProcessor } from './system/system.processor.js';
+
+export interface WorkerModuleOptions {
+  /** Replaces the SMTP transport; used by tests to capture outgoing mail. */
+  mailTransport?: Transporter | null;
+}
 
 @Global()
 @Module({})
 export class WorkerModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
-  static forRoot(env: WorkerEnv): DynamicModule {
+  static forRoot(env: WorkerEnv, options: WorkerModuleOptions = {}): DynamicModule {
+    const mailTransport: Provider =
+      options.mailTransport !== undefined
+        ? { provide: MAIL_TRANSPORT, useValue: options.mailTransport }
+        : {
+            provide: MAIL_TRANSPORT,
+            useFactory: () => (env.SMTP_URL ? createTransport(env.SMTP_URL) : null),
+          };
+
     return {
       module: WorkerModule,
       imports: [
@@ -21,13 +43,15 @@ export class WorkerModule implements OnApplicationShutdown {
           connection: { url: env.REDIS_URL, maxRetriesPerRequest: null },
           defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5_000 } },
         }),
-        BullModule.registerQueue({ name: SYSTEM_QUEUE }),
+        BullModule.registerQueue({ name: SYSTEM_QUEUE }, { name: NOTIFICATIONS_QUEUE }),
       ],
       providers: [
         { provide: WORKER_ENV, useValue: env },
         { provide: REDIS, useFactory: () => new Redis(env.REDIS_URL, { maxRetriesPerRequest: 3 }) },
+        mailTransport,
         SystemProcessor,
         HeartbeatScheduler,
+        NotificationsProcessor,
       ],
       exports: [WORKER_ENV, REDIS],
     };

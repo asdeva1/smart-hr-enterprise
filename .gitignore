@@ -38,3 +38,6 @@ infra/**/*.tfvars
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# local redis snapshots
+dump.rdb

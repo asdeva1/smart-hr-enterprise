@@ -12,3 +12,11 @@ onlyBuiltDependencies:
   - prisma
   - sharp
   - unrs-resolver
+
+# Security overrides for transitive dependencies of the Prisma CLI (see docs/security/README.md):
+#   mysql2 — GHSA-rgwj-5xj2-c3m3 and a zlib inflate DoS; Prisma pins 3.15.3, same-major fix.
+#   deepmerge-ts — stack exhaustion on recursive input; used by Prisma's config loader.
+# Remove once Prisma ships patched versions.
+overrides:
+  mysql2: 3.24.5
+  deepmerge-ts: 8.0.2

@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiServiceUnavailableResponse, ApiTags } from '@nestjs/s
 import { pingDatabase, type DatabaseClient } from '@smart-hr/database';
 import type { Response } from 'express';
 import { Redis } from 'ioredis';
+import { Public } from '../auth/auth.decorators.js';
 import { DATABASE, REDIS } from '../infra/tokens.js';
 
 type CheckStatus = 'up' | 'down';
@@ -30,6 +31,7 @@ async function probe(check: () => Promise<unknown>): Promise<CheckStatus> {
 }
 
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(
