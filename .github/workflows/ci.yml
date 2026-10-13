@@ -93,7 +93,8 @@ jobs:
 
       - name: Apply migrations to an empty database
         run: pnpm db:migrate:deploy
-      - name: Check schema and migrations agree (drift)
+      # Compares the freshly migrated database with schema.prisma. Exit 2 = drift, exit 1 = error.
+      - name: Check migrated database matches schema.prisma (drift)
         run: pnpm --filter @smart-hr/database db:migrate:check
       - name: Confirm migration history is clean
         run: pnpm db:migrate:status
