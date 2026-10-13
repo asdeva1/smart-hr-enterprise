@@ -366,9 +366,10 @@ function RuleRow({
 }) {
   function changeType(type: ApproverRule['type']) {
     if (type === 'OWNERS') onChange({ type });
-    if (type === 'ROLE') onChange({ type, roleId: roles[0]?.id ?? '' });
-    if (type === 'PERMISSION') onChange({ type, permission: permissions[0]?.code ?? '' });
-    if (type === 'MEMBER') onChange({ type, membershipId: colleagues[0]?.membershipId ?? '' });
+    // Start unselected: the lists may still be loading, and a silent default is easy to miss.
+    if (type === 'ROLE') onChange({ type, roleId: '' });
+    if (type === 'PERMISSION') onChange({ type, permission: '' });
+    if (type === 'MEMBER') onChange({ type, membershipId: '' });
   }
 
   return (
@@ -398,6 +399,7 @@ function RuleRow({
             value={rule.roleId}
             onChange={(e) => onChange({ type: 'ROLE', roleId: e.target.value })}
           >
+            <option value="">Choose a role</option>
             {roles.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -417,6 +419,7 @@ function RuleRow({
             value={rule.permission}
             onChange={(e) => onChange({ type: 'PERMISSION', permission: e.target.value })}
           >
+            <option value="">Choose a permission</option>
             {permissions.map((p) => (
               <option key={p.code} value={p.code}>
                 {p.label}
@@ -436,6 +439,7 @@ function RuleRow({
             value={rule.membershipId}
             onChange={(e) => onChange({ type: 'MEMBER', membershipId: e.target.value })}
           >
+            <option value="">Choose a person</option>
             {colleagues.map((c) => (
               <option key={c.membershipId} value={c.membershipId}>
                 {c.displayName}

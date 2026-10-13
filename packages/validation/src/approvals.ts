@@ -3,11 +3,11 @@ import { z } from 'zod';
 /** Who may approve a stage. Resolved when the stage starts, for the request's place in the organisation. */
 export const approverRuleSchema = z.discriminatedUnion('type', [
   /** Members holding this role at a scope covering the request. */
-  z.object({ type: z.literal('ROLE'), roleId: z.uuid() }),
+  z.object({ type: z.literal('ROLE'), roleId: z.uuid('Choose a role') }),
   /** Members holding this permission at a scope covering the request. */
-  z.object({ type: z.literal('PERMISSION'), permission: z.string().min(3).max(100) }),
+  z.object({ type: z.literal('PERMISSION'), permission: z.string().min(3, 'Choose a permission').max(100) }),
   /** One named member. */
-  z.object({ type: z.literal('MEMBER'), membershipId: z.uuid() }),
+  z.object({ type: z.literal('MEMBER'), membershipId: z.uuid('Choose a person') }),
   /** The organisation's owners. */
   z.object({ type: z.literal('OWNERS') }),
 ]);

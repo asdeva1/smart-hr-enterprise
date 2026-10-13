@@ -136,7 +136,10 @@ test('an owner publishes a two-stage policy with an amount threshold', async ({ 
     .click();
   await page.getByRole('button', { name: 'Edit Expense claim policy' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Stage name').fill('Manager');
+  // Start from one stage, whatever an earlier run published.
+  const removeStage = dialog.getByRole('button', { name: /^Remove stage/ });
+  while ((await removeStage.count()) > 0) await removeStage.last().click();
+  await dialog.getByRole('group', { name: 'Stage 1' }).getByLabel('Stage name').fill('Manager');
   await dialog.getByRole('button', { name: 'Add stage' }).click();
   const second = dialog.getByRole('group', { name: 'Stage 2' });
   await second.getByLabel('Stage name').fill('Finance');

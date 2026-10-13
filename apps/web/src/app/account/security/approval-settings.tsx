@@ -41,6 +41,8 @@ function Section({
 
 export function EmailPreferences() {
   const client = useQueryClient();
+  // The box changes the moment it's clicked; the saved value replaces this once the server confirms.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
   const prefs = useQuery({
     queryKey: approvalKeys.preferences,
     queryFn: () => apiFetch<NotificationPreference[]>('/v1/notifications/preferences'),
@@ -48,17 +50,11 @@ export function EmailPreferences() {
   const save = useMutation({
     mutationFn: (body: { category: string; emailEnabled: boolean }) =>
       apiFetch('/v1/notifications/preferences', { method: 'PUT', body }),
-    // Show the change straight away; put it back if saving fails.
-    onMutate: async (body) => {
-      await client.cancelQueries({ queryKey: approvalKeys.preferences });
-      const previous = client.getQueryData<NotificationPreference[]>(approvalKeys.preferences);
+    onSuccess: (_data, body) =>
       client.setQueryData<NotificationPreference[]>(approvalKeys.preferences, (list) =>
         list?.map((p) => (p.category === body.category ? { ...p, emailEnabled: body.emailEnabled } : p)),
-      );
-      return { previous };
-    },
-    onError: (_e, _body, context) => client.setQueryData(approvalKeys.preferences, context?.previous),
-    onSettled: () => client.invalidateQueries({ queryKey: approvalKeys.preferences }),
+      ),
+    onSettled: (_data, _error, body) => setPending(({ [body.category]: _done, ...rest }) => rest),
   });
 
   return (
@@ -78,8 +74,12 @@ export function EmailPreferences() {
               <label className="flex items-center gap-2.5">
                 <input
                   type="checkbox"
-                  checked={p.emailEnabled}
-                  onChange={(e) => save.mutate({ category: p.category, emailEnabled: e.target.checked })}
+                  checked={pending[p.category] ?? p.emailEnabled}
+                  onChange={(e) => {
+                    const emailEnabled = e.target.checked;
+                    setPending((s) => ({ ...s, [p.category]: emailEnabled }));
+                    save.mutate({ category: p.category, emailEnabled });
+                  }}
                 />
                 {p.label}
               </label>
