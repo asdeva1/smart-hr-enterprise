@@ -16,6 +16,7 @@ import {
   UserCog,
   Users,
   Wallet,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -43,7 +44,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Employees', icon: Users, phase: 8 },
       { label: 'Attendance', icon: Clock, phase: 9 },
       { label: 'Leave', icon: CalendarDays, phase: 10 },
-      { label: 'Approvals', icon: CircleCheck, phase: 11 },
+      { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
       { label: 'Payroll', icon: Wallet, phase: 14 },
     ],
   },
@@ -63,6 +64,12 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'People and access', icon: UserCog, href: '/admin/people', permission: 'access.view' },
       { label: 'Roles', icon: KeyRound, href: '/admin/roles', permission: 'access.view' },
       { label: 'Security policy', icon: ShieldCheck, href: '/admin/security', permission: 'security.manage' },
+      {
+        label: 'Approval policies',
+        icon: Workflow,
+        href: '/admin/approvals',
+        permission: 'approvals.manage',
+      },
       { label: 'Audit log', icon: ScrollText, href: '/admin/audit', permission: 'audit.view' },
       { label: 'AI assistant', icon: Sparkles, phase: 19 },
       { label: 'Plans and billing', icon: Tag, phase: 5 },

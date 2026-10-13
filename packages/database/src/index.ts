@@ -76,6 +76,16 @@ export async function withContext<T>(
   });
 }
 
+/**
+ * Switches the tenant inside a transaction that is already open. Only for background jobs that claim
+ * work across tenants (through a narrow SECURITY DEFINER function) and then act on each row in its own
+ * tenant — the tenant id must come from the claimed row, never from user input.
+ */
+export async function setTenantContext(tx: TenantTransaction, tenantId: string): Promise<void> {
+  if (!isUuid(tenantId)) throw new InvalidTenantContextError();
+  await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+}
+
 /** True when a write failed on a unique constraint (Prisma P2002). */
 export function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
@@ -90,3 +100,4 @@ export function isForeignKeyViolation(error: unknown): boolean {
 export async function pingDatabase(db: DatabaseClient): Promise<void> {
   await db.$queryRaw`SELECT 1`;
 }
+export * from './notifications.js';

@@ -10,5 +10,6 @@ export const SystemJob = {
 
 export const WORKER_ENV = Symbol('WORKER_ENV');
 export const REDIS = Symbol('REDIS');
+export const DATABASE = Symbol('DATABASE');
 /** The nodemailer transport, or null when email delivery is not configured. */
 export const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');

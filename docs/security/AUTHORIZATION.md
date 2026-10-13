@@ -22,15 +22,17 @@ Organisation records are archived, never deleted (the runtime database role has 
 
 Codes live in [`packages/shared/src/permissions.ts`](../../packages/shared/src/permissions.ts). Each phase adds its module's codes there; the API rejects unknown codes.
 
-| Code              | Allows                                       |
-| ----------------- | -------------------------------------------- |
-| `org.view`        | See companies, branches and departments      |
-| `org.manage`      | Create and change them                       |
-| `access.view`     | See members, roles and assignments           |
-| `access.manage`   | Invite members, manage roles and assignments |
-| `settings.manage` | Change organisation settings                 |
-| `security.manage` | Change the organisation security policy      |
-| `audit.view`      | Read the audit log                           |
+| Code                 | Allows                                                      |
+| -------------------- | ----------------------------------------------------------- |
+| `org.view`           | See companies, branches and departments                     |
+| `org.manage`         | Create and change them                                      |
+| `access.view`        | See members, roles and assignments                          |
+| `access.manage`      | Invite members, manage roles and assignments                |
+| `settings.manage`    | Change organisation settings                                |
+| `security.manage`    | Change the organisation security policy                     |
+| `audit.view`         | Read the audit log                                          |
+| `approvals.view_all` | See every approval request in scope (oversight; not decide) |
+| `approvals.manage`   | Publish approval policies (tenant-wide only)                |
 
 Built-in roles: **Organisation administrator** (everything), **Access administrator**, **Auditor** (read-only), **Member** (`org.view`). They can't be edited or deleted. After each deployment's migrations, run `node apps/api/dist/cli/sync-system-roles.js` to bring every organisation's built-in roles up to date.
 
@@ -72,6 +74,10 @@ Each rule has an integration test in `apps/api/test/rbac.int.test.ts`; disabling
 ## Organisation security policy
 
 With **Require two-step verification** on, any member without it is refused on every organisation endpoint (`403 MFA_ENROLMENT_REQUIRED`) and the web app sends them to set it up; their own account pages keep working. An owner must turn it on for themselves before requiring it for everyone.
+
+## Approvals
+
+Deciding an approval needs no permission: being the task's assignee is the authority, checked by the engine, and anyone else gets 404. Requesters never approve their own requests, even as a delegate. Details: [APPROVALS_AND_NOTIFICATIONS.md](../modules/APPROVALS_AND_NOTIFICATIONS.md).
 
 ## Not yet implemented
 

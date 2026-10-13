@@ -26,6 +26,8 @@ beforeAll(async () => {
     NODE_ENV: 'test',
     QUEUE_PREFIX: prefix,
     MAIL_FROM: 'Smart HR <no-reply@test.local>',
+    EMAIL_SWEEP_INTERVAL_MS: '0',
+    APPROVAL_ESCALATION_INTERVAL_MS: '0',
     DATABASE_URL: process.env.DATABASE_URL ?? 'postgresql://unused@localhost/unused',
   });
   // jsonTransport renders the full message without a network, like a mailbox we can inspect.

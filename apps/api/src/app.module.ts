@@ -4,6 +4,7 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import type { Logger } from 'pino';
 import { AccessModule } from './access/access.module.js';
+import { ApprovalsModule } from './approvals/approvals.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import type { ApiEnv } from './config/env.js';
@@ -45,6 +46,7 @@ export class AppModule {
         TenantModule,
         OrgModule,
         AccessModule,
+        ApprovalsModule,
       ],
       controllers: [HealthController],
     };

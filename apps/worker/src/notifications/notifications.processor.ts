@@ -5,6 +5,8 @@ import type { Job } from 'bullmq';
 import type { Transporter } from 'nodemailer';
 import type { WorkerEnv } from '../config/env.js';
 import { MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, WORKER_ENV } from '../queues.js';
+import { EscalationService } from './escalation.service.js';
+import { OutboxService, type OutboxSweepResult } from './outbox.service.js';
 
 export interface EmailResult {
   delivered: boolean;
@@ -22,14 +24,26 @@ export class NotificationsProcessor extends WorkerHost {
   constructor(
     @Inject(MAIL_TRANSPORT) private readonly transport: Transporter | null,
     @Inject(WORKER_ENV) private readonly env: WorkerEnv,
+    private readonly outbox: OutboxService,
+    private readonly escalation: EscalationService,
   ) {
     super();
   }
 
-  async process(job: Job<EmailJobData>): Promise<EmailResult> {
-    if (job.name !== NotificationJob.Email) {
-      throw new Error(`Unknown notification job: ${job.name}`);
+  async process(job: Job): Promise<EmailResult | OutboxSweepResult | { escalated: number }> {
+    switch (job.name) {
+      case NotificationJob.Email:
+        return this.sendEmail(job as Job<EmailJobData>);
+      case NotificationJob.OutboxSweep:
+        return this.outbox.sweep();
+      case NotificationJob.EscalationSweep:
+        return this.escalation.sweep();
+      default:
+        throw new Error(`Unknown notification job: ${job.name}`);
     }
+  }
+
+  private async sendEmail(job: Job<EmailJobData>): Promise<EmailResult> {
     const { to, subject, text, html, category } = job.data;
     if (!this.transport) {
       this.logger.warn(`Email delivery is not configured; ${category} email ${job.id} was not sent`);

@@ -30,7 +30,7 @@
     "test:e2e": {
       "dependsOn": ["build"],
       "cache": false,
-      "passThroughEnv": ["E2E_*", "MAILPIT_URL", "WEB_PORT", "PW_CHROMIUM_PATH"]
+      "passThroughEnv": ["E2E_*", "MAILPIT_URL", "WEB_PORT", "PW_CHROMIUM_PATH", "DATABASE_MIGRATOR_URL"]
     },
     "dev": {
       "dependsOn": ["^build", "db:generate"],

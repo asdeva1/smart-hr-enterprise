@@ -10,6 +10,8 @@ export const PERMISSIONS = {
   'settings.manage': { module: 'settings', label: 'Change organisation settings' },
   'security.manage': { module: 'settings', label: 'Change organisation security policy' },
   'audit.view': { module: 'audit', label: 'View the audit log' },
+  'approvals.view_all': { module: 'approvals', label: 'See every approval request in their scope' },
+  'approvals.manage': { module: 'approvals', label: 'Configure approval policies' },
 } as const satisfies Record<string, { module: string; label: string }>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -21,6 +23,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   access: 'People and access',
   settings: 'Settings',
   audit: 'Audit',
+  approvals: 'Approvals',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -52,7 +55,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: 'auditor',
     name: 'Auditor',
     description: 'Read-only access to structure, access and the audit log.',
-    permissions: ['org.view', 'access.view', 'audit.view'],
+    permissions: ['org.view', 'access.view', 'audit.view', 'approvals.view_all'],
   },
   {
     key: 'member',

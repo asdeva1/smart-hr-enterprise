@@ -30,19 +30,20 @@ enum TenantStatus {
 
 /// A customer organisation. In dedicated and in-house deployments there is exactly one.
 model Tenant {
-  id          String             @id @default(uuid(7)) @db.Uuid
-  slug        String             @unique
-  name        String
-  status      TenantStatus       @default(ACTIVE)
+  id            String             @id @default(uuid(7)) @db.Uuid
+  slug          String             @unique
+  name          String
+  status        TenantStatus       @default(ACTIVE)
   /// Organisation policy: every member must turn on two-step verification before using the organisation.
-  requireMfa  Boolean            @default(false) @map("require_mfa")
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  settings    TenantSetting[]
-  memberships TenantMembership[]
-  sessions    UserSession[]
-  companies   Company[]
-  roles       Role[]
+  requireMfa    Boolean            @default(false) @map("require_mfa")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  settings      TenantSetting[]
+  memberships   TenantMembership[]
+  sessions      UserSession[]
+  companies     Company[]
+  roles         Role[]
+  notifications Notification[]
 
   @@map("tenant")
 }
@@ -123,6 +124,7 @@ model User {
   sessions             UserSession[]
   passwordResetTokens  PasswordResetToken[]
   recoveryCodes        MfaRecoveryCode[]
+  notifications        Notification[]
 
   @@map("app_user")
 }
@@ -130,16 +132,20 @@ model User {
 /// Grants a user access to a tenant. `isTenantAdmin` marks an organisation owner, who holds every permission;
 /// everyone else gets permissions through role assignments.
 model TenantMembership {
-  id            String           @id @default(uuid(7)) @db.Uuid
-  tenantId      String           @map("tenant_id") @db.Uuid
-  userId        String           @map("user_id") @db.Uuid
-  status        MembershipStatus @default(ACTIVE)
-  isTenantAdmin Boolean          @default(false) @map("is_tenant_admin")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments   RoleAssignment[]
+  id                  String               @id @default(uuid(7)) @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
+  userId              String               @map("user_id") @db.Uuid
+  status              MembershipStatus     @default(ACTIVE)
+  isTenantAdmin       Boolean              @default(false) @map("is_tenant_admin")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments         RoleAssignment[]
+  approvalRequests    ApprovalRequest[]    @relation("ApprovalRequester")
+  approvalTasks       ApprovalTask[]       @relation("ApprovalAssignee")
+  delegationsGiven    ApprovalDelegation[] @relation("DelegationFrom")
+  delegationsReceived ApprovalDelegation[] @relation("DelegationTo")
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -355,4 +361,178 @@ model TenantSetting {
 
   @@unique([tenantId, key])
   @@map("tenant_setting")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 4: notifications and the approval engine
+// ---------------------------------------------------------------------------------------------
+
+enum EmailDeliveryStatus {
+  NOT_REQUESTED
+  PENDING
+  SENT
+  FAILED
+
+  @@map("email_delivery_status")
+}
+
+/// In-app notification for one person in one organisation. The row is also the email outbox: it is written in
+/// the same transaction as the event, and the worker claims PENDING rows, so no email is lost if a process dies.
+model Notification {
+  id              String              @id @default(uuid(7)) @db.Uuid
+  tenantId        String              @map("tenant_id") @db.Uuid
+  recipientUserId String              @map("recipient_user_id") @db.Uuid
+  category        String
+  title           String
+  body            String
+  /// Relative path in the web app, e.g. /approvals/…
+  link            String?
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt          DateTime?           @map("read_at") @db.Timestamptz(6)
+  emailStatus     EmailDeliveryStatus @default(NOT_REQUESTED) @map("email_status")
+  /// Snapshot of the recipient address when the notification was created.
+  emailTo         String?             @map("email_to")
+  emailSubject    String?             @map("email_subject")
+  emailText       String?             @map("email_text")
+  emailAttempts   Int                 @default(0) @map("email_attempts")
+  emailClaimedAt  DateTime?           @map("email_claimed_at") @db.Timestamptz(6)
+  emailSentAt     DateTime?           @map("email_sent_at") @db.Timestamptz(6)
+  emailLastError  String?             @map("email_last_error")
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recipient       User                @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, recipientUserId, createdAt])
+  @@index([emailStatus, emailClaimedAt])
+  @@map("notification")
+}
+
+/// Per person, per organisation and category: whether to also send email. Absent row = default for the category.
+model NotificationPreference {
+  tenantId     String  @map("tenant_id") @db.Uuid
+  userId       String  @map("user_id") @db.Uuid
+  category     String
+  emailEnabled Boolean @map("email_enabled")
+
+  @@id([tenantId, userId, category])
+  @@map("notification_preference")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+
+  @@map("approval_status")
+}
+
+enum ApprovalTaskStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  SKIPPED
+  CANCELLED
+
+  @@map("approval_task_status")
+}
+
+/// A versioned approval policy for one kind of request. Published versions are never edited; a change creates
+/// a new version and requests keep the version they started with.
+model ApprovalPolicy {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  subjectType     String            @map("subject_type")
+  version         Int
+  name            String
+  isActive        Boolean           @default(true) @map("is_active")
+  /// Stages, approver rules and thresholds; validated by @smart-hr/validation before it is stored.
+  definition      Json
+  createdByUserId String?           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  requests        ApprovalRequest[]
+
+  @@unique([tenantId, subjectType, version])
+  @@unique([tenantId, id])
+  @@map("approval_policy")
+}
+
+/// One thing awaiting a decision, e.g. a leave request. Modules submit through the approval service.
+model ApprovalRequest {
+  id                      String           @id @default(uuid(7)) @db.Uuid
+  tenantId                String           @map("tenant_id") @db.Uuid
+  policyId                String           @map("policy_id") @db.Uuid
+  subjectType             String           @map("subject_type")
+  subjectId               String           @map("subject_id")
+  title                   String
+  amount                  Decimal?         @db.Decimal(19, 4)
+  currency                String?          @db.Char(3)
+  /// Where the subject sits in the organisation; approvers are resolved for this scope.
+  scopeType               ScopeType        @map("scope_type")
+  scopeId                 String           @map("scope_id") @db.Uuid
+  requestedByMembershipId String           @map("requested_by_membership_id") @db.Uuid
+  status                  ApprovalStatus   @default(PENDING)
+  /// Index into the policy's stages; meaningful while PENDING.
+  currentStage            Int              @default(0) @map("current_stage")
+  /// Increments when a returned request is resubmitted.
+  round                   Int              @default(1)
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  decidedAt               DateTime?        @map("decided_at") @db.Timestamptz(6)
+  policy                  ApprovalPolicy   @relation(fields: [tenantId, policyId], references: [tenantId, id], onDelete: Restrict)
+  requestedBy             TenantMembership @relation("ApprovalRequester", fields: [tenantId, requestedByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  tasks                   ApprovalTask[]
+
+  /// A subject has at most one approval request.
+  @@unique([tenantId, subjectType, subjectId])
+  @@unique([tenantId, id])
+  @@index([tenantId, requestedByMembershipId, createdAt])
+  @@index([tenantId, status])
+  @@map("approval_request")
+}
+
+/// One approver's decision slot in one stage of a request.
+model ApprovalTask {
+  id                        String             @id @default(uuid(7)) @db.Uuid
+  tenantId                  String             @map("tenant_id") @db.Uuid
+  requestId                 String             @map("request_id") @db.Uuid
+  round                     Int
+  stage                     Int
+  stageName                 String             @map("stage_name")
+  assigneeMembershipId      String             @map("assignee_membership_id") @db.Uuid
+  /// Set when the original approver had delegated to the assignee.
+  delegatedFromMembershipId String?            @map("delegated_from_membership_id") @db.Uuid
+  status                    ApprovalTaskStatus @default(PENDING)
+  actedByMembershipId       String?            @map("acted_by_membership_id") @db.Uuid
+  actedAt                   DateTime?          @map("acted_at") @db.Timestamptz(6)
+  comment                   String?
+  dueAt                     DateTime?          @map("due_at") @db.Timestamptz(6)
+  escalatedAt               DateTime?          @map("escalated_at") @db.Timestamptz(6)
+  createdAt                 DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  request                   ApprovalRequest    @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Cascade)
+  assignee                  TenantMembership   @relation("ApprovalAssignee", fields: [tenantId, assigneeMembershipId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, assigneeMembershipId, status])
+  @@index([tenantId, requestId])
+  @@index([status, dueAt])
+  @@map("approval_task")
+}
+
+/// "While I'm away, my approvals go to …". Applies to tasks created during the period.
+model ApprovalDelegation {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  tenantId         String           @map("tenant_id") @db.Uuid
+  fromMembershipId String           @map("from_membership_id") @db.Uuid
+  toMembershipId   String           @map("to_membership_id") @db.Uuid
+  startsAt         DateTime         @map("starts_at") @db.Timestamptz(6)
+  endsAt           DateTime         @map("ends_at") @db.Timestamptz(6)
+  reason           String?
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  from             TenantMembership @relation("DelegationFrom", fields: [tenantId, fromMembershipId], references: [tenantId, id], onDelete: Cascade)
+  to               TenantMembership @relation("DelegationTo", fields: [tenantId, toMembershipId], references: [tenantId, id], onDelete: Cascade)
+
+  @@index([tenantId, fromMembershipId])
+  @@map("approval_delegation")
 }

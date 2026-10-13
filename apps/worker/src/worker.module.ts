@@ -7,11 +7,15 @@ import {
   type OnApplicationShutdown,
   type Provider,
 } from '@nestjs/common';
+import { createDatabaseClient, type DatabaseClient } from '@smart-hr/database';
 import { Redis } from 'ioredis';
 import { createTransport, type Transporter } from 'nodemailer';
 import type { WorkerEnv } from './config/env.js';
 import { NotificationsProcessor } from './notifications/notifications.processor.js';
-import { MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, REDIS, SYSTEM_QUEUE, WORKER_ENV } from './queues.js';
+import { EscalationService } from './notifications/escalation.service.js';
+import { OutboxService } from './notifications/outbox.service.js';
+import { SweepScheduler } from './notifications/sweep.scheduler.js';
+import { DATABASE, MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, REDIS, SYSTEM_QUEUE, WORKER_ENV } from './queues.js';
 import { HeartbeatScheduler } from './system/heartbeat.scheduler.js';
 import { SystemProcessor } from './system/system.processor.js';
 
@@ -23,7 +27,10 @@ export interface WorkerModuleOptions {
 @Global()
 @Module({})
 export class WorkerModule implements OnApplicationShutdown {
-  constructor(@Inject(REDIS) private readonly redis: Redis) {}
+  constructor(
+    @Inject(REDIS) private readonly redis: Redis,
+    @Inject(DATABASE) private readonly db: DatabaseClient,
+  ) {}
 
   static forRoot(env: WorkerEnv, options: WorkerModuleOptions = {}): DynamicModule {
     const mailTransport: Provider =
@@ -48,16 +55,25 @@ export class WorkerModule implements OnApplicationShutdown {
       providers: [
         { provide: WORKER_ENV, useValue: env },
         { provide: REDIS, useFactory: () => new Redis(env.REDIS_URL, { maxRetriesPerRequest: 3 }) },
+        {
+          provide: DATABASE,
+          // Connects lazily, on the first query.
+          useFactory: () => createDatabaseClient({ connectionString: env.DATABASE_URL, maxConnections: 5 }),
+        },
         mailTransport,
+        OutboxService,
+        EscalationService,
+        SweepScheduler,
         SystemProcessor,
         HeartbeatScheduler,
         NotificationsProcessor,
       ],
-      exports: [WORKER_ENV, REDIS],
+      exports: [WORKER_ENV, REDIS, DATABASE],
     };
   }
 
   async onApplicationShutdown(): Promise<void> {
     await this.redis.quit();
+    await this.db.$disconnect();
   }
 }

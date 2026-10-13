@@ -147,6 +147,8 @@ jobs:
           APP_PUBLIC_URL: http://localhost:3000
           SMTP_URL: smtp://localhost:1025
           MAIL_FROM: Smart HR CI <no-reply@e2e.smarthr.test>
+          # Deliver outbox emails quickly so browser tests can read them from Mailpit.
+          EMAIL_SWEEP_INTERVAL_MS: '2000'
       - run: pnpm --filter @smart-hr/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
         env:

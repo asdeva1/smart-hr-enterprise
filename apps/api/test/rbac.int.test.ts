@@ -89,6 +89,7 @@ describe('permissions', () => {
     const view = (await auditor.browser.get('/v1/auth/session')).body;
     expect([...(view.activeTenant.permissions as string[])].sort()).toEqual([
       'access.view',
+      'approvals.view_all',
       'audit.view',
       'org.view',
     ]);

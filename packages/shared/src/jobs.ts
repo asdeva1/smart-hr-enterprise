@@ -7,6 +7,10 @@ export const QUEUES = {
 
 export const NotificationJob = {
   Email: 'email.send',
+  /** Repeating: delivers emails waiting in the notification outbox. */
+  OutboxSweep: 'email.outbox-sweep',
+  /** Repeating: notifies people about overdue approval tasks. */
+  EscalationSweep: 'approvals.escalation-sweep',
 } as const;
 
 export interface EmailJobData {

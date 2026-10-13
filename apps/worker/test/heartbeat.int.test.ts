@@ -21,6 +21,8 @@ beforeAll(async () => {
     NODE_ENV: 'test',
     QUEUE_PREFIX: prefix,
     HEARTBEAT_INTERVAL_MS: '1000',
+    EMAIL_SWEEP_INTERVAL_MS: '0',
+    APPROVAL_ESCALATION_INTERVAL_MS: '0',
     DATABASE_URL: process.env.DATABASE_URL ?? 'postgresql://unused@localhost/unused',
   });
   redis = new Redis(env.REDIS_URL);
@@ -53,6 +55,8 @@ describe('worker heartbeat', () => {
           ...process.env,
           QUEUE_PREFIX: prefix,
           HEARTBEAT_INTERVAL_MS: '1000',
+          EMAIL_SWEEP_INTERVAL_MS: '0',
+          APPROVAL_ESCALATION_INTERVAL_MS: '0',
           DATABASE_URL: process.env.DATABASE_URL ?? 'postgresql://unused@localhost/unused',
         }),
       ),

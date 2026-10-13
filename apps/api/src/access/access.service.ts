@@ -224,11 +224,19 @@ export class AccessService {
 
   private async scopeNames(tx: TenantTransaction, tenant: TenantContext, scopes: ScopeRef[]) {
     const ids = (type: ScopeType) => [...new Set(scopes.filter((s) => s.type === type).map((s) => s.id))];
-    const [companies, branches, departments] = await Promise.all([
-      tx.company.findMany({ where: { id: { in: ids('COMPANY') } }, select: { id: true, name: true } }),
-      tx.branch.findMany({ where: { id: { in: ids('BRANCH') } }, select: { id: true, name: true } }),
-      tx.department.findMany({ where: { id: { in: ids('DEPARTMENT') } }, select: { id: true, name: true } }),
-    ]);
+    // Sequential: queries in one transaction share a connection.
+    const companies = await tx.company.findMany({
+      where: { id: { in: ids('COMPANY') } },
+      select: { id: true, name: true },
+    });
+    const branches = await tx.branch.findMany({
+      where: { id: { in: ids('BRANCH') } },
+      select: { id: true, name: true },
+    });
+    const departments = await tx.department.findMany({
+      where: { id: { in: ids('DEPARTMENT') } },
+      select: { id: true, name: true },
+    });
     const names = new Map<string, string>([[`TENANT:${tenant.id}`, 'Whole organisation']]);
     for (const c of companies) names.set(`COMPANY:${c.id}`, c.name);
     for (const b of branches) names.set(`BRANCH:${b.id}`, b.name);

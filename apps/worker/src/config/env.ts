@@ -10,6 +10,14 @@ export const workerEnvSchema = baseServerEnvSchema.extend({
   /** smtp://user:pass@host:port or smtps://…. Unset = email delivery disabled (jobs are recorded, not sent). */
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
   MAIL_FROM: z.string().min(3).default('Smart HR <no-reply@localhost>'),
+  /** Base address of the web app, for links in emails. */
+  APP_PUBLIC_URL: z.url().default('http://localhost:3000'),
+  /** How often to deliver emails from the notification outbox. 0 turns the sweep off. */
+  EMAIL_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(15_000),
+  /** After this many failed attempts an outbox email is marked FAILED. */
+  EMAIL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  /** How often to look for overdue approval tasks. 0 turns the sweep off. */
+  APPROVAL_ESCALATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

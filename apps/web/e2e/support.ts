@@ -35,3 +35,27 @@ export async function latestEmailTo(address: string): Promise<string> {
     .toBe(true);
   return text;
 }
+
+/** Waits for an email to an address whose text contains `marker` (e.g. a per-run title), and returns its text. */
+export async function waitForEmail(address: string, marker: string, timeout = 30_000): Promise<string> {
+  let text = '';
+  await expect
+    .poll(
+      async () => {
+        const search = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`);
+        const { messages } = (await search.json()) as { messages: { ID: string }[] | null };
+        for (const { ID } of (messages ?? []).slice(0, 10)) {
+          const message = await fetch(`${MAILPIT}/api/v1/message/${ID}`);
+          const body = ((await message.json()) as { Text: string }).Text;
+          if (body.includes(marker)) {
+            text = body;
+            return true;
+          }
+        }
+        return false;
+      },
+      { timeout, intervals: [1_000] },
+    )
+    .toBe(true);
+  return text;
+}

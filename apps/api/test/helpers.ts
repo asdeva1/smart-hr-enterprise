@@ -145,6 +145,12 @@ export class Fixtures {
   async cleanup(): Promise<void> {
     // audit_event is append-only by design and keeps no foreign keys, so its rows stay.
     const inTenants = { tenantId: { in: this.tenants } };
+    await this.db.notification.deleteMany({ where: inTenants });
+    await this.db.notificationPreference.deleteMany({ where: inTenants });
+    await this.db.approvalTask.deleteMany({ where: inTenants });
+    await this.db.approvalRequest.deleteMany({ where: inTenants });
+    await this.db.approvalDelegation.deleteMany({ where: inTenants });
+    await this.db.approvalPolicy.deleteMany({ where: inTenants });
     await this.db.roleAssignment.deleteMany({ where: inTenants });
     await this.db.rolePermission.deleteMany({ where: inTenants });
     await this.db.role.deleteMany({ where: inTenants });
