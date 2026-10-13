@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# generated
+**/src/generated/
+next-env.d.ts
+
+# test output
+coverage/
+playwright-report/
+test-results/
+
+# env and secrets — never commit real values
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# terraform
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfvars
+!infra/**/*.tfvars.example
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log

@@ -1,0 +1,8 @@
+dist
+.next
+coverage
+node_modules
+pnpm-lock.yaml
+**/src/generated
+**/migrations/**/*.sql
+next-env.d.ts
