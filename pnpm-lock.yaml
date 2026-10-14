@@ -66,6 +66,9 @@ importers:
       '@smart-hr/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
+      '@smart-hr/licensing':
+        specifier: workspace:*
+        version: link:../../packages/licensing
       '@smart-hr/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -365,6 +368,25 @@ importers:
         version: 5.0.4(@types/node@22.20.5)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
 
   packages/entitlements:
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.4
+        version: 5.0.4(@types/node@22.20.5)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
+
+  packages/licensing:
+    dependencies:
+      '@smart-hr/entitlements':
+        specifier: workspace:*
+        version: link:../entitlements
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 22.20.5

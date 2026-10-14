@@ -6,3 +6,4 @@ export * from './settings.js';
 export * from './master-data.js';
 export * from './plans.js';
 export * from './onboarding.js';
+export * from './licence.js';

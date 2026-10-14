@@ -1,3 +1,4 @@
+import type { DeploymentMode } from '@smart-hr/config';
 import type { User, UserSession } from '@smart-hr/database';
 import type { Access, EffectiveStatus, Entitlements, Feature } from '@smart-hr/entitlements';
 import type { Permission, PermissionSet } from '@smart-hr/shared';
@@ -57,6 +58,8 @@ export interface SessionView {
     };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];
+  /** saas, dedicated or inhouse. In-house entitlements come from the installation's licence. */
+  deploymentMode: DeploymentMode;
   /** When the session ends if idle from now. */
   expiresAt: string;
   /** Hard limit regardless of activity. */

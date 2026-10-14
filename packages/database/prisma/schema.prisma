@@ -110,32 +110,33 @@ enum ScopeType {
 /// A login identity. Global, not tenant-owned: one person can belong to several tenants.
 /// Deliberately separate from the employee record (Phase 8), which a user may later be linked to.
 model User {
-  id                   String               @id @default(uuid(7)) @db.Uuid
+  id                   String                @id @default(uuid(7)) @db.Uuid
   /// Normalised to lower case before storage.
-  email                String               @unique
-  displayName          String               @map("display_name")
+  email                String                @unique
+  displayName          String                @map("display_name")
   /// argon2id hash. Null for SSO-only accounts.
-  passwordHash         String?              @map("password_hash")
-  status               UserStatus           @default(ACTIVE)
-  isPlatformAdmin      Boolean              @default(false) @map("is_platform_admin")
-  failedLoginCount     Int                  @default(0) @map("failed_login_count")
-  lockedUntil          DateTime?            @map("locked_until") @db.Timestamptz(6)
-  passwordChangedAt    DateTime?            @map("password_changed_at") @db.Timestamptz(6)
-  lastLoginAt          DateTime?            @map("last_login_at") @db.Timestamptz(6)
+  passwordHash         String?               @map("password_hash")
+  status               UserStatus            @default(ACTIVE)
+  isPlatformAdmin      Boolean               @default(false) @map("is_platform_admin")
+  failedLoginCount     Int                   @default(0) @map("failed_login_count")
+  lockedUntil          DateTime?             @map("locked_until") @db.Timestamptz(6)
+  passwordChangedAt    DateTime?             @map("password_changed_at") @db.Timestamptz(6)
+  lastLoginAt          DateTime?             @map("last_login_at") @db.Timestamptz(6)
   /// AES-256-GCM ciphertext of the TOTP secret; never stored in plain text.
-  mfaTotpSecret        String?              @map("mfa_totp_secret")
+  mfaTotpSecret        String?               @map("mfa_totp_secret")
   /// Secret awaiting confirmation during enrolment.
-  mfaTotpPendingSecret String?              @map("mfa_totp_pending_secret")
+  mfaTotpPendingSecret String?               @map("mfa_totp_pending_secret")
   /// Last accepted TOTP time step, to reject replayed codes.
-  mfaTotpLastStep      BigInt?              @map("mfa_totp_last_step")
-  mfaEnabledAt         DateTime?            @map("mfa_enabled_at") @db.Timestamptz(6)
-  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  mfaTotpLastStep      BigInt?               @map("mfa_totp_last_step")
+  mfaEnabledAt         DateTime?             @map("mfa_enabled_at") @db.Timestamptz(6)
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
   memberships          TenantMembership[]
   sessions             UserSession[]
   passwordResetTokens  PasswordResetToken[]
   recoveryCodes        MfaRecoveryCode[]
   notifications        Notification[]
+  installedLicences    InstallationLicence[]
 
   @@map("app_user")
 }
@@ -822,4 +823,31 @@ model SignupRequest {
 
   @@index([email])
   @@map("signup_request")
+}
+
+/// One row per installation, created by the migration. Its id binds an in-house licence to this installation.
+model Installation {
+  id        String   @id @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("installation")
+}
+
+/// Signed licences installed on an in-house installation. The newest one without replaced_at applies.
+model InstallationLicence {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  licenceId         String    @unique @map("licence_id") @db.Uuid
+  /// The signed licence exactly as issued; re-verified on every read.
+  token             String
+  customerName      String    @map("customer_name")
+  planCode          String    @map("plan_code")
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  installedAt       DateTime  @default(now()) @map("installed_at") @db.Timestamptz(6)
+  installedByUserId String?   @map("installed_by_user_id") @db.Uuid
+  replacedAt        DateTime? @map("replaced_at") @db.Timestamptz(6)
+
+  installedBy User? @relation(fields: [installedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([replacedAt])
+  @@map("installation_licence")
 }

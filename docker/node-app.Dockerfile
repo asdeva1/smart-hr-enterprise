@@ -20,6 +20,16 @@ RUN pnpm turbo run build --filter "@smart-hr/${APP}..."
 # Copy only the app, its built workspace dependencies and production node_modules.
 RUN pnpm --filter "@smart-hr/${APP}" deploy --prod --legacy /out
 
+# One-off job: applies database migrations as the migrator role. Uses the build stage, which has the Prisma
+# CLI and its engines, so it also works on servers without internet access.
+#   docker build -f docker/node-app.Dockerfile --target migrate -t smart-hr-migrate .
+FROM build AS migrate
+ENV NODE_ENV=production
+WORKDIR /repo/packages/database
+USER node
+# Plain node, not pnpm: corepack would try to download pnpm for this user, which fails offline.
+CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
+
 FROM ${NODE_IMAGE} AS runtime
 ARG APP
 ENV NODE_ENV=production

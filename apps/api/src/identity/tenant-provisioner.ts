@@ -7,6 +7,7 @@ import {
 } from '@smart-hr/database';
 import { AppError } from '@smart-hr/shared';
 import type { RequestMeta } from '../common/request-context.js';
+import { LicenceService } from '../entitlements/licence.service.js';
 import { RbacService } from '../rbac/rbac.service.js';
 
 export interface NewTenant {
@@ -35,9 +36,13 @@ const DAY = 86_400_000;
  */
 @Injectable()
 export class TenantProvisioner {
-  constructor(private readonly rbac: RbacService) {}
+  constructor(
+    private readonly rbac: RbacService,
+    private readonly licences: LicenceService,
+  ) {}
 
   async create(tx: TenantTransaction, input: NewTenant) {
+    await this.licences.assertCanAddOrganisation(tx);
     let tenant;
     try {
       tenant = await tx.tenant.create({ data: { name: input.name, slug: input.slug } });

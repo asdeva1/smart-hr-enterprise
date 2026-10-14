@@ -350,6 +350,7 @@ export class AuthService {
         name: m.tenant.name,
         isTenantAdmin: m.isTenantAdmin,
       })),
+      deploymentMode: this.env.DEPLOYMENT_MODE,
       expiresAt: (session.idleExpiresAt < session.absoluteExpiresAt
         ? session.idleExpiresAt
         : session.absoluteExpiresAt

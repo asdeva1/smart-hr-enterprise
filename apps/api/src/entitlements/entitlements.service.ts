@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { licenceEntitlementInputs } from '@smart-hr/licensing';
 import type { TenantTransaction } from '@smart-hr/database';
 import {
   canWrite,
@@ -15,6 +16,7 @@ import {
   type OverrideState,
 } from '@smart-hr/entitlements';
 import { AppError } from '@smart-hr/shared';
+import { LicenceService } from './licence.service.js';
 
 /** Counts current usage of a limited resource, inside the tenant's transaction. */
 export type UsageCounter = (tx: TenantTransaction) => Promise<number>;
@@ -37,7 +39,7 @@ function asLimits(value: unknown): Limits {
 export class EntitlementsService {
   private readonly counters = new Map<LimitKey, UsageCounter>();
 
-  constructor() {
+  constructor(private readonly licences: LicenceService) {
     this.registerUsage('users.max', (tx) => tx.tenantMembership.count({ where: { status: 'ACTIVE' } }));
     this.registerUsage('companies.max', (tx) => tx.company.count({ where: { status: 'ACTIVE' } }));
   }
@@ -48,6 +50,7 @@ export class EntitlementsService {
   }
 
   async forTenant(tx: TenantTransaction, now = new Date()): Promise<Entitlements> {
+    if (this.licences.inHouse) return this.fromLicence(tx, now);
     const sub = await tx.subscription.findFirst({
       include: {
         planVersion: { include: { plan: { select: { code: true, name: true } } } },
@@ -92,6 +95,24 @@ export class EntitlementsService {
           ? { kind: 'FEATURE', key: o.key, enabled: o.enabled ?? false }
           : { kind: 'LIMIT', key: o.key, value: o.value },
       ),
+      now,
+    });
+  }
+
+  /**
+   * In-house: the installation's signed licence is the only source. Subscriptions, add-ons and overrides are
+   * ignored, so an installation's own operators can't grant themselves modules the licence doesn't include.
+   */
+  private async fromLicence(tx: TenantTransaction, now: Date): Promise<Entitlements> {
+    const current = await this.licences.current(tx, now);
+    const payload = current?.payload ?? current?.unverified;
+    if (!current || !payload) {
+      return resolveEntitlements({ plan: null, subscription: null, addons: [], overrides: [], now });
+    }
+    return resolveEntitlements({
+      ...licenceEntitlementInputs(payload, current.state),
+      addons: [],
+      overrides: [],
       now,
     });
   }

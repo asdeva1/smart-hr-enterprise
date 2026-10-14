@@ -24,6 +24,7 @@
     "@smart-hr/config": "workspace:*",
     "@smart-hr/database": "workspace:*",
     "@smart-hr/entitlements": "workspace:*",
+    "@smart-hr/licensing": "workspace:*",
     "@smart-hr/observability": "workspace:*",
     "@smart-hr/shared": "workspace:*",
     "@smart-hr/validation": "workspace:*",

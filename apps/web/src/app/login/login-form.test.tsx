@@ -34,6 +34,7 @@ const signedIn = {
     branding: { name: null, color: null, logoUrl: null },
   },
   memberships: [{ tenantId: 't1', name: 'Acme', isTenantAdmin: false }],
+  deploymentMode: 'saas',
   expiresAt: '2030-01-01T00:00:00Z',
   absoluteExpiresAt: '2030-01-01T00:00:00Z',
 };

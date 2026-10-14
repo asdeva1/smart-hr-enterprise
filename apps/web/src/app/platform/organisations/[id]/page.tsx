@@ -6,5 +6,9 @@ import { OrganisationDetail } from './organisation-detail';
 
 export default function PlatformOrganisationPage() {
   const { id } = useParams<{ id: string }>();
-  return <PlatformPage active="Organisations">{() => <OrganisationDetail tenantId={id} />}</PlatformPage>;
+  return (
+    <PlatformPage active="Organisations">
+      {(session) => <OrganisationDetail tenantId={id} usesLicence={session.deploymentMode === 'inhouse'} />}
+    </PlatformPage>
+  );
 }

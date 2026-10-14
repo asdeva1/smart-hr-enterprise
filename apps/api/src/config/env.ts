@@ -1,4 +1,5 @@
 import { baseServerEnvSchema, commaList, loadEnv, z } from '@smart-hr/config';
+import { parsePublicKeys, type PublicKeyRing } from '@smart-hr/licensing';
 
 const minutes = (fallback: number) => z.coerce.number().int().min(1).max(10_080).default(fallback);
 
@@ -47,6 +48,22 @@ export const apiEnvSchema = baseServerEnvSchema
     SIGNUP_RATE_LIMIT_PER_IP: z.coerce.number().int().min(1).default(10),
     SIGNUP_RATE_LIMIT_PER_EMAIL: z.coerce.number().int().min(1).default(3),
 
+    // In-house licensing: public keys only (`keyId:base64 SPKI`, comma-separated). Never a private key.
+    LICENCE_PUBLIC_KEYS: z
+      .string()
+      .optional()
+      .transform((value, ctx): PublicKeyRing => {
+        try {
+          return parsePublicKeys(value);
+        } catch (error) {
+          ctx.addIssue({
+            code: 'custom',
+            message: error instanceof Error ? error.message : 'Invalid key list',
+          });
+          return z.NEVER;
+        }
+      }),
+
     // MFA
     MFA_ISSUER: z.string().min(1).max(64).default('Smart HR'),
     /** Comma-separated `id:base64key` pairs (32-byte keys). Older keys stay listed to decrypt existing secrets. */
@@ -78,6 +95,22 @@ export const apiEnvSchema = baseServerEnvSchema
         path: ['MFA_ENCRYPTION_KEY_ID'],
         message: 'must name one of MFA_ENCRYPTION_KEYS',
       });
+    }
+    if (env.DEPLOYMENT_MODE === 'inhouse') {
+      if (env.LICENCE_PUBLIC_KEYS.size === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['LICENCE_PUBLIC_KEYS'],
+          message: 'is required when DEPLOYMENT_MODE=inhouse',
+        });
+      }
+      if (env.SIGNUP_ENABLED) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SIGNUP_ENABLED'],
+          message: 'self-service sign-up is not available in-house',
+        });
+      }
     }
     if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE) {
       ctx.addIssue({

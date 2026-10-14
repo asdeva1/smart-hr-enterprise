@@ -18,6 +18,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
 import { EntitlementsService } from '../entitlements/entitlements.service.js';
+import { LicenceService } from '../entitlements/licence.service.js';
 import { DATABASE } from '../infra/tokens.js';
 import { asPlatform } from './platform-context.js';
 
@@ -34,7 +35,19 @@ export class SubscriptionsService {
     @Inject(DATABASE) private readonly db: DatabaseClient,
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly licences: LicenceService,
   ) {}
+
+  /** In-house installations take entitlements from their licence; subscription records would mislead. */
+  private assertSubscriptionsUsed(): void {
+    if (this.licences.inHouse) {
+      throw new AppError(
+        'SUBSCRIPTIONS_NOT_USED',
+        'This installation’s modules and limits come from its licence. Install a new licence to change them.',
+        409,
+      );
+    }
+  }
 
   private async event(
     tx: TenantTransaction,
@@ -142,6 +155,7 @@ export class SubscriptionsService {
     input: z.output<typeof assignSubscriptionSchema>,
     meta: RequestMeta,
   ) {
+    this.assertSubscriptionsUsed();
     return asPlatform(
       this.db,
       auth,
@@ -212,6 +226,7 @@ export class SubscriptionsService {
     input: z.output<typeof subscriptionActionSchema>,
     meta: RequestMeta,
   ) {
+    this.assertSubscriptionsUsed();
     return asPlatform(
       this.db,
       auth,
@@ -287,6 +302,7 @@ export class SubscriptionsService {
     input: z.output<typeof setSubscriptionAddonSchema>,
     meta: RequestMeta,
   ) {
+    this.assertSubscriptionsUsed();
     return asPlatform(
       this.db,
       auth,
@@ -329,6 +345,7 @@ export class SubscriptionsService {
     input: z.output<typeof createOverrideSchema>,
     meta: RequestMeta,
   ) {
+    this.assertSubscriptionsUsed();
     return asPlatform(
       this.db,
       auth,
@@ -366,6 +383,7 @@ export class SubscriptionsService {
   }
 
   async revokeOverride(auth: AuthContext, tenantId: string, overrideId: string, meta: RequestMeta) {
+    this.assertSubscriptionsUsed();
     return asPlatform(
       this.db,
       auth,

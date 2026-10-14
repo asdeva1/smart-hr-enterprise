@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createDatabaseClient,
   isForeignKeyViolation,
+  withContext,
   withTenant,
   type DatabaseClient,
   type TenantTransaction,
@@ -214,5 +215,57 @@ describe('tenant security policy', () => {
     expect(await withTenant(app, tenantA, (tx) => tx.signupRequest.count())).toBe(0);
     expect(await app.signupRequest.count()).toBe(0);
     await owner.signupRequest.deleteMany({ where: { displayName: 'Probe' } });
+  });
+});
+
+describe('installation licence', () => {
+  const row = () => ({
+    licenceId: randomUUID(),
+    token: 'SHRL1.test.test',
+    customerName: 'Probe',
+    planCode: 'ENTERPRISE',
+    expiresAt: new Date(Date.now() + 86_400_000),
+  });
+
+  it('lets anyone read the installation, but nobody in the app change it', async () => {
+    const [installation] = await app.installation.findMany();
+    expect(installation).toBeDefined();
+    const error = await expectRejected(
+      withContext(
+        app,
+        { platformActor: true },
+        (tx) => tx.$executeRaw`UPDATE installation SET created_at = now()`,
+      ),
+    );
+    expect(String(error)).toMatch(/permission denied/i);
+  });
+
+  it('lets only platform actors install a licence, and never delete one', async () => {
+    const error = await expectRejected(
+      withTenant(app, tenantA, (tx) => tx.installationLicence.createMany({ data: [row()] })),
+    );
+    expect(String(error)).toMatch(/row-level security/i);
+
+    const data = row();
+    await withContext(app, { platformActor: true }, (tx) =>
+      tx.installationLicence.createMany({ data: [data] }),
+    );
+    expect(await app.installationLicence.count({ where: { licenceId: data.licenceId } })).toBe(1);
+    // Marking replaced outside a platform transaction matches nothing; deleting isn't granted at all.
+    expect(
+      await withTenant(app, tenantA, (tx) =>
+        tx.installationLicence.updateMany({
+          where: { licenceId: data.licenceId },
+          data: { replacedAt: new Date() },
+        }),
+      ),
+    ).toEqual({ count: 0 });
+    const del = await expectRejected(
+      withContext(app, { platformActor: true }, (tx) =>
+        tx.installationLicence.deleteMany({ where: { licenceId: data.licenceId } }),
+      ),
+    );
+    expect(String(del)).toMatch(/permission denied/i);
+    await owner.installationLicence.deleteMany({ where: { licenceId: data.licenceId } });
   });
 });

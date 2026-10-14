@@ -32,6 +32,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: ./scripts/check-migrations.sh
+      - name: Validate in-house compose file
+        run: |
+          sed 's/CHANGE_ME/ci-placeholder/g' deploy/inhouse/.env.example > deploy/inhouse/.env
+          docker compose -f deploy/inhouse/docker-compose.yml --profile setup config --quiet
+          rm deploy/inhouse/.env
+          for f in deploy/inhouse/*.sh; do bash -n "$f"; done
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
@@ -180,15 +186,25 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        app: [api, worker]
+        include:
+          - { app: api, file: docker/node-app.Dockerfile, target: runtime, args: APP=api }
+          - { app: worker, file: docker/node-app.Dockerfile, target: runtime, args: APP=worker }
+          - { app: migrate, file: docker/node-app.Dockerfile, target: migrate, args: APP=api }
+          - {
+              app: web,
+              file: docker/web.Dockerfile,
+              target: runtime,
+              args: NEXT_PUBLIC_API_URL=http://localhost:4000,
+            }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: docker/node-app.Dockerfile
-          build-args: APP=${{ matrix.app }}
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          build-args: ${{ matrix.args }}
           push: false
           tags: smart-hr-${{ matrix.app }}:ci
           cache-from: type=gha,scope=${{ matrix.app }}

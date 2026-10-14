@@ -7,6 +7,7 @@ import {
   CircleCheck,
   Clock,
   DatabaseBackup,
+  FileKey,
   FileText,
   KeyRound,
   Layers,
@@ -47,6 +48,8 @@ interface NavItem {
   platform?: boolean;
   /** Only for owners of the active organisation. */
   tenantAdmin?: boolean;
+  /** Only in these deployment modes. */
+  modes?: SessionView['deploymentMode'][];
 }
 
 const NAV: { section?: string; items: NavItem[] }[] = [
@@ -106,13 +109,21 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     section: 'Platform',
     items: [
       { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
-      { label: 'Plan catalogue', icon: PackageCheck, href: '/platform/plans', platform: true },
+      {
+        label: 'Plan catalogue',
+        icon: PackageCheck,
+        href: '/platform/plans',
+        platform: true,
+        modes: ['saas', 'dedicated'],
+      },
+      { label: 'Licence', icon: FileKey, href: '/platform/licence', platform: true, modes: ['inhouse'] },
       { label: 'Operators', icon: ShieldUser, href: '/platform/operators', platform: true },
     ],
   },
 ];
 
 function visible(item: NavItem, session: SessionView): boolean {
+  if (item.modes && !item.modes.includes(session.deploymentMode)) return false;
   if (item.platform) return session.user.isPlatformAdmin;
   if (item.tenantAdmin && !session.activeTenant?.isTenantAdmin) return false;
   if (item.permission && !can(session, item.permission)) return false;
@@ -239,6 +250,7 @@ function OffboardingBanner({ session }: { session: SessionView }) {
 function SubscriptionBanner({ session }: { session: SessionView }) {
   const plan = session.activeTenant?.plan;
   if (!plan) return null;
+  if (session.deploymentMode === 'inhouse') return <LicenceBanner session={session} />;
   const until = plan.graceEndsAt ? new Date(plan.graceEndsAt).toLocaleDateString('en-IN') : null;
   const message =
     plan.status === 'EXPIRED'
@@ -266,6 +278,45 @@ function SubscriptionBanner({ session }: { session: SessionView }) {
           {' '}
           <Link href="/admin/plan" className="font-semibold underline">
             See plan and usage
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** In-house installations: the same rules, worded for a licence rather than a subscription. */
+function LicenceBanner({ session }: { session: SessionView }) {
+  const plan = session.activeTenant?.plan;
+  if (!plan) return null;
+  const until = plan.graceEndsAt ? new Date(plan.graceEndsAt).toLocaleDateString('en-IN') : null;
+  const message =
+    plan.status === 'NONE'
+      ? session.user.isPlatformAdmin
+        ? 'No licence is installed yet. Organisation administration works; install a licence to turn on paid modules.'
+        : null
+      : plan.status === 'EXPIRED'
+        ? 'This installation’s licence has ended or can’t be verified. You can view and export everything, but paid modules can’t be changed until a new licence is installed.'
+        : plan.status === 'GRACE'
+          ? `This installation’s licence has ended. Paid modules keep working${until ? ` until ${until}` : ''}, then become read-only.`
+          : null;
+  if (!message) return null;
+  return (
+    <div
+      role="status"
+      className={cn(
+        'border-b px-8 py-2.5 text-[13px]',
+        plan.access === 'READ_ONLY'
+          ? 'border-danger/30 bg-danger-soft text-danger'
+          : 'border-warning/30 bg-warning-soft text-warning',
+      )}
+    >
+      {message}
+      {session.user.isPlatformAdmin && (
+        <>
+          {' '}
+          <Link href="/platform/licence" className="font-semibold underline">
+            Manage the licence
           </Link>
         </>
       )}

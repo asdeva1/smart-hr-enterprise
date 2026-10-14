@@ -30,7 +30,7 @@ const STATUS_TEXT = {
   ARCHIVED: 'Archived — no access',
 } as const;
 
-export function OrganisationDetail({ tenantId }: { tenantId: string }) {
+export function OrganisationDetail({ tenantId, usesLicence }: { tenantId: string; usesLicence: boolean }) {
   const overview = useTenantOverview(tenantId);
   const params = useSearchParams();
   const [tab, setTab] = useState<'overview' | 'subscription'>('overview');
@@ -61,16 +61,35 @@ export function OrganisationDetail({ tenantId }: { tenantId: string }) {
             : 'The owner already had an account and can sign in now.'}
         </Alert>
       )}
-      <Tabs
-        label="Organisation"
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'subscription', label: 'Subscription' },
-        ]}
-      />
-      {tab === 'overview' ? <Overview data={overview.data} /> : <SubscriptionManager tenantId={tenantId} />}
+      {usesLicence ? (
+        <>
+          <p className="text-[13px] text-muted-foreground">
+            Modules and limits come from this installation’s{' '}
+            <Link href="/platform/licence" className="text-primary hover:underline">
+              licence
+            </Link>
+            .
+          </p>
+          <Overview data={overview.data} />
+        </>
+      ) : (
+        <>
+          <Tabs
+            label="Organisation"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'overview', label: 'Overview' },
+              { value: 'subscription', label: 'Subscription' },
+            ]}
+          />
+          {tab === 'overview' ? (
+            <Overview data={overview.data} />
+          ) : (
+            <SubscriptionManager tenantId={tenantId} />
+          )}
+        </>
+      )}
     </>
   );
 }

@@ -140,6 +140,8 @@ export interface SessionView {
     };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];
+  /** In-house installations take modules and limits from a signed licence instead of subscriptions. */
+  deploymentMode: 'saas' | 'dedicated' | 'inhouse';
   expiresAt: string;
   absoluteExpiresAt: string;
 }

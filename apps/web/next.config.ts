@@ -10,6 +10,10 @@ const securityHeaders = [
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Self-hosted images (in-house and dedicated) build a standalone server; Vercel ignores this.
+  ...(process.env.NEXT_OUTPUT === 'standalone'
+    ? { output: 'standalone' as const, outputFileTracingRoot: new URL('../..', import.meta.url).pathname }
+    : {}),
   poweredByHeader: false,
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
