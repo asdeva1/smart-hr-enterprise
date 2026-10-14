@@ -18,17 +18,21 @@ import {
   createAddonSchema,
   createOverrideSchema,
   createPlanSchema,
+  grantOperatorSchema,
+  provisionTenantSchema,
+  tenantLifecycleSchema,
   setSubscriptionAddonSchema,
   subscriptionActionSchema,
   updateAddonSchema,
   updatePlanVersionSchema,
 } from '@smart-hr/validation';
 import type { z } from 'zod';
-import { CurrentAuth, RequirePlatformAdmin } from '../auth/auth.decorators.js';
+import { CurrentAuth, RequirePlatformAdmin, RequireRecentAuth } from '../auth/auth.decorators.js';
 import type { AuthContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { PlansService } from './plans.service.js';
 import { SubscriptionsService } from './subscriptions.service.js';
+import { PlatformTenantsService } from './tenants.service.js';
 
 const uuid = new ParseUUIDPipe();
 
@@ -196,5 +200,66 @@ export class PlatformSubscriptionsController {
     @Req() req: AppRequest,
   ) {
     return this.subscriptions.revokeOverride(auth, tenantId, id, requestMeta(req));
+  }
+}
+
+/** Creating organisations and running their lifecycle; platform operators. Platform administrators only. */
+@ApiTags('platform')
+@RequirePlatformAdmin()
+@Controller('v1/platform')
+export class PlatformTenantsController {
+  constructor(private readonly tenants: PlatformTenantsService) {}
+
+  @Post('tenants')
+  @ApiOperation({
+    summary: 'Create an organisation for a first owner (invited by email), optionally on a plan',
+  })
+  provision(
+    @Body({ schema: provisionTenantSchema }) body: z.output<typeof provisionTenantSchema>,
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: AppRequest,
+  ) {
+    return this.tenants.provision(auth, body, requestMeta(req));
+  }
+
+  @Get('tenants/:tenantId')
+  @ApiOperation({ summary: 'Organisation status, owners and size' })
+  overview(@Param('tenantId', uuid) tenantId: string, @CurrentAuth() auth: AuthContext) {
+    return this.tenants.overview(auth, tenantId);
+  }
+
+  @Post('tenants/:tenantId/lifecycle')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rename, suspend, reactivate, start or cancel offboarding, or archive' })
+  lifecycle(
+    @Param('tenantId', uuid) tenantId: string,
+    @Body({ schema: tenantLifecycleSchema }) body: z.output<typeof tenantLifecycleSchema>,
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: AppRequest,
+  ) {
+    return this.tenants.lifecycle(auth, tenantId, body, requestMeta(req));
+  }
+
+  @Get('operators')
+  operators(@CurrentAuth() auth: AuthContext) {
+    return this.tenants.operators(auth);
+  }
+
+  @Post('operators')
+  @RequireRecentAuth()
+  @ApiOperation({ summary: 'Make an existing account a platform operator (needs recent password entry)' })
+  grant(
+    @Body({ schema: grantOperatorSchema }) body: z.output<typeof grantOperatorSchema>,
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: AppRequest,
+  ) {
+    return this.tenants.grantOperator(auth, body.email, requestMeta(req));
+  }
+
+  @Delete('operators/:userId')
+  @RequireRecentAuth()
+  @ApiOperation({ summary: 'Remove platform operator access (needs recent password entry)' })
+  revoke(@Param('userId', uuid) userId: string, @CurrentAuth() auth: AuthContext, @Req() req: AppRequest) {
+    return this.tenants.revokeOperator(auth, userId, requestMeta(req));
   }
 }

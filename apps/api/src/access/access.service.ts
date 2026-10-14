@@ -31,6 +31,7 @@ import {
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
 import { EntitlementsService } from '../entitlements/entitlements.service.js';
+import { InvitationService } from '../identity/invitation.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
@@ -91,6 +92,7 @@ export class AccessService {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly entitlements: EntitlementsService,
+    private readonly invitations: InvitationService,
   ) {}
 
   private run<T>(tenant: TenantContext, auth: AuthContext, work: (tx: TenantTransaction) => Promise<T>) {
@@ -334,7 +336,7 @@ export class AccessService {
     });
 
     if (user.passwordHash === null) {
-      await this.sendInvitation(user.id, email, input.displayName, tenantName, auth.user.displayName);
+      await this.invitations.send(user.id, email, input.displayName, tenantName, auth.user.displayName);
     } else {
       await this.mail.send({
         to: email,
@@ -349,48 +351,6 @@ export class AccessService {
       });
     }
     return { membershipId: membership.id };
-  }
-
-  private async sendInvitation(
-    userId: string,
-    email: string,
-    displayName: string,
-    tenantName: string,
-    inviterName: string,
-  ): Promise<void> {
-    const token = generateToken();
-    await this.db.$transaction([
-      this.db.passwordResetToken.updateMany({
-        where: { userId, usedAt: null },
-        data: { usedAt: new Date() },
-      }),
-      this.db.passwordResetToken.create({
-        data: {
-          userId,
-          purpose: 'INVITATION',
-          tokenHash: hashToken(token),
-          expiresAt: new Date(Date.now() + this.env.INVITATION_TTL_HOURS * 3_600_000),
-        },
-      }),
-    ]);
-    const link = new URL('/reset-password', this.env.APP_PUBLIC_URL);
-    link.searchParams.set('token', token);
-    link.searchParams.set('invite', '1');
-    await this.mail.send({
-      to: email,
-      category: 'invitation',
-      subject: `${inviterName} invited you to ${tenantName} on Smart HR`,
-      text: [
-        `Hello ${displayName},`,
-        '',
-        `${inviterName} invited you to join ${tenantName} on Smart HR.`,
-        `Choose your password within ${this.env.INVITATION_TTL_HOURS} hours to activate your account:`,
-        '',
-        link.toString(),
-        '',
-        'If you weren’t expecting this, you can ignore this email.',
-      ].join('\n'),
-    });
   }
 
   async resendInvitation(tenant: TenantContext, auth: AuthContext, membershipId: string, meta: RequestMeta) {
@@ -422,7 +382,7 @@ export class AccessService {
       );
       return m;
     });
-    await this.sendInvitation(
+    await this.invitations.send(
       target.user.id,
       target.user.email,
       target.user.displayName,

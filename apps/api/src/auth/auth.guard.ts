@@ -108,13 +108,30 @@ export class AuthGuard implements CanActivate {
         { tenantId, userId: auth.user.id },
         async (tx) => ({
           membership: await tx.tenantMembership.findFirst({
-            where: { tenantId, userId: auth.user.id, status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
-            include: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
+            where: {
+              tenantId,
+              userId: auth.user.id,
+              status: 'ACTIVE',
+              tenant: { status: { in: ['ACTIVE', 'OFFBOARDING'] } },
+            },
+            include: {
+              tenant: { select: { requireMfa: true, status: true } },
+              assignments: { select: ASSIGNMENT_SELECT },
+            },
           }),
           entitlements: feature ? await this.entitlements.forTenant(tx) : undefined,
         }),
       );
       if (!membership) throw new AppError('FORBIDDEN', 'You no longer have access to this organisation', 403);
+
+      // An organisation being offboarded is read-only: everything can be viewed and exported, nothing changed.
+      if (membership.tenant.status === 'OFFBOARDING' && unsafe) {
+        throw new AppError(
+          'TENANT_OFFBOARDING',
+          'Your organisation is being offboarded. You can view and export data, but not change it.',
+          403,
+        );
+      }
 
       // Organisation policy: members must turn on two-step verification before using the organisation.
       if (membership.tenant.requireMfa && !auth.user.mfaEnabledAt) {

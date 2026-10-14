@@ -84,7 +84,6 @@ Deciding an approval needs no permission: being the task's assignee is the autho
 | Item                                       | Planned  | Acceptance criteria                                                                            |
 | ------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
 | Record-level visibility of people by scope | Phase 8  | Employee lists filtered by the viewer's company/branch/department scopes, with isolation tests |
-| Platform-operator cross-tenant access      | Phase 6  | Separate role and audited code path; never via tenant endpoints                                |
 | Email change with verification             | Phase 21 | Confirmation link to the new address and notice to the old one                                 |
 
 ## Plans and the platform console
@@ -99,3 +98,13 @@ subscription history, and lets them list organisations only when no single organ
 
 After each deployment's migrations, also run `node apps/api/dist/cli/sync-plan-catalogue.js`. It creates
 missing starting plans and never changes plans that exist.
+
+## Organisation lifecycle and operators
+
+Only platform actors create organisations or change their name, slug, status and lifecycle dates. The API
+enforces it on `/v1/platform/*`, and a database trigger (`tenant_guard`) refuses those changes from any
+other transaction. While an organisation is offboarding, the guard refuses every unsafe HTTP method with
+`TENANT_OFFBOARDING`, so members keep read and export access only. Suspended and archived organisations have
+no access at all. Granting or revoking operator access needs a recent sign-in; operators cannot revoke
+themselves, and the last operator cannot be removed. The full data export is limited to organisation owners
+with a recent sign-in and is audited. See [ADR 0008](../decisions/0008-tenant-onboarding-and-lifecycle.md).

@@ -181,8 +181,20 @@ export class AuthService {
   private async activeMemberships(userId: string) {
     return withContext(this.db, { userId }, (tx) =>
       tx.tenantMembership.findMany({
-        where: { userId, status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
-        include: { tenant: { select: { id: true, name: true } } },
+        // Offboarding organisations stay reachable, read-only, so members can export their data.
+        where: { userId, status: 'ACTIVE', tenant: { status: { in: ['ACTIVE', 'OFFBOARDING'] } } },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              brandName: true,
+              brandColor: true,
+              brandLogoUrl: true,
+            },
+          },
+        },
         orderBy: { tenant: { name: 'asc' } },
       }),
     );
@@ -317,6 +329,12 @@ export class AuthService {
                 activeDetail.membership.assignments,
               ).codes(),
               mfaEnrolmentRequired: activeDetail.membership.tenant.requireMfa && user.mfaEnabledAt === null,
+              status: active.tenant.status === 'OFFBOARDING' ? 'OFFBOARDING' : 'ACTIVE',
+              branding: {
+                name: active.tenant.brandName,
+                color: active.tenant.brandColor,
+                logoUrl: active.tenant.brandLogoUrl,
+              },
               plan: {
                 code: activeDetail.entitlements.plan?.code ?? null,
                 name: activeDetail.entitlements.plan?.name ?? null,

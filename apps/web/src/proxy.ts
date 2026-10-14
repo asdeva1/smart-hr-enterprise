@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * When web and API run on different sites the cookie isn't visible here; pages then fall back to the
  * client-side check in <RequireSession>.
  */
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/unauthorized'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/signup', '/unauthorized'];
 
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

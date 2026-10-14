@@ -43,6 +43,9 @@ export interface SessionView {
     permissions: Permission[];
     /** The organisation requires two-step verification and this user has not turned it on yet. */
     mfaEnrolmentRequired: boolean;
+    /** OFFBOARDING: the organisation is read-only while its data is exported. */
+    status: 'ACTIVE' | 'OFFBOARDING';
+    branding: { name: string | null; color: string | null; logoUrl: string | null };
     /** The organisation's plan. For showing and hiding UI only; the API enforces entitlements itself. */
     plan: {
       code: string | null;

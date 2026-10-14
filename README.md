@@ -2,7 +2,7 @@
 
 HR, payroll, finance and configurable operations in one platform — delivered as multi-tenant SaaS, a dedicated managed environment, or an in-house installation, from one codebase.
 
-**Status: Phase 5 (plans and entitlements).** Foundation, authentication, organisation structure and scoped roles, approvals and notifications, settings and reference lists, and a versioned plan catalogue with backend-enforced features and limits. Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
+**Status: Phase 6 (SaaS onboarding and tenant administration).** Foundation, authentication, organisation structure and scoped roles, approvals and notifications, settings and reference lists, a versioned plan catalogue with backend-enforced features and limits, and organisation provisioning, lifecycle (suspend, offboard, archive), branding, data export and optional self-service sign-up. Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
 
 ## What's here
 

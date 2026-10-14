@@ -6,15 +6,18 @@ import {
   ChartColumn,
   CircleCheck,
   Clock,
+  DatabaseBackup,
   FileText,
   KeyRound,
   Layers,
   LayoutGrid,
   ListChecks,
   PackageCheck,
+  Palette,
   ScrollText,
   Settings,
   ShieldCheck,
+  ShieldUser,
   Sparkles,
   Tag,
   UserCog,
@@ -24,10 +27,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { SessionView } from '@/lib/api';
 import { can, hasFeature } from '@/lib/permissions';
-import { cn } from '@/lib/utils';
+import { cn, initials } from '@/lib/utils';
 import { ShellHeader } from './shell-header';
 
 interface NavItem {
@@ -42,6 +45,8 @@ interface NavItem {
   feature?: string;
   /** Only for platform administrators. */
   platform?: boolean;
+  /** Only for owners of the active organisation. */
+  tenantAdmin?: boolean;
 }
 
 const NAV: { section?: string; items: NavItem[] }[] = [
@@ -92,6 +97,8 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       },
       { label: 'Audit log', icon: ScrollText, href: '/admin/audit', permission: 'audit.view' },
       { label: 'Plan and usage', icon: Tag, href: '/admin/plan', permission: 'settings.manage' },
+      { label: 'Branding', icon: Palette, href: '/admin/branding', permission: 'settings.manage' },
+      { label: 'Your data', icon: DatabaseBackup, href: '/admin/data', tenantAdmin: true },
       { label: 'AI assistant', icon: Sparkles, phase: 20 },
     ],
   },
@@ -100,12 +107,14 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     items: [
       { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
       { label: 'Plan catalogue', icon: PackageCheck, href: '/platform/plans', platform: true },
+      { label: 'Operators', icon: ShieldUser, href: '/platform/operators', platform: true },
     ],
   },
 ];
 
 function visible(item: NavItem, session: SessionView): boolean {
   if (item.platform) return session.user.isPlatformAdmin;
+  if (item.tenantAdmin && !session.activeTenant?.isTenantAdmin) return false;
   if (item.permission && !can(session, item.permission)) return false;
   if (item.feature && !hasFeature(session, item.feature)) return false;
   return true;
@@ -120,17 +129,33 @@ export function AppShell({
   session: SessionView;
   children: ReactNode;
 }) {
+  const tenant = session.activeTenant;
+  const brandName = tenant?.branding.name ?? tenant?.name ?? 'Smart HR';
+  // The API only accepts colours dark enough for white text, so overriding the primary token stays accessible.
+  const brandStyle = tenant?.branding.color
+    ? ({ '--color-primary': tenant.branding.color } as CSSProperties)
+    : undefined;
   return (
-    <div className="flex min-h-screen flex-wrap">
+    <div className="flex min-h-screen flex-wrap" style={brandStyle}>
       <nav
         aria-label="Main"
         className="flex flex-[1_1_220px] flex-col gap-0.5 bg-sidebar px-3 pt-5 pb-6 text-sidebar-foreground min-[880px]:max-w-[244px]"
       >
         <div className="flex items-center gap-2.5 px-2.5 pb-4 text-[15px] font-bold text-white">
-          <span className="grid size-[30px] place-items-center rounded-md bg-primary font-mono text-[13px]">
-            SH
-          </span>
-          Smart HR
+          {tenant?.branding.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- an organisation-supplied https URL, not a bundled asset
+            <img
+              src={tenant.branding.logoUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="size-[30px] rounded-md bg-white object-contain"
+            />
+          ) : (
+            <span className="grid size-[30px] place-items-center rounded-md bg-primary font-mono text-[13px]">
+              {tenant ? initials(brandName) : 'SH'}
+            </span>
+          )}
+          <span className="min-w-0 truncate">{brandName}</span>
         </div>
         {NAV.map((group) => ({
           ...group,
@@ -180,9 +205,32 @@ export function AppShell({
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <ShellHeader session={session} />
+        <OffboardingBanner session={session} />
         <SubscriptionBanner session={session} />
         <main className="flex w-full max-w-[1280px] flex-col gap-6 px-8 pt-7 pb-12">{children}</main>
       </div>
+    </div>
+  );
+}
+
+/** While an organisation is offboarding, everything is read-only so members can still look and export. */
+function OffboardingBanner({ session }: { session: SessionView }) {
+  if (session.activeTenant?.status !== 'OFFBOARDING') return null;
+  return (
+    <div
+      role="status"
+      className="border-b border-danger/30 bg-danger-soft px-8 py-2.5 text-[13px] text-danger"
+    >
+      This organisation is being closed. Everything is read-only: you can view and export, but not change
+      anything.
+      {session.activeTenant.isTenantAdmin && (
+        <>
+          {' '}
+          <Link href="/admin/data" className="font-semibold underline">
+            Download your data
+          </Link>
+        </>
+      )}
     </div>
   );
 }

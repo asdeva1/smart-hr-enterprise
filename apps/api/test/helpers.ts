@@ -128,6 +128,11 @@ export class Fixtures {
     return user;
   }
 
+  /** Cleans up an organisation created by the API (platform console, sign-up). */
+  trackTenant(tenantId: string): void {
+    this.tenants.push(tenantId);
+  }
+
   /** Cleans up a user created by the API (e.g. through an invitation). */
   trackUser(userId: string): void {
     this.users.push(userId);

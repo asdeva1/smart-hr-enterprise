@@ -2,9 +2,9 @@
 
 import { useParams } from 'next/navigation';
 import { PlatformPage } from '@/components/platform/platform-page';
-import { SubscriptionManager } from './subscription-manager';
+import { OrganisationDetail } from './organisation-detail';
 
 export default function PlatformOrganisationPage() {
   const { id } = useParams<{ id: string }>();
-  return <PlatformPage active="Organisations">{() => <SubscriptionManager tenantId={id} />}</PlatformPage>;
+  return <PlatformPage active="Organisations">{() => <OrganisationDetail tenantId={id} />}</PlatformPage>;
 }

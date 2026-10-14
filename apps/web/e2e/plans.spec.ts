@@ -66,6 +66,7 @@ test('an operator moves an organisation to a smaller plan, and its members see t
   await nav(page).getByRole('link', { name: 'Organisations' }).click();
   await page.getByRole('link', { name: 'E2E Platform Org' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Platform Org' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Subscription' }).click();
 
   await page.getByLabel('Plan version').selectOption({ label: 'Lite v1 (14-day trial)' });
   await page.getByLabel('Reason (recorded in history)').fill(`e2e ${run}`);
@@ -75,7 +76,7 @@ test('an operator moves an organisation to a smaller plan, and its members see t
 
   // Suspend: the organisation becomes read-only, and says so to its members.
   await page.getByLabel('Reason for this change').fill('Payment dispute (e2e)');
-  await page.getByRole('button', { name: 'Suspend' }).click();
+  await page.getByRole('button', { name: 'Suspend', exact: true }).click();
   await expect(page.getByText('Suspended. The organisation is read-only.')).toBeVisible();
   await page.goto('/');
   await expect(page.getByText(/subscription is suspended/)).toBeVisible();
@@ -83,6 +84,7 @@ test('an operator moves an organisation to a smaller plan, and its members see t
   // Put it back: Enterprise, active.
   await page.goto('/platform/organisations');
   await page.getByRole('link', { name: 'E2E Platform Org' }).click();
+  await page.getByRole('tab', { name: 'Subscription' }).click();
   await page.getByRole('button', { name: 'Reactivate' }).click();
   await expect(page.getByText('Reactivated.')).toBeVisible();
   await page.getByLabel('Plan version').selectOption({ label: 'Enterprise v1' });

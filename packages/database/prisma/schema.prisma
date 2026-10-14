@@ -36,6 +36,15 @@ model Tenant {
   status        TenantStatus       @default(ACTIVE)
   /// Organisation policy: every member must turn on two-step verification before using the organisation.
   requireMfa    Boolean            @default(false) @map("require_mfa")
+  /// Branding shown in the app; null = Smart HR defaults.
+  brandName     String?            @map("brand_name")
+  /// Hex colour for buttons and highlights; checked for contrast with white text before it is stored.
+  brandColor    String?            @map("brand_color")
+  /// https URL of a logo image.
+  brandLogoUrl  String?            @map("brand_logo_url")
+  /// Set when offboarding starts: members keep read-only access and can export; nothing can be changed.
+  offboardingAt DateTime?          @map("offboarding_at") @db.Timestamptz(6)
+  archivedAt    DateTime?          @map("archived_at") @db.Timestamptz(6)
   createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   settings      TenantSetting[]
@@ -792,4 +801,25 @@ model SubscriptionEvent {
 
   @@index([tenantId, occurredAt])
   @@map("subscription_event")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 6: self-service sign-up
+// ---------------------------------------------------------------------------------------------
+
+/// A pending self-service sign-up. Nothing is created until the person proves they own the email address by
+/// opening the emailed link; only the SHA-256 hash of the link's token is stored.
+model SignupRequest {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  email            String
+  displayName      String    @map("display_name")
+  organisationName String    @map("organisation_name")
+  tokenHash        String    @unique @map("token_hash")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  tenantId         String?   @map("tenant_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([email])
+  @@map("signup_request")
 }

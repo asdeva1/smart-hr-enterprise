@@ -2,14 +2,13 @@
 
 import { FEATURES, LIMITS } from '@smart-hr/entitlements';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Loading, PageHeader } from '@/components/ui/page-header';
+import { Loading } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { Table, Td, Th } from '@/components/ui/table';
 import { errorMessage } from '@/lib/admin';
@@ -45,24 +44,19 @@ export function SubscriptionManager({ tenantId }: { tenantId: string }) {
 
   if (detail.isPending) return <Loading />;
   if (detail.isError) return <Alert tone="error">{errorMessage(detail.error)}</Alert>;
-  const { tenant, subscription: sub, overrides, events, entitlements: e, usage } = detail.data;
+  const { subscription: sub, overrides, events, entitlements: e, usage } = detail.data;
   const base = `/v1/platform/tenants/${tenantId}`;
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="text-[13px]">
-        <Link href="/platform/organisations" className="text-primary hover:underline">
-          Organisations
-        </Link>{' '}
-        <span className="text-muted-foreground">/ {tenant.name}</span>
-      </nav>
-      <PageHeader
-        title={tenant.name}
-        description={
-          e.plan ? `${e.plan.name} v${e.plan.version} · ${e.features.length} features` : 'No subscription yet'
-        }
-        actions={<Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-muted-foreground">
+          {e.plan
+            ? `${e.plan.name} v${e.plan.version} · ${e.features.length} features`
+            : 'No subscription yet'}
+        </p>
+        <Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>
+      </div>
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
 
       <div className="grid gap-4 min-[1000px]:grid-cols-2">

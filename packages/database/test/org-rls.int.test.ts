@@ -10,6 +10,7 @@ import {
   isForeignKeyViolation,
   withTenant,
   type DatabaseClient,
+  type TenantTransaction,
 } from '../src/index.js';
 
 function requireEnv(name: string): string {
@@ -168,14 +169,50 @@ describe('tenant security policy', () => {
     expect(other).toBe(0);
     expect((await owner.tenant.findUnique({ where: { id: tenantB } }))?.requireMfa).toBe(false);
 
-    // Other columns are not granted at all.
+    // Identity columns are not granted at all.
     const error = await expectRejected(
       withTenant(
         app,
         tenantA,
-        (tx) => tx.$executeRaw`UPDATE tenant SET name = 'hijacked' WHERE id = ${tenantA}::uuid`,
+        (tx) => tx.$executeRaw`UPDATE tenant SET slug = 'hijacked' WHERE id = ${tenantA}::uuid`,
       ),
     );
     expect(String(error)).toMatch(/permission denied/i);
+
+    // Name and lifecycle are granted for the platform console, but the guard trigger refuses them in an
+    // ordinary tenant transaction.
+    for (const change of [
+      (tx: TenantTransaction) =>
+        tx.$executeRaw`UPDATE tenant SET name = 'hijacked' WHERE id = ${tenantA}::uuid`,
+      (tx: TenantTransaction) =>
+        tx.$executeRaw`UPDATE tenant SET status = 'SUSPENDED' WHERE id = ${tenantA}::uuid`,
+      (tx: TenantTransaction) =>
+        tx.$executeRaw`UPDATE tenant SET archived_at = now() WHERE id = ${tenantA}::uuid`,
+    ]) {
+      expect(String(await expectRejected(withTenant(app, tenantA, change)))).toMatch(
+        /platform operators only/,
+      );
+    }
+
+    // Branding is the tenant's own to change.
+    await withTenant(app, tenantA, (tx) =>
+      tx.tenant.update({ where: { id: tenantA }, data: { brandName: 'Acme Brand', brandColor: '#1d4ed8' } }),
+    );
+    expect((await owner.tenant.findUnique({ where: { id: tenantA } }))?.brandName).toBe('Acme Brand');
+  });
+
+  it('keeps sign-up requests invisible outside a platform transaction', async () => {
+    await owner.signupRequest.create({
+      data: {
+        email: `rls-${Date.now()}@example.com`,
+        displayName: 'Probe',
+        organisationName: 'Probe Org',
+        tokenHash: `probe-${Date.now()}`,
+        expiresAt: new Date(Date.now() + 3_600_000),
+      },
+    });
+    expect(await withTenant(app, tenantA, (tx) => tx.signupRequest.count())).toBe(0);
+    expect(await app.signupRequest.count()).toBe(0);
+    await owner.signupRequest.deleteMany({ where: { displayName: 'Probe' } });
   });
 });

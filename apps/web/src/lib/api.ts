@@ -123,6 +123,9 @@ export interface SessionView {
     id: string;
     name: string;
     isTenantAdmin: boolean;
+    /** OFFBOARDING means read-only: members can view and export, but the API refuses changes. */
+    status: 'ACTIVE' | 'OFFBOARDING';
+    branding: { name: string | null; color: string | null; logoUrl: string | null };
     /** For showing and hiding UI only. The API checks permissions on every request. */
     permissions: string[];
     mfaEnrolmentRequired: boolean;

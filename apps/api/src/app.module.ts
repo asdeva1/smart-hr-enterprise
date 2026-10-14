@@ -10,12 +10,14 @@ import { AuthModule } from './auth/auth.module.js';
 import { EntitlementsModule } from './entitlements/entitlements.module.js';
 import type { ApiEnv } from './config/env.js';
 import { HealthController } from './health/health.controller.js';
+import { IdentityModule } from './identity/identity.module.js';
 import { InfraModule } from './infra/infra.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { MasterDataModule } from './master-data/master-data.module.js';
 import { OrgModule } from './org/org.module.js';
 import { PlatformModule } from './platform/platform.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
+import { SignupModule } from './signup/signup.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
@@ -46,6 +48,7 @@ export class AppModule {
         NotificationsModule,
         RbacModule,
         EntitlementsModule,
+        IdentityModule,
         AuthModule,
         TenantModule,
         OrgModule,
@@ -53,6 +56,7 @@ export class AppModule {
         ApprovalsModule,
         MasterDataModule,
         PlatformModule,
+        SignupModule,
         ...extraModules,
       ],
       controllers: [HealthController],

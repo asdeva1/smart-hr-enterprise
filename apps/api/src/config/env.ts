@@ -36,6 +36,17 @@ export const apiEnvSchema = baseServerEnvSchema
     PASSWORD_RESET_TTL_MINUTES: minutes(30),
     INVITATION_TTL_HOURS: z.coerce.number().int().min(1).max(336).default(72),
 
+    // Self-service sign-up (off unless enabled; dedicated and in-house installations leave it off)
+    SIGNUP_ENABLED: z.stringbool().default(false),
+    /** Plan a new self-service organisation starts on, as a trial. */
+    SIGNUP_PLAN: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{1,29}$/)
+      .default('PRO'),
+    SIGNUP_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+    SIGNUP_RATE_LIMIT_PER_IP: z.coerce.number().int().min(1).default(10),
+    SIGNUP_RATE_LIMIT_PER_EMAIL: z.coerce.number().int().min(1).default(3),
+
     // MFA
     MFA_ISSUER: z.string().min(1).max(64).default('Smart HR'),
     /** Comma-separated `id:base64key` pairs (32-byte keys). Older keys stay listed to decrypt existing secrets. */

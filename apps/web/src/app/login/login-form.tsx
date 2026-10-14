@@ -22,6 +22,10 @@ const REASONS: Record<string, { tone: 'info' | 'warning' | 'success'; text: stri
     tone: 'success',
     text: 'Your password has been changed. Sign in with your new password.',
   },
+  'organisation-ready': {
+    tone: 'success',
+    text: 'Your organisation is ready. Sign in with the password you just chose.',
+  },
   'account-ready': {
     tone: 'success',
     text: 'Your account is ready. Sign in with your email and new password.',
@@ -131,6 +135,14 @@ function PasswordStep({
         After several failed attempts the account is locked for a short time. Your administrator can turn on
         single sign-on for your organisation.
       </p>
+      {process.env.NEXT_PUBLIC_SIGNUP_ENABLED === 'true' && (
+        <p className="text-center text-[13px] text-muted-foreground">
+          New to Smart HR?{' '}
+          <Link href="/signup" className="text-primary hover:underline">
+            Create an organisation
+          </Link>
+        </p>
+      )}
     </form>
   );
 }

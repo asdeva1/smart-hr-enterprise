@@ -1,13 +1,18 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { PlatformPage } from '@/components/platform/platform-page';
+import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState, Loading, PageHeader } from '@/components/ui/page-header';
 import { Table, Td, Th } from '@/components/ui/table';
 import { errorMessage } from '@/lib/admin';
-import { formatDate, usePlatformTenants } from '@/lib/plan';
+import { formatDate, planKeys, usePlatformTenants } from '@/lib/plan';
+import { NewOrganisationDialog } from './new-organisation-dialog';
 
 const SUB_TONE = {
   TRIAL: 'info',
@@ -20,12 +25,28 @@ const SUB_TONE = {
 
 function Organisations() {
   const tenants = usePlatformTenants();
+  const client = useQueryClient();
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
   return (
     <>
       <PageHeader
         title="Organisations"
         description="Every customer organisation with its plan and subscription."
+        actions={<Button onClick={() => setCreating(true)}>New organisation</Button>}
       />
+      {creating && (
+        <NewOrganisationDialog
+          onClose={() => setCreating(false)}
+          onCreated={async (created) => {
+            setCreating(false);
+            await client.invalidateQueries({ queryKey: planKeys.tenants });
+            router.push(
+              `/platform/organisations/${created.id}?created=${created.ownerInvited ? 'invited' : 'added'}`,
+            );
+          }}
+        />
+      )}
       {tenants.isPending ? (
         <Loading />
       ) : tenants.isError ? (

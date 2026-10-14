@@ -68,7 +68,7 @@ export async function withContext<T>(
   if ((tenantId !== null && !isUuid(tenantId)) || (userId !== null && !isUuid(userId))) {
     throw new InvalidTenantContextError();
   }
-  if (tenantId === null && userId === null) {
+  if (tenantId === null && userId === null && context.platformActor !== true) {
     throw new InvalidTenantContextError();
   }
   return db.$transaction(async (tx) => {
