@@ -2,10 +2,12 @@ import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@ne
 import { Reflector } from '@nestjs/core';
 import { safeEqual } from '@smart-hr/auth';
 import { withContext, type DatabaseClient } from '@smart-hr/database';
+import type { Feature } from '@smart-hr/entitlements';
 import { AppError, type Permission } from '@smart-hr/shared';
 import type { AppRequest } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
 import { API_ENV, DATABASE } from '../infra/tokens.js';
+import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import { ASSIGNMENT_SELECT, permissionSetFrom } from '../rbac/rbac.service.js';
 import { AUTH_META } from './auth.decorators.js';
 import { CSRF_HEADER, SESSION_COOKIE } from './auth.types.js';
@@ -25,6 +27,7 @@ export class AuthGuard implements CanActivate {
     private readonly sessions: SessionService,
     @Inject(DATABASE) private readonly db: DatabaseClient,
     @Inject(API_ENV) private readonly env: ApiEnv,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private flag(ctx: ExecutionContext, key: string): boolean {
@@ -92,14 +95,23 @@ export class AuthGuard implements CanActivate {
         ctx.getHandler(),
         ctx.getClass(),
       ]) ?? [];
-    if (needsAdmin || required.length > 0 || this.flag(ctx, AUTH_META.tenant)) {
+    const feature = this.reflector.getAllAndOverride<Feature | undefined>(AUTH_META.feature, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (needsAdmin || required.length > 0 || feature || this.flag(ctx, AUTH_META.tenant)) {
       const tenantId = auth.session.activeTenantId;
       if (!tenantId) throw new AppError('TENANT_REQUIRED', 'Choose an organisation first', 403);
       // Re-checked every request: a suspended membership or tenant, or a removed role, takes effect immediately.
-      const membership = await withContext(this.db, { tenantId, userId: auth.user.id }, (tx) =>
-        tx.tenantMembership.findFirst({
-          where: { tenantId, userId: auth.user.id, status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
-          include: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
+      const { membership, entitlements } = await withContext(
+        this.db,
+        { tenantId, userId: auth.user.id },
+        async (tx) => ({
+          membership: await tx.tenantMembership.findFirst({
+            where: { tenantId, userId: auth.user.id, status: 'ACTIVE', tenant: { status: 'ACTIVE' } },
+            include: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
+          }),
+          entitlements: feature ? await this.entitlements.forTenant(tx) : undefined,
         }),
       );
       if (!membership) throw new AppError('FORBIDDEN', 'You no longer have access to this organisation', 403);
@@ -120,11 +132,14 @@ export class AuthGuard implements CanActivate {
       if (!required.every((code) => permissions.hasAnywhere(code))) {
         throw new AppError('FORBIDDEN', 'You do not have permission to do this', 403);
       }
+      // Plan check after access checks, so a member without permission learns nothing about the plan.
+      if (feature && entitlements) this.entitlements.assertFeature(entitlements, feature, unsafe);
       auth.tenant = {
         id: tenantId,
         membershipId: membership.id,
         isTenantAdmin: membership.isTenantAdmin,
         permissions,
+        ...(entitlements ? { entitlements } : {}),
       };
     }
 

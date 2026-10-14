@@ -45,6 +45,7 @@ model Tenant {
   roles         Role[]
   notifications Notification[]
   lookupValues  LookupValue[]
+  subscription  Subscription?
 
   @@map("tenant")
 }
@@ -561,4 +562,234 @@ model LookupValue {
   @@unique([tenantId, id])
   @@index([tenantId, list, status, sortOrder])
   @@map("lookup_value")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 5: plans, subscriptions and entitlements
+//
+// The catalogue (plan, plan_version, plan_price, addon, addon_price) is global platform data, written only
+// by platform operators. A published plan version is immutable — a database trigger refuses changes — so a
+// subscription always means what it meant when it was sold. Subscriptions and everything attached to them
+// are tenant-owned and isolated by row-level security.
+// ---------------------------------------------------------------------------------------------
+
+enum PlanVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+
+  @@map("plan_version_status")
+}
+
+enum BillingPeriod {
+  MONTHLY
+  ANNUAL
+
+  @@map("billing_period")
+}
+
+enum PricingModel {
+  PER_USER
+  PER_EMPLOYEE
+  FLAT
+
+  @@map("pricing_model")
+}
+
+enum AddonKind {
+  FEATURE
+  CAPACITY
+  SERVICE
+
+  @@map("addon_kind")
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+  EXPIRED
+
+  @@map("subscription_status")
+}
+
+enum EntitlementOverrideKind {
+  FEATURE
+  LIMIT
+
+  @@map("entitlement_override_kind")
+}
+
+/// A product plan, e.g. Pro. What it includes lives in its versions.
+model Plan {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  /// Stable code, e.g. PRO.
+  code        String        @unique
+  name        String
+  description String?
+  sortOrder   Int           @default(0) @map("sort_order")
+  status      RecordStatus  @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  versions    PlanVersion[]
+
+  @@map("plan")
+}
+
+/// One version of a plan's contents. Drafts are edited; published versions are frozen; retired versions are
+/// no longer sold but keep serving existing subscriptions.
+model PlanVersion {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  planId           String            @map("plan_id") @db.Uuid
+  version          Int
+  status           PlanVersionStatus @default(DRAFT)
+  /// Feature codes from @smart-hr/entitlements.
+  features         String[]
+  /// Limit code → number, or null for unlimited.
+  limits           Json              @default("{}")
+  trialDays        Int               @default(0) @map("trial_days")
+  graceDays        Int               @default(14) @map("grace_days")
+  supportLevel     String            @default("STANDARD") @map("support_level")
+  /// SAAS, DEDICATED, IN_HOUSE.
+  deploymentModels String[]          @map("deployment_models")
+  notes            String?
+  createdByUserId  String?           @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  publishedAt      DateTime?         @map("published_at") @db.Timestamptz(6)
+  retiredAt        DateTime?         @map("retired_at") @db.Timestamptz(6)
+  plan             Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  prices           PlanPrice[]
+  subscriptions    Subscription[]
+
+  @@unique([planId, version])
+  @@map("plan_version")
+}
+
+/// A list price for a plan version. Prices are set by operators; nothing is hard-coded.
+model PlanPrice {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  planVersionId String        @map("plan_version_id") @db.Uuid
+  /// ISO 4217.
+  currency      String        @db.Char(3)
+  billingPeriod BillingPeriod @map("billing_period")
+  pricingModel  PricingModel  @map("pricing_model")
+  amount        Decimal       @db.Decimal(19, 4)
+  planVersion   PlanVersion   @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([planVersionId, currency, billingPeriod])
+  @@map("plan_price")
+}
+
+/// Something sold on top of a plan: extra features, extra capacity, or a service (e.g. dedicated hosting).
+model Addon {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  code          String              @unique
+  name          String
+  description   String?
+  kind          AddonKind
+  features      String[]
+  /// Limit increments per unit of quantity; null makes the limit unlimited.
+  limits        Json                @default("{}")
+  status        RecordStatus        @default(ACTIVE)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  prices        AddonPrice[]
+  subscriptions SubscriptionAddon[]
+
+  @@map("addon")
+}
+
+model AddonPrice {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  addonId       String        @map("addon_id") @db.Uuid
+  currency      String        @db.Char(3)
+  billingPeriod BillingPeriod @map("billing_period")
+  pricingModel  PricingModel  @map("pricing_model")
+  amount        Decimal       @db.Decimal(19, 4)
+  addon         Addon         @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@unique([addonId, currency, billingPeriod])
+  @@map("addon_price")
+}
+
+/// The organisation's current subscription. Changes are recorded in subscription_event.
+model Subscription {
+  id                 String              @id @default(uuid(7)) @db.Uuid
+  tenantId           String              @unique @map("tenant_id") @db.Uuid
+  planVersionId      String              @map("plan_version_id") @db.Uuid
+  status             SubscriptionStatus
+  billingPeriod      BillingPeriod       @default(MONTHLY) @map("billing_period")
+  currency           String              @default("INR") @db.Char(3)
+  trialEndsAt        DateTime?           @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodStart DateTime?           @map("current_period_start") @db.Timestamptz(6)
+  /// Null = open-ended (e.g. an annual contract invoiced offline and renewed by an operator).
+  currentPeriodEnd   DateTime?           @map("current_period_end") @db.Timestamptz(6)
+  graceEndsAt        DateTime?           @map("grace_ends_at") @db.Timestamptz(6)
+  cancelledAt        DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  /// Billing provider, e.g. `manual`. Card data is never stored here.
+  provider           String              @default("manual")
+  providerRef        String?             @map("provider_ref")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  planVersion        PlanVersion         @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  addons             SubscriptionAddon[]
+
+  @@unique([tenantId, id])
+  @@map("subscription")
+}
+
+model SubscriptionAddon {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  subscriptionId String       @map("subscription_id") @db.Uuid
+  addonId        String       @map("addon_id") @db.Uuid
+  quantity       Int          @default(1)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  subscription   Subscription @relation(fields: [tenantId, subscriptionId], references: [tenantId, id], onDelete: Cascade)
+  addon          Addon        @relation(fields: [addonId], references: [id], onDelete: Restrict)
+
+  @@unique([subscriptionId, addonId])
+  @@index([tenantId])
+  @@map("subscription_addon")
+}
+
+/// A sales or support exception for one organisation: grant or remove a feature, or set a limit.
+model EntitlementOverride {
+  id              String                  @id @default(uuid(7)) @db.Uuid
+  tenantId        String                  @map("tenant_id") @db.Uuid
+  kind            EntitlementOverrideKind
+  key             String
+  /// FEATURE overrides: grant (true) or remove (false).
+  enabled         Boolean?
+  /// LIMIT overrides: exact value; null = unlimited.
+  value           Int?
+  reason          String
+  expiresAt       DateTime?               @map("expires_at") @db.Timestamptz(6)
+  createdByUserId String?                 @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  revokedAt       DateTime?               @map("revoked_at") @db.Timestamptz(6)
+
+  @@index([tenantId])
+  @@map("entitlement_override")
+}
+
+/// Append-only history of subscription changes: the billing audit trail.
+model SubscriptionEvent {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  tenantId      String              @map("tenant_id") @db.Uuid
+  action        String
+  fromStatus    SubscriptionStatus? @map("from_status")
+  toStatus      SubscriptionStatus? @map("to_status")
+  planVersionId String?             @map("plan_version_id") @db.Uuid
+  actorUserId   String?             @map("actor_user_id") @db.Uuid
+  details       Json                @default("{}")
+  occurredAt    DateTime            @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  @@index([tenantId, occurredAt])
+  @@map("subscription_event")
 }

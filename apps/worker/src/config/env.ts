@@ -18,6 +18,8 @@ export const workerEnvSchema = baseServerEnvSchema.extend({
   EMAIL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   /** How often to look for overdue approval tasks. 0 turns the sweep off. */
   APPROVAL_ESCALATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
+  /** How often to record expired subscriptions. 0 turns the sweep off. */
+  SUBSCRIPTION_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(3_600_000),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

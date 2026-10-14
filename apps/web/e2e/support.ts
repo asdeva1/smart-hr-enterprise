@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 /** Accounts created by the CI bootstrap step. Passwords are generated per run and passed in the environment. */
-export function account(name: 'ADMIN' | 'RESET' | 'MFA') {
+export function account(name: 'ADMIN' | 'RESET' | 'MFA' | 'PLATFORM') {
   const email = process.env[`E2E_${name}_EMAIL`];
   const password = process.env[`E2E_${name}_PASSWORD`];
   if (!email || !password) throw new Error(`E2E_${name}_EMAIL and E2E_${name}_PASSWORD must be set`);

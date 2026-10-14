@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import type { DynamicModule, Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { createLogger } from '@smart-hr/observability';
@@ -10,14 +11,18 @@ import { ProblemDetailsFilter } from './common/problem-details.filter.js';
 import { createValidationPipe } from './common/validation.js';
 import type { ApiEnv } from './config/env.js';
 
-export async function createApp(env: ApiEnv): Promise<NestExpressApplication> {
+/** `extraModules` lets integration tests mount probe controllers next to the real application. */
+export async function createApp(
+  env: ApiEnv,
+  extraModules: (Type | DynamicModule)[] = [],
+): Promise<NestExpressApplication> {
   const logger = createLogger({
     service: 'api',
     level: env.LOG_LEVEL,
     base: { deploymentMode: env.DEPLOYMENT_MODE },
   });
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env, logger), {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env, logger, extraModules), {
     bufferLogs: true,
   });
 

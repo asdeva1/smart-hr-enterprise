@@ -45,6 +45,12 @@ export interface DatabaseContext {
   tenantId?: string | null;
   /** Signed-in user, from the authenticated session. */
   userId?: string | null;
+  /**
+   * Marks the transaction as a platform-operator action (`app.platform_actor`), which some policies require —
+   * for example writing an organisation's subscription. Only set after verifying a platform administrator,
+   * or in the worker's own platform sweeps.
+   */
+  platformActor?: boolean;
 }
 
 /**
@@ -71,6 +77,9 @@ export async function withContext<T>(
     }
     if (userId !== null) {
       await tx.$executeRaw`SELECT set_config('app.user_id', ${userId}, true)`;
+    }
+    if (context.platformActor === true) {
+      await tx.$executeRaw`SELECT set_config('app.platform_actor', 'on', true)`;
     }
     return work(tx);
   });

@@ -29,6 +29,10 @@ export const NOTIFICATION_CATEGORIES = {
   'approval.decided': { label: 'My request was approved, rejected or sent back', emailDefault: true },
   'approval.overdue': { label: 'An approval I own is overdue', emailDefault: true },
   'approval.escalated': { label: 'An approval in my organisation is overdue (owners)', emailDefault: false },
+  'subscription.changed': {
+    label: 'My organisation’s subscription ended or changed (owners)',
+    emailDefault: true,
+  },
 } as const satisfies Record<string, { label: string; emailDefault: boolean }>;
 
 export type NotificationCategory = keyof typeof NOTIFICATION_CATEGORIES;

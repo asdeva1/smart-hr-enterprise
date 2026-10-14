@@ -28,6 +28,7 @@ import { AuditService, emailFingerprint } from '../audit/audit.service.js';
 import type { RequestMeta } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
 import { API_ENV, DATABASE } from '../infra/tokens.js';
+import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import { MailService } from '../notifications/mail.service.js';
 import { ASSIGNMENT_SELECT, permissionSetFrom } from '../rbac/rbac.service.js';
 import type { AuthContext, SessionView } from './auth.types.js';
@@ -58,6 +59,7 @@ export class AuthService {
     private readonly limiter: RateLimiterService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly entitlements: EntitlementsService,
   ) {
     this.secrets = new SecretBox(env.MFA_ENCRYPTION_KEYS, env.MFA_ENCRYPTION_KEY_ID);
   }
@@ -286,12 +288,13 @@ export class AuthService {
     const memberships = session.mfaPending ? [] : await this.activeMemberships(user.id);
     const active = memberships.find((m) => m.tenantId === session.activeTenantId);
     const activeDetail = active
-      ? await withContext(this.db, { tenantId: active.tenantId, userId: user.id }, (tx) =>
-          tx.tenantMembership.findUnique({
+      ? await withContext(this.db, { tenantId: active.tenantId, userId: user.id }, async (tx) => ({
+          membership: await tx.tenantMembership.findUnique({
             where: { id: active.id },
             select: { tenant: { select: { requireMfa: true } }, assignments: { select: ASSIGNMENT_SELECT } },
           }),
-        )
+          entitlements: await this.entitlements.forTenant(tx),
+        }))
       : null;
     return {
       user: {
@@ -303,7 +306,7 @@ export class AuthService {
       },
       mfaPending: session.mfaPending,
       activeTenant:
-        active && activeDetail
+        active && activeDetail?.membership
           ? {
               id: active.tenantId,
               name: active.tenant.name,
@@ -311,9 +314,17 @@ export class AuthService {
               permissions: permissionSetFrom(
                 active.tenantId,
                 active.isTenantAdmin,
-                activeDetail.assignments,
+                activeDetail.membership.assignments,
               ).codes(),
-              mfaEnrolmentRequired: activeDetail.tenant.requireMfa && user.mfaEnabledAt === null,
+              mfaEnrolmentRequired: activeDetail.membership.tenant.requireMfa && user.mfaEnabledAt === null,
+              plan: {
+                code: activeDetail.entitlements.plan?.code ?? null,
+                name: activeDetail.entitlements.plan?.name ?? null,
+                status: activeDetail.entitlements.status,
+                access: activeDetail.entitlements.access,
+                features: activeDetail.entitlements.features,
+                graceEndsAt: activeDetail.entitlements.graceEndsAt,
+              },
             }
           : null,
       memberships: memberships.map((m) => ({

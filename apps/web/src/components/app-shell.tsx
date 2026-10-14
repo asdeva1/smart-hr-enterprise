@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Building,
   Building2,
   CalendarDays,
   ChartColumn,
@@ -10,6 +11,7 @@ import {
   Layers,
   LayoutGrid,
   ListChecks,
+  PackageCheck,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -24,7 +26,7 @@ import {
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { SessionView } from '@/lib/api';
-import { can } from '@/lib/permissions';
+import { can, hasFeature } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { ShellHeader } from './shell-header';
 
@@ -36,6 +38,10 @@ interface NavItem {
   phase?: number;
   /** Hidden unless the member holds this permission. The API enforces it regardless. */
   permission?: string;
+  /** Hidden unless the organisation's plan includes this feature. The API enforces it regardless. */
+  feature?: string;
+  /** Only for platform administrators. */
+  platform?: boolean;
 }
 
 const NAV: { section?: string; items: NavItem[] }[] = [
@@ -85,11 +91,25 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         permission: 'approvals.manage',
       },
       { label: 'Audit log', icon: ScrollText, href: '/admin/audit', permission: 'audit.view' },
-      { label: 'AI assistant', icon: Sparkles, phase: 19 },
-      { label: 'Plans and billing', icon: Tag, phase: 5 },
+      { label: 'Plan and usage', icon: Tag, href: '/admin/plan', permission: 'settings.manage' },
+      { label: 'AI assistant', icon: Sparkles, phase: 20 },
+    ],
+  },
+  {
+    section: 'Platform',
+    items: [
+      { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
+      { label: 'Plan catalogue', icon: PackageCheck, href: '/platform/plans', platform: true },
     ],
   },
 ];
+
+function visible(item: NavItem, session: SessionView): boolean {
+  if (item.platform) return session.user.isPlatformAdmin;
+  if (item.permission && !can(session, item.permission)) return false;
+  if (item.feature && !hasFeature(session, item.feature)) return false;
+  return true;
+}
 
 export function AppShell({
   active,
@@ -114,7 +134,7 @@ export function AppShell({
         </div>
         {NAV.map((group) => ({
           ...group,
-          items: group.items.filter((item) => !item.permission || can(session, item.permission)),
+          items: group.items.filter((item) => visible(item, session)),
         }))
           .filter((group) => group.items.length > 0)
           .map((group) => (
@@ -160,8 +180,47 @@ export function AppShell({
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <ShellHeader session={session} />
+        <SubscriptionBanner session={session} />
         <main className="flex w-full max-w-[1280px] flex-col gap-6 px-8 pt-7 pb-12">{children}</main>
       </div>
+    </div>
+  );
+}
+
+/** Tells everyone when the organisation's subscription limits what they can do. Data is never hidden. */
+function SubscriptionBanner({ session }: { session: SessionView }) {
+  const plan = session.activeTenant?.plan;
+  if (!plan) return null;
+  const until = plan.graceEndsAt ? new Date(plan.graceEndsAt).toLocaleDateString('en-IN') : null;
+  const message =
+    plan.status === 'EXPIRED'
+      ? 'Your organisation’s subscription has ended. You can view and export everything, but paid modules can’t be changed until it is renewed.'
+      : plan.status === 'SUSPENDED'
+        ? 'Your organisation’s subscription is suspended. You can view and export everything, but paid modules can’t be changed.'
+        : plan.status === 'GRACE' || plan.status === 'PAST_DUE'
+          ? `Your organisation’s subscription needs attention. Paid modules keep working${until ? ` until ${until}` : ''}, then become read-only.`
+          : null;
+  if (!message) return null;
+  const severe = plan.access === 'READ_ONLY';
+  return (
+    <div
+      role="status"
+      className={cn(
+        'border-b px-8 py-2.5 text-[13px]',
+        severe
+          ? 'border-danger/30 bg-danger-soft text-danger'
+          : 'border-warning/30 bg-warning-soft text-warning',
+      )}
+    >
+      {message}
+      {can(session, 'settings.manage') && (
+        <>
+          {' '}
+          <Link href="/admin/plan" className="font-semibold underline">
+            See plan and usage
+          </Link>
+        </>
+      )}
     </div>
   );
 }

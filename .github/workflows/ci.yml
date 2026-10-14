@@ -82,7 +82,7 @@ jobs:
           gen() { openssl rand -base64 "$1" | tr -d '\n'; }
           key=$(gen 32); echo "::add-mask::$key"; echo "MFA_ENCRYPTION_KEYS=ci:$key" >> "$GITHUB_ENV"
           echo "MFA_ENCRYPTION_KEY_ID=ci" >> "$GITHUB_ENV"
-          for who in ADMIN RESET MFA; do
+          for who in ADMIN RESET MFA PLATFORM; do
             pw="e2e $(gen 18)"; echo "::add-mask::$pw"
             echo "E2E_${who}_PASSWORD=$pw" >> "$GITHUB_ENV"
             echo "E2E_${who}_EMAIL=$(echo "$who" | tr '[:upper:]' '[:lower:]')@e2e.smarthr.test" >> "$GITHUB_ENV"
@@ -119,6 +119,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Same post-migration steps every deployment runs; each must be idempotent, so each runs twice.
+      - name: Sync plan catalogue (twice, to prove idempotency)
+        run: |
+          node apps/api/dist/cli/sync-plan-catalogue.js
+          node apps/api/dist/cli/sync-plan-catalogue.js
+
       - name: Create end-to-end test accounts
         run: |
           for who in ADMIN RESET MFA; do
@@ -128,8 +134,12 @@ jobs:
             BOOTSTRAP_ADMIN_PASSWORD="${!pw_var}" \
               node apps/api/dist/cli/bootstrap.js
           done
+          # A platform operator with an organisation of their own, which the platform tests change freely.
+          BOOTSTRAP_TENANT_SLUG=e2e-platform BOOTSTRAP_TENANT_NAME="E2E Platform Org" \
+          BOOTSTRAP_ADMIN_EMAIL="$E2E_PLATFORM_EMAIL" BOOTSTRAP_ADMIN_NAME="E2E Operator" \
+          BOOTSTRAP_ADMIN_PASSWORD="$E2E_PLATFORM_PASSWORD" BOOTSTRAP_PLATFORM_ADMIN=true \
+            node apps/api/dist/cli/bootstrap.js
 
-      # Same post-migration step every deployment runs; must be idempotent.
       - name: Sync built-in roles (twice, to prove idempotency)
         run: |
           node apps/api/dist/cli/sync-system-roles.js

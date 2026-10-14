@@ -1,4 +1,5 @@
 import type { User, UserSession } from '@smart-hr/database';
+import type { Access, EffectiveStatus, Entitlements, Feature } from '@smart-hr/entitlements';
 import type { Permission, PermissionSet } from '@smart-hr/shared';
 
 /** The active tenant as verified by the guard for this request. */
@@ -8,6 +9,8 @@ export interface TenantContext {
   /** Organisation owner: holds every permission. */
   isTenantAdmin: boolean;
   permissions: PermissionSet;
+  /** Resolved by the guard on routes gated with @RequireFeature. */
+  entitlements?: Entitlements;
 }
 
 /** Attached to every request that carries a valid session. */
@@ -40,6 +43,15 @@ export interface SessionView {
     permissions: Permission[];
     /** The organisation requires two-step verification and this user has not turned it on yet. */
     mfaEnrolmentRequired: boolean;
+    /** The organisation's plan. For showing and hiding UI only; the API enforces entitlements itself. */
+    plan: {
+      code: string | null;
+      name: string | null;
+      status: EffectiveStatus;
+      access: Access;
+      features: Feature[];
+      graceEndsAt: string | null;
+    };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];
   /** When the session ends if idle from now. */

@@ -16,6 +16,7 @@
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@fontsource/ibm-plex-sans": "5.3.0",
     "@hookform/resolvers": "5.9.1",
+    "@smart-hr/entitlements": "workspace:*",
     "@smart-hr/validation": "workspace:*",
     "@tanstack/react-query": "5.104.2",
     "class-variance-authority": "0.7.1",

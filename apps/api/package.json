@@ -12,7 +12,8 @@
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "bootstrap:tenant": "node --env-file-if-exists=../../.env dist/cli/bootstrap.js",
-    "sync:system-roles": "node --env-file-if-exists=../../.env dist/cli/sync-system-roles.js"
+    "sync:system-roles": "node --env-file-if-exists=../../.env dist/cli/sync-system-roles.js",
+    "sync:plan-catalogue": "node --env-file-if-exists=../../.env dist/cli/sync-plan-catalogue.js"
   },
   "dependencies": {
     "@nestjs/common": "12.1.3",
@@ -22,6 +23,7 @@
     "@smart-hr/auth": "workspace:*",
     "@smart-hr/config": "workspace:*",
     "@smart-hr/database": "workspace:*",
+    "@smart-hr/entitlements": "workspace:*",
     "@smart-hr/observability": "workspace:*",
     "@smart-hr/shared": "workspace:*",
     "@smart-hr/validation": "workspace:*",

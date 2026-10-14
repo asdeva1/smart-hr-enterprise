@@ -11,6 +11,8 @@ export const NotificationJob = {
   OutboxSweep: 'email.outbox-sweep',
   /** Repeating: notifies people about overdue approval tasks. */
   EscalationSweep: 'approvals.escalation-sweep',
+  /** Repeating: records subscriptions whose trial or period (plus grace) has run out, and tells owners. */
+  SubscriptionExpirySweep: 'subscriptions.expiry-sweep',
 } as const;
 
 export interface EmailJobData {

@@ -8,10 +8,14 @@
  * Runs with DATABASE_MIGRATOR_URL because creating a tenant is a platform operation that the runtime role
  * cannot perform (tenant self-service onboarding arrives in Phase 6). Idempotent: an existing user keeps
  * their password unless BOOTSTRAP_RESET_PASSWORD=true. The password is never printed.
+ *
+ * A new organisation is put on BOOTSTRAP_PLAN (default ENTERPRISE) as an open-ended active subscription,
+ * typical for an in-house or dedicated installation. An organisation that already has a subscription keeps it.
  */
 import { checkPasswordPolicy, hashPassword, normalizeEmail, PASSWORD_PROBLEM_MESSAGES } from '@smart-hr/auth';
 import { loadEnv, z } from '@smart-hr/config';
 import { createDatabaseClient } from '@smart-hr/database';
+import { latestPublishedVersion, syncPlanCatalogue } from '../entitlements/catalogue-sync.js';
 import { RbacService } from '../rbac/rbac.service.js';
 
 const env = loadEnv(
@@ -24,6 +28,10 @@ const env = loadEnv(
     BOOTSTRAP_ADMIN_PASSWORD: z.string().min(1),
     BOOTSTRAP_PLATFORM_ADMIN: z.stringbool().default(false),
     BOOTSTRAP_RESET_PASSWORD: z.stringbool().default(false),
+    BOOTSTRAP_PLAN: z
+      .string()
+      .regex(/^[A-Z][A-Z0-9_]{1,29}$/)
+      .default('ENTERPRISE'),
   }),
 );
 
@@ -72,6 +80,33 @@ try {
     create: { tenantId: tenant.id, userId: user.id, isTenantAdmin: true },
     update: { isTenantAdmin: true, status: 'ACTIVE' },
   });
+
+  await syncPlanCatalogue(db);
+  const existingSubscription = await db.subscription.findUnique({ where: { tenantId: tenant.id } });
+  if (!existingSubscription) {
+    const version = await latestPublishedVersion(db, env.BOOTSTRAP_PLAN);
+    if (!version) {
+      process.stderr.write(`No published version of plan ${env.BOOTSTRAP_PLAN}\n`);
+      process.exit(1);
+    }
+    await db.subscription.create({
+      data: {
+        tenantId: tenant.id,
+        planVersionId: version.id,
+        status: 'ACTIVE',
+        currentPeriodStart: new Date(),
+      },
+    });
+    await db.subscriptionEvent.create({
+      data: {
+        tenantId: tenant.id,
+        action: 'start',
+        toStatus: 'ACTIVE',
+        planVersionId: version.id,
+        details: { source: 'bootstrap', plan: env.BOOTSTRAP_PLAN },
+      },
+    });
+  }
 
   await db.auditEvent.create({
     data: {

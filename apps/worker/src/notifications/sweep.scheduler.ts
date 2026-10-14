@@ -16,6 +16,7 @@ export class SweepScheduler implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     await this.schedule(NotificationJob.OutboxSweep, this.env.EMAIL_SWEEP_INTERVAL_MS);
     await this.schedule(NotificationJob.EscalationSweep, this.env.APPROVAL_ESCALATION_INTERVAL_MS);
+    await this.schedule(NotificationJob.SubscriptionExpirySweep, this.env.SUBSCRIPTION_SWEEP_INTERVAL_MS);
   }
 
   private async schedule(name: string, every: number): Promise<void> {

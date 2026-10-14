@@ -30,6 +30,7 @@ import {
 } from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
+import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
@@ -89,6 +90,7 @@ export class AccessService {
     private readonly rbac: RbacService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private run<T>(tenant: TenantContext, auth: AuthContext, work: (tx: TenantTransaction) => Promise<T>) {
@@ -281,6 +283,7 @@ export class AccessService {
     const membership = await this.run(tenant, auth, async (tx) => {
       const grants = [];
       for (const a of input.assignments) grants.push(await this.checkGrant(tx, tenant, a));
+      await this.entitlements.assertWithinLimit(tx, 'users.max');
       let created;
       try {
         created = await tx.tenantMembership.create({
@@ -452,6 +455,10 @@ export class AccessService {
         if (member.isTenantAdmin && !tenant.isTenantAdmin) {
           throw new ForbiddenError('Only organisation owners can suspend an owner');
         }
+      }
+
+      if (input.status === 'ACTIVE' && member.status !== 'ACTIVE') {
+        await this.entitlements.assertWithinLimit(tx, 'users.max');
       }
 
       const removesOwner =

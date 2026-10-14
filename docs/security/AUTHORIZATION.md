@@ -86,3 +86,16 @@ Deciding an approval needs no permission: being the task's assignee is the autho
 | Record-level visibility of people by scope | Phase 8  | Employee lists filtered by the viewer's company/branch/department scopes, with isolation tests |
 | Platform-operator cross-tenant access      | Phase 6  | Separate role and audited code path; never via tenant endpoints                                |
 | Email change with verification             | Phase 21 | Confirmation link to the new address and notice to the old one                                 |
+
+## Plans and the platform console
+
+Plan features are a second, independent gate after permissions: a route marked `@RequireFeature` needs both
+the permission and a plan that includes the feature. Expired or suspended organisations are read-only for
+gated modules. See [ADR 0003](../decisions/0003-plans-and-entitlements.md).
+
+Platform routes (`/v1/platform/*`) require a platform administrator and run their transactions as a
+_platform actor_. Row-level security lets only platform actors write subscriptions, add-ons, overrides and
+subscription history, and lets them list organisations only when no single organisation is in scope.
+
+After each deployment's migrations, also run `node apps/api/dist/cli/sync-plan-catalogue.js`. It creates
+missing starting plans and never changes plans that exist.

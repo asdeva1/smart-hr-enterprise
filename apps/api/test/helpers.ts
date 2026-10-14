@@ -12,6 +12,7 @@ import { Queue } from 'bullmq';
 import request from 'supertest';
 import { createApp } from '../src/app.factory.js';
 import { loadApiEnv, type ApiEnv } from '../src/config/env.js';
+import { latestPublishedVersion, syncPlanCatalogue } from '../src/entitlements/catalogue-sync.js';
 import { RbacService } from '../src/rbac/rbac.service.js';
 
 export const WEB_ORIGIN = 'http://localhost:3000';
@@ -27,7 +28,7 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
   return loadApiEnv({
     ...process.env,
     NODE_ENV: 'test',
-    LOG_LEVEL: 'silent',
+    LOG_LEVEL: process.env.TEST_LOG_LEVEL ?? 'silent',
     CORS_ORIGINS: WEB_ORIGIN,
     QUEUE_PREFIX: `test-${randomUUID().slice(0, 8)}`,
     MFA_ENCRYPTION_KEYS: `t1:${MFA_KEY}`,
@@ -41,8 +42,11 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
   });
 }
 
-export async function startApp(env: ApiEnv): Promise<NestExpressApplication> {
-  const app = await createApp(env);
+export async function startApp(
+  env: ApiEnv,
+  extraModules: Parameters<typeof createApp>[1] = [],
+): Promise<NestExpressApplication> {
+  const app = await createApp(env, extraModules);
   await app.init();
   return app;
 }
@@ -61,12 +65,50 @@ export class Fixtures {
 
   constructor(readonly db: DatabaseClient) {}
 
-  async tenant(name: string, status: 'ACTIVE' | 'SUSPENDED' = 'ACTIVE') {
+  /**
+   * An organisation. By default it is on an open-ended active ENTERPRISE subscription (everything included),
+   * so tests of other modules aren't affected by plans; pass `plan: null` for none.
+   */
+  async tenant(
+    name: string,
+    status: 'ACTIVE' | 'SUSPENDED' = 'ACTIVE',
+    options: { plan?: string | null } = {},
+  ) {
     const tenant = await this.db.tenant.create({
       data: { slug: `${name.toLowerCase()}-${this.run}-${this.tenants.length}`, name, status },
     });
     this.tenants.push(tenant.id);
+    const plan = options.plan === undefined ? 'ENTERPRISE' : options.plan;
+    if (plan) await this.subscribe(tenant.id, plan);
     return tenant;
+  }
+
+  /** Puts an organisation on a plan (replacing any subscription), as an operator would. */
+  async subscribe(
+    tenantId: string,
+    planCode: string,
+    data: {
+      status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'SUSPENDED' | 'EXPIRED';
+      trialEndsAt?: Date | null;
+      currentPeriodEnd?: Date | null;
+      graceEndsAt?: Date | null;
+    } = {},
+  ) {
+    await syncPlanCatalogue(this.db);
+    const version = await latestPublishedVersion(this.db, planCode);
+    if (!version) throw new Error(`No published version of ${planCode}`);
+    const fields = {
+      planVersionId: version.id,
+      status: data.status ?? 'ACTIVE',
+      trialEndsAt: data.trialEndsAt ?? null,
+      currentPeriodEnd: data.currentPeriodEnd ?? null,
+      graceEndsAt: data.graceEndsAt ?? null,
+    };
+    return this.db.subscription.upsert({
+      where: { tenantId },
+      create: { tenantId, ...fields },
+      update: fields,
+    });
   }
 
   async user(
@@ -145,6 +187,10 @@ export class Fixtures {
   async cleanup(): Promise<void> {
     // audit_event is append-only by design and keeps no foreign keys, so its rows stay.
     const inTenants = { tenantId: { in: this.tenants } };
+    await this.db.subscriptionAddon.deleteMany({ where: inTenants });
+    await this.db.subscription.deleteMany({ where: inTenants });
+    await this.db.entitlementOverride.deleteMany({ where: inTenants });
+    await this.db.subscriptionEvent.deleteMany({ where: inTenants });
     await this.db.notification.deleteMany({ where: inTenants });
     await this.db.lookupValue.deleteMany({ where: inTenants });
     await this.db.notificationPreference.deleteMany({ where: inTenants });

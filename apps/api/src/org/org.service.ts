@@ -24,6 +24,7 @@ import {
 } from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
+import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -89,6 +90,7 @@ export class OrgService {
     @Inject(DATABASE) private readonly db: DatabaseClient,
     private readonly rbac: RbacService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private run<T>(tenant: TenantContext, auth: AuthContext, work: (tx: TenantTransaction) => Promise<T>) {
@@ -118,6 +120,7 @@ export class OrgService {
     // A new legal entity is a tenant-wide decision.
     this.require(tenant, 'org.manage', this.rbac.tenantScope(tenant.id));
     return this.run(tenant, auth, async (tx) => {
+      await this.entitlements.assertWithinLimit(tx, 'companies.max');
       try {
         const company = await tx.company.create({
           data: { tenantId: tenant.id, ...input, legalName: input.legalName ?? null },
@@ -155,6 +158,9 @@ export class OrgService {
       const existing = await tx.company.findUnique({ where: { id }, select: COMPANY_SELECT });
       if (!existing) throw new NotFoundError('Company');
       this.require(tenant, 'org.manage', this.rbac.companyScopes(tenant.id, id));
+      if (input.status === 'ACTIVE' && existing.status !== 'ACTIVE') {
+        await this.entitlements.assertWithinLimit(tx, 'companies.max');
+      }
 
       if (input.status === 'ARCHIVED' && existing.status !== 'ARCHIVED') {
         const active =

@@ -112,6 +112,9 @@ export async function fetchReadiness(fetchImpl: typeof fetch = fetch): Promise<R
   throw new ApiUnreachableError();
 }
 
+export type SubscriptionEffectiveStatus =
+  'NONE' | 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'GRACE' | 'EXPIRED' | 'SUSPENDED';
+
 /** Shape returned by /v1/auth/session and the sign-in endpoints. */
 export interface SessionView {
   user: { id: string; email: string; displayName: string; isPlatformAdmin: boolean; mfaEnabled: boolean };
@@ -123,6 +126,15 @@ export interface SessionView {
     /** For showing and hiding UI only. The API checks permissions on every request. */
     permissions: string[];
     mfaEnrolmentRequired: boolean;
+    /** For showing and hiding UI only. The API enforces plan features on every request. */
+    plan: {
+      code: string | null;
+      name: string | null;
+      status: SubscriptionEffectiveStatus;
+      access: 'FULL' | 'READ_ONLY' | 'NONE';
+      features: string[];
+      graceEndsAt: string | null;
+    };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];
   expiresAt: string;

@@ -14,6 +14,7 @@ import type { WorkerEnv } from './config/env.js';
 import { NotificationsProcessor } from './notifications/notifications.processor.js';
 import { EscalationService } from './notifications/escalation.service.js';
 import { OutboxService } from './notifications/outbox.service.js';
+import { SubscriptionExpiryService } from './notifications/subscription-expiry.service.js';
 import { SweepScheduler } from './notifications/sweep.scheduler.js';
 import { DATABASE, MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, REDIS, SYSTEM_QUEUE, WORKER_ENV } from './queues.js';
 import { HeartbeatScheduler } from './system/heartbeat.scheduler.js';
@@ -63,6 +64,7 @@ export class WorkerModule implements OnApplicationShutdown {
         mailTransport,
         OutboxService,
         EscalationService,
+        SubscriptionExpiryService,
         SweepScheduler,
         SystemProcessor,
         HeartbeatScheduler,

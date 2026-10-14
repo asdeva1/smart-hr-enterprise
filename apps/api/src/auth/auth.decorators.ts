@@ -1,4 +1,5 @@
 import { applyDecorators, createParamDecorator, SetMetadata, type ExecutionContext } from '@nestjs/common';
+import type { Feature } from '@smart-hr/entitlements';
 import { AppError, type Permission } from '@smart-hr/shared';
 import type { AppRequest } from '../common/request-context.js';
 import type { AuthContext, TenantContext } from './auth.types.js';
@@ -11,6 +12,7 @@ export const AUTH_META = {
   platformAdmin: 'auth:platformAdmin',
   recentAuth: 'auth:recentAuth',
   permissions: 'auth:permissions',
+  feature: 'auth:feature',
 } as const;
 
 /** No session required. Every other route requires one by default. */
@@ -31,6 +33,14 @@ export const RequireTenantAdmin = () => SetMetadata(AUTH_META.tenantAdmin, true)
  */
 export const RequirePermission = (...permissions: [Permission, ...Permission[]]) =>
   applyDecorators(SetMetadata(AUTH_META.permissions, permissions), SetMetadata(AUTH_META.tenant, true));
+
+/**
+ * Requires the organisation's plan to include a feature (checked on every request, in the backend).
+ * Safe methods (GET) only need the feature; changes also need an active subscription — an expired or
+ * suspended organisation can still read and export. Implies @RequireTenant.
+ */
+export const RequireFeature = (feature: Feature) =>
+  applyDecorators(SetMetadata(AUTH_META.feature, feature), SetMetadata(AUTH_META.tenant, true));
 
 export const RequirePlatformAdmin = () => SetMetadata(AUTH_META.platformAdmin, true);
 
