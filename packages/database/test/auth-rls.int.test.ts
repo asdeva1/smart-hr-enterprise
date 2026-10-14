@@ -19,6 +19,7 @@ let tenantA: string;
 let tenantB: string;
 let alice: string; // member of A only
 let bob: string; // member of B only
+let carol: string; // member of both
 
 beforeAll(async () => {
   owner = createDatabaseClient({ connectionString: requireEnv('DATABASE_MIGRATOR_URL'), maxConnections: 2 });
@@ -28,10 +29,13 @@ beforeAll(async () => {
   tenantB = (await owner.tenant.create({ data: { slug: `b-${run}`, name: 'B' } })).id;
   alice = (await owner.user.create({ data: { email: `alice-${run}@test.local`, displayName: 'Alice' } })).id;
   bob = (await owner.user.create({ data: { email: `bob-${run}@test.local`, displayName: 'Bob' } })).id;
+  carol = (await owner.user.create({ data: { email: `carol-${run}@test.local`, displayName: 'Carol' } })).id;
   await owner.tenantMembership.createMany({
     data: [
       { tenantId: tenantA, userId: alice },
       { tenantId: tenantB, userId: bob },
+      { tenantId: tenantA, userId: carol },
+      { tenantId: tenantB, userId: carol },
     ],
   });
 });
@@ -39,7 +43,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (owner) {
     await owner.tenantMembership.deleteMany({ where: { tenantId: { in: [tenantA, tenantB] } } });
-    await owner.user.deleteMany({ where: { id: { in: [alice, bob] } } });
+    await owner.user.deleteMany({ where: { id: { in: [alice, bob, carol] } } });
     await owner.tenant.deleteMany({ where: { id: { in: [tenantA, tenantB] } } });
     await owner.$disconnect();
   }
@@ -56,7 +60,20 @@ describe('tenant memberships', () => {
 
   it('hides other tenants’ memberships inside a tenant', async () => {
     const inA = await withTenant(app, tenantA, (tx) => tx.tenantMembership.findMany());
-    expect(inA.map((m) => m.userId)).toEqual([alice]);
+    expect(inA.map((m) => m.userId).sort()).toEqual([alice, carol].sort());
+  });
+
+  it('hides even the user’s own memberships in other tenants once a tenant is chosen', async () => {
+    // Regression: member lists, owner counts and the members limit rely on RLS for the tenant filter.
+    const inA = await withContext(app, { tenantId: tenantA, userId: carol }, async (tx) => ({
+      memberships: await tx.tenantMembership.findMany({ where: { userId: carol } }),
+      tenants: await tx.tenant.findMany(),
+    }));
+    expect(inA.memberships.map((m) => m.tenantId)).toEqual([tenantA]);
+    expect(inA.tenants.map((t) => t.id)).toEqual([tenantA]);
+
+    const picker = await withContext(app, { userId: carol }, (tx) => tx.tenantMembership.findMany());
+    expect(picker.map((m) => m.tenantId).sort()).toEqual([tenantA, tenantB].sort());
   });
 
   it('refuses to create a membership in another tenant', async () => {
