@@ -127,6 +127,25 @@ describe('sign-in', () => {
     }
   });
 
+  it('rate-limits sign-in attempts from one address across different emails', async () => {
+    const limited = await startApp(
+      testEnv({ AUTH_RATE_LIMIT_LOGIN_PER_IP: '3', AUTH_LOCKOUT_THRESHOLD: '50' }),
+    );
+    try {
+      // Each attempt uses a different email (whose own limit is far away), so a refusal can only come from
+      // the per-address limit. Earlier tests share this address and Redis, so it may trip sooner than the 4th.
+      let last: request.Response | undefined;
+      for (let i = 0; i < 4; i++) {
+        const user = await member(`iplimit${i}`);
+        last = await new Browser(limited).login(user.email, 'definitely wrong pw');
+      }
+      expect(last!.status).toBe(429);
+      expect(last!.body.code).toBe('RATE_LIMITED');
+    } finally {
+      await limited.close();
+    }
+  });
+
   it('issues a new session on every sign-in and ends the previous one on that browser', async () => {
     const user = await member('fixation');
     const browser = new Browser(app);
