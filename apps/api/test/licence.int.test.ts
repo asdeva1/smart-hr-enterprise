@@ -180,6 +180,14 @@ describe('installing a licence', () => {
 
     // The same licence can't be installed twice.
     expect((await install(operator, text)).body.code).toBe('LICENCE_ALREADY_INSTALLED');
+
+    // The owner's plan page describes the licence, not the ignored subscription.
+    const page = (await owner.get('/v1/tenant/plan')).body;
+    expect(page).toMatchObject({
+      source: 'licence',
+      subscription: null,
+      licence: { customer: 'Acme Hospitals', supportLevel: 'PRIORITY', graceDays: 30, verified: true },
+    });
   });
 
   it('replaces the current licence and keeps the history', async () => {

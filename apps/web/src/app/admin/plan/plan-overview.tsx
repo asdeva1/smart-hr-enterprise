@@ -12,7 +12,9 @@ export function PlanOverview() {
   const plan = useTenantPlan();
   if (plan.isPending) return <Loading />;
   if (plan.isError) return <Alert tone="error">{errorMessage(plan.error)}</Alert>;
-  const { entitlements: e, subscription: sub, features, limits } = plan.data;
+  const { entitlements: e, subscription: sub, licence, features, limits } = plan.data;
+  const fromLicence = plan.data.source === 'licence';
+  const term = fromLicence ? 'licence' : 'subscription';
 
   const modules = new Map<string, typeof features>();
   for (const f of features) modules.set(f.module, [...(modules.get(f.module) ?? []), f]);
@@ -21,20 +23,30 @@ export function PlanOverview() {
     <>
       <PageHeader
         title="Plan and usage"
-        description="What your organisation’s subscription includes. Contact your Smart HR account manager to change it."
+        description={
+          fromLicence
+            ? 'What this installation’s licence includes. Your IT team installs licences from Smartclues.'
+            : 'What your organisation’s subscription includes. Contact your Smart HR account manager to change it.'
+        }
       />
 
       {e.access === 'READ_ONLY' && (
         <Alert tone="error">
-          Your subscription has {e.status === 'SUSPENDED' ? 'been suspended' : 'ended'}. Everyone can still
-          view and export data, but nothing in paid modules can be changed until it is renewed. Nothing has
-          been deleted.
+          {fromLicence && licence && !licence.verified
+            ? 'This installation’s licence can’t be verified.'
+            : `Your ${term} has ${e.status === 'SUSPENDED' ? 'been suspended' : 'ended'}.`}{' '}
+          Everyone can still view and export data, but nothing in paid modules can be changed until it is
+          renewed. Nothing has been deleted.
         </Alert>
       )}
       {(e.status === 'GRACE' || e.status === 'PAST_DUE') && (
         <Alert tone="warning">
-          {e.status === 'GRACE' ? 'Your trial or billing period has ended.' : 'A payment is overdue.'} Paid
-          modules keep working until {formatDate(e.graceEndsAt)}, then become read-only.
+          {fromLicence
+            ? 'This installation’s licence has ended.'
+            : e.status === 'GRACE'
+              ? 'Your trial or billing period has ended.'
+              : 'A payment is overdue.'}{' '}
+          Paid modules keep working until {formatDate(e.graceEndsAt)}, then become read-only.
         </Alert>
       )}
 
@@ -44,10 +56,24 @@ export function PlanOverview() {
             <h2 id="plan-summary" className="text-lg font-semibold">
               {e.plan ? `${e.plan.name} plan` : 'No plan'}
             </h2>
-            {e.plan && <span className="text-[13px] text-muted-foreground">Version {e.plan.version}</span>}
+            {e.plan && !fromLicence && (
+              <span className="text-[13px] text-muted-foreground">Version {e.plan.version}</span>
+            )}
+            {licence && (
+              <span className="text-[13px] text-muted-foreground">Licensed to {licence.customer}</span>
+            )}
           </div>
           <Badge tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Badge>
         </div>
+        {licence && (
+          <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 text-sm">
+            <Detail label="Licence expires">{formatDate(licence.expiresAt)}</Detail>
+            <Detail label="Grace after expiry">{`${licence.graceDays} days`}</Detail>
+            <Detail label="Support">
+              {licence.supportLevel.charAt(0) + licence.supportLevel.slice(1).toLowerCase()}
+            </Detail>
+          </dl>
+        )}
         {sub && (
           <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 text-sm">
             {sub.storedStatus === 'TRIAL' ? (

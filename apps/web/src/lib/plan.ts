@@ -20,7 +20,16 @@ export interface Entitlements {
 }
 
 export interface TenantPlanView {
+  /** In-house installations take everything from the licence and have no subscription. */
+  source: 'subscription' | 'licence';
   entitlements: Entitlements;
+  licence: {
+    customer: string;
+    supportLevel: string;
+    expiresAt: string;
+    graceDays: number;
+    verified: boolean;
+  } | null;
   subscription: {
     storedStatus: StoredSubscriptionStatus;
     billingPeriod: BillingPeriod;

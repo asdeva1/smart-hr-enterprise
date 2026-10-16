@@ -1,3 +1,5 @@
+'use client';
+
 import {
   BookOpen,
   Building,
@@ -12,6 +14,7 @@ import {
   KeyRound,
   Layers,
   LayoutGrid,
+  Menu,
   ListChecks,
   PackageCheck,
   Palette,
@@ -24,13 +27,15 @@ import {
   UserCog,
   Users,
   Wallet,
+  X,
   Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { SessionView } from '@/lib/api';
 import { can, hasFeature } from '@/lib/permissions';
+import { formatDate } from '@/lib/plan';
 import { cn, initials } from '@/lib/utils';
 import { ShellHeader } from './shell-header';
 
@@ -140,6 +145,7 @@ export function AppShell({
   session: SessionView;
   children: ReactNode;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const tenant = session.activeTenant;
   const brandName = tenant?.branding.name ?? tenant?.name ?? 'Smart HR';
   // The API only accepts colours dark enough for white text, so overriding the primary token stays accessible.
@@ -150,9 +156,9 @@ export function AppShell({
     <div className="flex min-h-screen flex-wrap" style={brandStyle}>
       <nav
         aria-label="Main"
-        className="flex flex-[1_1_220px] flex-col gap-0.5 bg-sidebar px-3 pt-5 pb-6 text-sidebar-foreground min-[880px]:max-w-[244px]"
+        className="flex flex-[1_1_220px] flex-col gap-0.5 bg-sidebar px-3 pt-3 pb-3 text-sidebar-foreground min-[880px]:max-w-[244px] min-[880px]:pt-5 min-[880px]:pb-6"
       >
-        <div className="flex items-center gap-2.5 px-2.5 pb-4 text-[15px] font-bold text-white">
+        <div className="flex items-center gap-2.5 px-2.5 py-1 text-[15px] font-bold text-white min-[880px]:pt-0 min-[880px]:pb-4">
           {tenant?.branding.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- an organisation-supplied https URL, not a bundled asset
             <img
@@ -167,52 +173,72 @@ export function AppShell({
             </span>
           )}
           <span className="min-w-0 truncate">{brandName}</span>
+          {/* Below 880px the menu folds away behind this button, so the page starts at the top of the screen. */}
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="main-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="ml-auto flex min-h-10 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-semibold hover:bg-sidebar-accent/60 focus-visible:outline-2 focus-visible:outline-white min-[880px]:hidden"
+          >
+            {menuOpen ? (
+              <X aria-hidden="true" className="size-[18px]" />
+            ) : (
+              <Menu aria-hidden="true" className="size-[18px]" />
+            )}
+            Menu
+          </button>
         </div>
-        {NAV.map((group) => ({
-          ...group,
-          items: group.items.filter((item) => visible(item, session)),
-        }))
-          .filter((group) => group.items.length > 0)
-          .map((group) => (
-            <div key={group.section ?? 'top'} className="flex flex-col gap-0.5">
-              {group.section && (
-                <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.08em] text-sidebar-muted uppercase">
-                  {group.section}
-                </div>
-              )}
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.label === active;
-                const content = (
-                  <>
-                    <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
-                    {item.label}
-                    {!item.href && item.phase !== undefined && (
-                      <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
-                    )}
-                  </>
-                );
-                const classes = cn(
-                  'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
-                  isActive && 'bg-sidebar-accent font-semibold text-white',
-                );
-                return item.href ? (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
-                    {content}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+        <div
+          id="main-menu"
+          className={cn('flex-col gap-0.5 min-[880px]:flex', menuOpen ? 'flex pb-3' : 'hidden')}
+        >
+          {NAV.map((group) => ({
+            ...group,
+            items: group.items.filter((item) => visible(item, session)),
+          }))
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <div key={group.section ?? 'top'} className="flex flex-col gap-0.5">
+                {group.section && (
+                  <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.08em] text-sidebar-muted uppercase">
+                    {group.section}
+                  </div>
+                )}
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.label === active;
+                  const content = (
+                    <>
+                      <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+                      {item.label}
+                      {!item.href && item.phase !== undefined && (
+                        <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
+                      )}
+                    </>
+                  );
+                  const classes = cn(
+                    'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
+                    isActive && 'bg-sidebar-accent font-semibold text-white',
+                  );
+                  return item.href ? (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
+                    >
+                      {content}
+                    </Link>
+                  ) : (
+                    <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
+                      {content}
+                    </span>
+                  );
+                })}
+              </div>
+            ))}
+        </div>
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <ShellHeader session={session} />
@@ -251,7 +277,7 @@ function SubscriptionBanner({ session }: { session: SessionView }) {
   const plan = session.activeTenant?.plan;
   if (!plan) return null;
   if (session.deploymentMode === 'inhouse') return <LicenceBanner session={session} />;
-  const until = plan.graceEndsAt ? new Date(plan.graceEndsAt).toLocaleDateString('en-IN') : null;
+  const until = plan.graceEndsAt ? formatDate(plan.graceEndsAt) : null;
   const message =
     plan.status === 'EXPIRED'
       ? 'Your organisation’s subscription has ended. You can view and export everything, but paid modules can’t be changed until it is renewed.'
@@ -289,7 +315,7 @@ function SubscriptionBanner({ session }: { session: SessionView }) {
 function LicenceBanner({ session }: { session: SessionView }) {
   const plan = session.activeTenant?.plan;
   if (!plan) return null;
-  const until = plan.graceEndsAt ? new Date(plan.graceEndsAt).toLocaleDateString('en-IN') : null;
+  const until = plan.graceEndsAt ? formatDate(plan.graceEndsAt) : null;
   const message =
     plan.status === 'NONE'
       ? session.user.isPlatformAdmin

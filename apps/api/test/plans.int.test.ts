@@ -183,6 +183,7 @@ describe('limits', () => {
     const org = await organisation('Usage', 'PRO');
     const plan = await org.owner.get('/v1/tenant/plan');
     expect(plan.status).toBe(200);
+    expect(plan.body).toMatchObject({ source: 'subscription', licence: null });
     const users = (plan.body as { limits: { code: string }[] }).limits.find((l) => l.code === 'users.max');
     expect(users).toMatchObject({ limit: 300, used: 1 });
   });
