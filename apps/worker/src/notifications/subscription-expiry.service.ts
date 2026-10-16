@@ -25,6 +25,11 @@ export class SubscriptionExpiryService {
     const expired = await this.db.$transaction(async (tx) => {
       // A platform action: the database only lets platform actors write subscriptions.
       await tx.$executeRaw`SELECT set_config('app.platform_actor', 'on', true)`;
+      // One sweep at a time across every worker replica: an overlapping run skips its turn instead of
+      // expiring (and notifying about) the same subscriptions twice.
+      const lock = await tx.$queryRaw<{ locked: boolean }[]>`
+        SELECT pg_try_advisory_xact_lock(hashtext('subscription-expiry-sweep')) AS locked`;
+      if (!lock[0]?.locked) return 0;
       const due = await tx.$queryRaw<{ tenant_id: string }[]>`
         SELECT tenant_id FROM subscriptions_due_to_expire(${BATCH}::int)`;
       let count = 0;
@@ -32,7 +37,12 @@ export class SubscriptionExpiryService {
         await setTenantContext(tx, tenantId);
         const before = await tx.subscription.findFirst({ where: { tenantId } });
         if (!before || before.status === 'EXPIRED' || before.status === 'SUSPENDED') continue;
-        await tx.subscription.update({ where: { id: before.id }, data: { status: 'EXPIRED' } });
+        // Conditional on the status just read, so the history and notices are written exactly once.
+        const changed = await tx.subscription.updateMany({
+          where: { id: before.id, status: before.status },
+          data: { status: 'EXPIRED' },
+        });
+        if (changed.count !== 1) continue;
         await tx.subscriptionEvent.create({
           data: {
             tenantId,

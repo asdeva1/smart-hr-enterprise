@@ -111,7 +111,9 @@ describe('subscription expiry sweep', () => {
     const pastDue = await organisation('pastdue', { status: 'PAST_DUE', graceEndsAt: days(-1) });
     const pastDueGrace = await organisation('pastduegrace', { status: 'PAST_DUE', graceEndsAt: days(2) });
 
-    // Other test files may have their own due subscriptions; sweep until nothing of ours is left.
+    // Other test files may have their own due subscriptions; sweep until nothing of ours is left. The
+    // first round runs three sweeps at once, as several worker replicas (or this app's own timer) would.
+    await Promise.all([sweeper.sweep(), sweeper.sweep(), sweeper.sweep()]);
     for (let i = 0; i < 5; i++) await sweeper.sweep();
 
     for (const org of [lapsedTrial, lapsedPaid, cancelled, pastDue]) {
