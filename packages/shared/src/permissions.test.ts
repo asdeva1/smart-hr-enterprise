@@ -65,3 +65,24 @@ describe('catalogue', () => {
     expect(isPermission('payroll.finalize')).toBe(false);
   });
 });
+
+describe('scopesFor', () => {
+  const tenant = 't1';
+  it('is ALL for owners and tenant-wide holders, else the held scopes', () => {
+    expect(new PermissionSet(tenant, true).scopesFor('employees.view')).toBe('ALL');
+    const wide = new PermissionSet(tenant, false, [
+      { permissions: ['employees.view'], scope: { type: 'TENANT', id: tenant } },
+    ]);
+    expect(wide.scopesFor('employees.view')).toBe('ALL');
+    const narrow = new PermissionSet(tenant, false, [
+      { permissions: ['employees.view'], scope: { type: 'BRANCH', id: 'b1' } },
+      { permissions: ['employees.view'], scope: { type: 'DEPARTMENT', id: 'd1' } },
+      { permissions: ['org.view'], scope: { type: 'COMPANY', id: 'c1' } },
+    ]);
+    expect(narrow.scopesFor('employees.view')).toEqual([
+      { type: 'BRANCH', id: 'b1' },
+      { type: 'DEPARTMENT', id: 'd1' },
+    ]);
+    expect(narrow.scopesFor('employees.manage')).toEqual([]);
+  });
+});

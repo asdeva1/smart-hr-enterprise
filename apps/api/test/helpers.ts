@@ -17,6 +17,7 @@ import { RbacService } from '../src/rbac/rbac.service.js';
 
 export const WEB_ORIGIN = 'http://localhost:3000';
 export const MFA_KEY = randomBytes(32).toString('base64');
+export const DATA_KEY = randomBytes(32).toString('base64');
 
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -33,6 +34,8 @@ export function testEnv(overrides: Record<string, string> = {}): ApiEnv {
     QUEUE_PREFIX: `test-${randomUUID().slice(0, 8)}`,
     MFA_ENCRYPTION_KEYS: `t1:${MFA_KEY}`,
     MFA_ENCRYPTION_KEY_ID: 't1',
+    DATA_ENCRYPTION_KEYS: `d1:${DATA_KEY}`,
+    DATA_ENCRYPTION_KEY_ID: 'd1',
     // Generous defaults so unrelated tests don't trip limits; limit tests lower them explicitly.
     AUTH_RATE_LIMIT_LOGIN_PER_IP: '10000',
     AUTH_RATE_LIMIT_LOGIN_PER_EMAIL: '1000',
@@ -143,7 +146,7 @@ export class Fixtures {
   }
 
   /** A built-in role of the tenant (created on first use, as the bootstrap command does). */
-  async systemRole(tenantId: string, key: 'org_admin' | 'access_admin' | 'auditor' | 'member') {
+  async systemRole(tenantId: string, key: 'org_admin' | 'access_admin' | 'hr_admin' | 'auditor' | 'member') {
     await new RbacService().ensureSystemRoles(this.db, tenantId);
     const role = await this.db.role.findUniqueOrThrow({ where: { tenantId_key: { tenantId, key } } });
     return role.id;
@@ -197,6 +200,12 @@ export class Fixtures {
     await this.db.entitlementOverride.deleteMany({ where: inTenants });
     await this.db.subscriptionEvent.deleteMany({ where: inTenants });
     await this.db.notification.deleteMany({ where: inTenants });
+    await this.db.emergencyContact.deleteMany({ where: inTenants });
+    await this.db.employeeEvent.deleteMany({ where: inTenants });
+    await this.db.employeeSensitive.deleteMany({ where: inTenants });
+    await this.db.employee.updateMany({ where: inTenants, data: { managerId: null } });
+    await this.db.employee.deleteMany({ where: inTenants });
+    await this.db.employeeCounter.deleteMany({ where: inTenants });
     await this.db.lookupValue.deleteMany({ where: inTenants });
     await this.db.notificationPreference.deleteMany({ where: inTenants });
     await this.db.approvalTask.deleteMany({ where: inTenants });

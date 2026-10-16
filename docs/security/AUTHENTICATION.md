@@ -81,6 +81,7 @@ Never recorded: passwords, reset tokens, session or CSRF tokens, TOTP secrets or
 | `AUTH_COOKIE_SECURE`                              | true in production               | Cannot be false in production              |
 | `PASSWORD_RESET_TTL_MINUTES`                      | 30                               | Reset link lifetime                        |
 | `MFA_ENCRYPTION_KEYS` / `MFA_ENCRYPTION_KEY_ID`   | required                         | `id:base64key` list and the current key id |
+| `DATA_ENCRYPTION_KEYS` / `DATA_ENCRYPTION_KEY_ID` | required                         | Same format; must not reuse an MFA key     |
 
 ## Done in Phase 3
 

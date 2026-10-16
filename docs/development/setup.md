@@ -35,6 +35,7 @@ To start over, `docker compose down -v` deletes the local volumes. This only eve
 pnpm install
 # Put an MFA encryption key into .env (MFA_ENCRYPTION_KEYS) — the API refuses to start without one:
 echo "MFA_ENCRYPTION_KEYS=local:$(openssl rand -base64 32)" >> .env
+echo "DATA_ENCRYPTION_KEYS=local:$(openssl rand -base64 32)" >> .env
 pnpm db:migrate:deploy
 pnpm build
 ```

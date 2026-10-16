@@ -12,7 +12,7 @@ export function Field({
   id: string;
   label: string;
   error?: string | undefined;
-  hint?: string;
+  hint?: string | undefined;
   action?: ReactNode;
   children: ReactNode;
 }) {

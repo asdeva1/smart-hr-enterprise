@@ -88,6 +88,8 @@ jobs:
           gen() { openssl rand -base64 "$1" | tr -d '\n'; }
           key=$(gen 32); echo "::add-mask::$key"; echo "MFA_ENCRYPTION_KEYS=ci:$key" >> "$GITHUB_ENV"
           echo "MFA_ENCRYPTION_KEY_ID=ci" >> "$GITHUB_ENV"
+          key=$(gen 32); echo "::add-mask::$key"; echo "DATA_ENCRYPTION_KEYS=ci:$key" >> "$GITHUB_ENV"
+          echo "DATA_ENCRYPTION_KEY_ID=ci" >> "$GITHUB_ENV"
           for who in ADMIN RESET MFA PLATFORM; do
             pw="e2e $(gen 18)"; echo "::add-mask::$pw"
             echo "E2E_${who}_PASSWORD=$pw" >> "$GITHUB_ENV"

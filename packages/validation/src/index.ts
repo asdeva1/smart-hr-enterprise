@@ -7,3 +7,4 @@ export * from './master-data.js';
 export * from './plans.js';
 export * from './onboarding.js';
 export * from './licence.js';
+export * from './employees.js';

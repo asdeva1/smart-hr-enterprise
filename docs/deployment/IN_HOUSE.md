@@ -52,7 +52,7 @@ Migrations only move forward. To go back a version, restore the backup taken in 
 
 `./backup.sh /secure/backups` writes a compressed `pg_dump` (custom format). Schedule it daily, copy the
 files off the server, and keep them encrypted: they contain personal data. Back up `.env` separately and
-securely — `MFA_ENCRYPTION_KEYS` is needed to read two-step verification secrets after a restore.
+securely: `MFA_ENCRYPTION_KEYS` and `DATA_ENCRYPTION_KEYS` are needed to read two-step verification secrets, identity numbers and bank details after a restore.
 
 ## Restoring
 

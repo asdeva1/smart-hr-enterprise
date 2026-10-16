@@ -57,6 +57,9 @@ beforeAll(async () => {
 afterAll(async () => {
   if (owner) {
     const tenants = { tenantId: { in: [tenantA, tenantB] } };
+    await owner.employeeEvent.deleteMany({ where: tenants });
+    await owner.employee.deleteMany({ where: tenants });
+    await owner.lookupValue.deleteMany({ where: tenants });
     await owner.roleAssignment.deleteMany({ where: tenants });
     await owner.rolePermission.deleteMany({ where: tenants });
     await owner.role.deleteMany({ where: tenants });
@@ -267,5 +270,69 @@ describe('installation licence', () => {
     );
     expect(String(del)).toMatch(/permission denied/i);
     await owner.installationLicence.deleteMany({ where: { licenceId: data.licenceId } });
+  });
+});
+
+describe('employee records', () => {
+  it('isolates employees by tenant, checks reference lists and keeps history append-only', async () => {
+    const grade = await owner.lookupValue.create({
+      data: { tenantId: tenantA, list: 'grade', code: `G-${run}`, name: 'G' },
+    });
+    const designation = await owner.lookupValue.create({
+      data: { tenantId: tenantA, list: 'designation', code: `D-${run}`, name: 'D' },
+    });
+    const employee = await withTenant(app, tenantA, (tx) =>
+      tx.employee.create({
+        data: {
+          tenantId: tenantA,
+          employeeCode: `E-${run}`,
+          firstName: 'A',
+          lastName: 'B',
+          companyId: companyA,
+          designationId: designation.id,
+          dateOfJoining: new Date('2026-01-01'),
+        },
+      }),
+    );
+    expect(await withTenant(app, tenantB, (tx) => tx.employee.count())).toBe(0);
+
+    // A grade can't be stored as a designation, and nobody manages themself.
+    const wrongList = await expectRejected(
+      withTenant(app, tenantA, (tx) =>
+        tx.employee.update({ where: { id: employee.id }, data: { designationId: grade.id } }),
+      ),
+    );
+    expect(String(wrongList)).toMatch(/must reference a designation value/);
+    const self = await expectRejected(
+      withTenant(app, tenantA, (tx) =>
+        tx.employee.update({ where: { id: employee.id }, data: { managerId: employee.id } }),
+      ),
+    );
+    expect(String(self)).toMatch(/own manager/);
+
+    // Another tenant's company can't be referenced, even by id.
+    const crossTenant = await expectRejected(
+      withTenant(app, tenantA, (tx) =>
+        tx.employee.update({ where: { id: employee.id }, data: { companyId: companyB } }),
+      ),
+    );
+    expect(String(crossTenant)).toMatch(/foreign key|violates/i);
+
+    await withTenant(app, tenantA, (tx) =>
+      tx.employeeEvent.create({
+        data: {
+          tenantId: tenantA,
+          employeeId: employee.id,
+          kind: 'JOINED',
+          effectiveDate: new Date('2026-01-01'),
+        },
+      }),
+    );
+    const edit = await expectRejected(
+      withTenant(app, tenantA, (tx) => tx.$executeRaw`UPDATE employee_event SET note = 'x'`),
+    );
+    expect(String(edit)).toMatch(/permission denied/i);
+    const del = await expectRejected(withTenant(app, tenantA, (tx) => tx.$executeRaw`DELETE FROM employee`));
+    expect(String(del)).toMatch(/permission denied/i);
   });
 });

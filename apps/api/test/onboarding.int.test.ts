@@ -3,6 +3,7 @@
  * offboarding (read-only + export), archiving, branding, data export, self-service sign-up and platform
  * operators — plus the database rules underneath.
  */
+import { SYSTEM_ROLES } from '@smart-hr/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createDatabaseClient, withContext } from '@smart-hr/database';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -81,7 +82,9 @@ describe('platform provisioning', () => {
       where: { tenantId: res.body.id, userId: user.id },
     });
     expect(membership.isTenantAdmin).toBe(true);
-    expect(await db.role.count({ where: { tenantId: res.body.id, isSystem: true } })).toBe(4);
+    expect(await db.role.count({ where: { tenantId: res.body.id, isSystem: true } })).toBe(
+      SYSTEM_ROLES.length,
+    );
     expect((await db.subscription.findUniqueOrThrow({ where: { tenantId: res.body.id } })).status).toBe(
       'TRIAL',
     );

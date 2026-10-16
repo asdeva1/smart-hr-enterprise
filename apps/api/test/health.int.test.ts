@@ -8,7 +8,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.factory.js';
 import { loadApiEnv } from '../src/config/env.js';
-import { MFA_KEY } from './helpers.js';
+import { DATA_KEY, MFA_KEY } from './helpers.js';
 
 const baseEnv = {
   ...process.env,
@@ -17,6 +17,8 @@ const baseEnv = {
   CORS_ORIGINS: 'http://localhost:3000',
   MFA_ENCRYPTION_KEYS: `t1:${MFA_KEY}`,
   MFA_ENCRYPTION_KEY_ID: 't1',
+  DATA_ENCRYPTION_KEYS: `d1:${DATA_KEY}`,
+  DATA_ENCRYPTION_KEY_ID: 'd1',
 };
 
 describe('API with healthy dependencies', () => {

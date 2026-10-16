@@ -81,10 +81,9 @@ Deciding an approval needs no permission: being the task's assignee is the autho
 
 ## Not yet implemented
 
-| Item                                       | Planned  | Acceptance criteria                                                                            |
-| ------------------------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
-| Record-level visibility of people by scope | Phase 8  | Employee lists filtered by the viewer's company/branch/department scopes, with isolation tests |
-| Email change with verification             | Phase 21 | Confirmation link to the new address and notice to the old one                                 |
+| Item                           | Planned  | Acceptance criteria                                            |
+| ------------------------------ | -------- | -------------------------------------------------------------- |
+| Email change with verification | Phase 21 | Confirmation link to the new address and notice to the old one |
 
 ## Plans and the platform console
 
@@ -108,3 +107,10 @@ other transaction. While an organisation is offboarding, the guard refuses every
 no access at all. Granting or revoking operator access needs a recent sign-in; operators cannot revoke
 themselves, and the last operator cannot be removed. The full data export is limited to organisation owners
 with a recent sign-in and is audited. See [ADR 0008](../decisions/0008-tenant-onboarding-and-lifecycle.md).
+
+## Employee records
+
+Employee lists and records are filtered to the scopes where the viewer holds `employees.view`; a department
+scope covers its sub-departments. Identity and bank details need their own permissions, are encrypted under a
+key ring separate from MFA, and full numbers are shown only after a recent password entry, with an audit
+entry. See [EMPLOYEES.md](../modules/EMPLOYEES.md).

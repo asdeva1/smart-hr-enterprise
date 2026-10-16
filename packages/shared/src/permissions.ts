@@ -13,6 +13,11 @@ export const PERMISSIONS = {
   'audit.view': { module: 'audit', label: 'View the audit log' },
   'approvals.view_all': { module: 'approvals', label: 'See every approval request in their scope' },
   'approvals.manage': { module: 'approvals', label: 'Configure approval policies' },
+  'employees.view': { module: 'employees', label: 'View employee records in their part of the organisation' },
+  'employees.manage': { module: 'employees', label: 'Add employees and change their records' },
+  'employees.lifecycle': { module: 'employees', label: 'Record transfers, promotions, notice and exits' },
+  'employees.sensitive.view': { module: 'employees', label: 'See identity documents and bank details' },
+  'employees.sensitive.manage': { module: 'employees', label: 'Change identity documents and bank details' },
 } as const satisfies Record<string, { module: string; label: string }>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -25,6 +30,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   settings: 'Settings',
   audit: 'Audit',
   approvals: 'Approvals',
+  employees: 'Employees',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -53,10 +59,24 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     permissions: ['org.view', 'access.view', 'access.manage', 'audit.view'],
   },
   {
+    key: 'hr_admin',
+    name: 'HR administrator',
+    description: 'Maintains employee records, their history and personal details, and HR reference lists.',
+    permissions: [
+      'org.view',
+      'master_data.manage',
+      'employees.view',
+      'employees.manage',
+      'employees.lifecycle',
+      'employees.sensitive.view',
+      'employees.sensitive.manage',
+    ],
+  },
+  {
     key: 'auditor',
     name: 'Auditor',
     description: 'Read-only access to structure, access and the audit log.',
-    permissions: ['org.view', 'access.view', 'audit.view', 'approvals.view_all'],
+    permissions: ['org.view', 'access.view', 'audit.view', 'approvals.view_all', 'employees.view'],
   },
   {
     key: 'member',
@@ -110,6 +130,17 @@ export class PermissionSet {
         ? scope.id === this.tenantId
         : targetScopes.some((target) => target.type === scope.type && target.id === scope.id),
     );
+  }
+
+  /**
+   * Where a permission is held, for filtering lists: 'ALL' when tenant-wide (or owner), otherwise the
+   * scopes. Department scopes cover their sub-departments; callers expand them.
+   */
+  scopesFor(code: Permission): 'ALL' | ScopeRef[] {
+    if (this.isOwner) return 'ALL';
+    const held = this.grants.get(code) ?? [];
+    if (held.some((s) => s.type === 'TENANT' && s.id === this.tenantId)) return 'ALL';
+    return held.filter((s) => s.type !== 'TENANT');
   }
 
   /** Tenant-wide holding, needed for actions that are not tied to one part of the organisation. */

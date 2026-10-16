@@ -7,6 +7,7 @@ import { AccessModule } from './access/access.module.js';
 import { ApprovalsModule } from './approvals/approvals.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { EmployeesModule } from './employees/employees.module.js';
 import { EntitlementsModule } from './entitlements/entitlements.module.js';
 import type { ApiEnv } from './config/env.js';
 import { HealthController } from './health/health.controller.js';
@@ -55,6 +56,7 @@ export class AppModule {
         AccessModule,
         ApprovalsModule,
         MasterDataModule,
+        EmployeesModule,
         PlatformModule,
         SignupModule,
         ...extraModules,

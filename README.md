@@ -2,7 +2,7 @@
 
 HR, payroll, finance and configurable operations in one platform — delivered as multi-tenant SaaS, a dedicated managed environment, or an in-house installation, from one codebase.
 
-**Status: Phase 7 (in-house deployment and licensing).** Foundation, authentication, organisation structure and scoped roles, approvals and notifications, settings and reference lists, a versioned plan catalogue with backend-enforced features and limits, and organisation provisioning, lifecycle (suspend, offboard, archive), branding, data export, optional self-service sign-up, and offline signed licences with a Docker Compose stack for in-house installations ([guide](docs/deployment/IN_HOUSE.md)). Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
+**Status: Phase 8 (employee management).** Foundation, authentication, organisation structure and scoped roles, approvals and notifications, settings and reference lists, a versioned plan catalogue with backend-enforced features and limits, and organisation provisioning, lifecycle (suspend, offboard, archive), branding, data export, optional self-service sign-up, and offline signed licences with a Docker Compose stack for in-house installations ([guide](docs/deployment/IN_HOUSE.md)), and employee records with scoped visibility, lifecycle history, an org chart, CSV import and encrypted identity and bank details. Business modules arrive phase by phase; see [the phase plan](docs/product/phases.md).
 
 ## What's here
 

@@ -7,5 +7,6 @@ import { AccessService } from './access.service.js';
   imports: [RbacModule],
   controllers: [AccessController],
   providers: [AccessService],
+  exports: [AccessService],
 })
 export class AccessModule {}

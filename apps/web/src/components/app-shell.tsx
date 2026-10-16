@@ -62,7 +62,13 @@ const NAV: { section?: string; items: NavItem[] }[] = [
   {
     section: 'People',
     items: [
-      { label: 'Employees', icon: Users, phase: 8 },
+      {
+        label: 'Employees',
+        icon: Users,
+        href: '/employees',
+        permission: 'employees.view',
+        feature: 'hr.core',
+      },
       { label: 'Attendance', icon: Clock, phase: 9 },
       { label: 'Leave', icon: CalendarDays, phase: 10 },
       { label: 'Approvals', icon: CircleCheck, href: '/approvals' },

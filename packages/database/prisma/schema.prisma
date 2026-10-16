@@ -56,6 +56,8 @@ model Tenant {
   lookupValues  LookupValue[]
   subscription  Subscription?
 
+  employees Employee[]
+
   @@map("tenant")
 }
 
@@ -159,6 +161,8 @@ model TenantMembership {
   delegationsGiven    ApprovalDelegation[] @relation("DelegationFrom")
   delegationsReceived ApprovalDelegation[] @relation("DelegationTo")
 
+  employee Employee?
+
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
   @@index([userId])
@@ -185,6 +189,8 @@ model Company {
   branches     Branch[]
   departments  Department[]
 
+  employees Employee[]
+
   @@unique([tenantId, code])
   @@unique([tenantId, id])
   @@map("company")
@@ -207,6 +213,8 @@ model Branch {
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   company   Company      @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
 
+  employees Employee[]
+
   @@unique([tenantId, code])
   @@unique([tenantId, id])
   @@index([tenantId, companyId])
@@ -227,6 +235,8 @@ model Department {
   company   Company      @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
   parent    Department?  @relation("DepartmentTree", fields: [tenantId, parentId], references: [tenantId, id], onDelete: Restrict)
   children  Department[] @relation("DepartmentTree")
+
+  employees Employee[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -568,6 +578,12 @@ model LookupValue {
   updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  designationOf    Employee[] @relation("EmployeeDesignation")
+  gradeOf          Employee[] @relation("EmployeeGrade")
+  employmentTypeOf Employee[] @relation("EmployeeEmploymentType")
+  costCentreOf     Employee[] @relation("EmployeeCostCentre")
+  exitReasonOf     Employee[] @relation("EmployeeExitReason")
+
   @@unique([tenantId, list, code])
   @@unique([tenantId, id])
   @@index([tenantId, list, status, sortOrder])
@@ -850,4 +866,169 @@ model InstallationLicence {
 
   @@index([replacedAt])
   @@map("installation_licence")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Phase 8: employees
+// ---------------------------------------------------------------------------------------------
+
+enum EmployeeStatus {
+  ACTIVE
+  /// Resigned or given notice; still employed until the last working day.
+  ON_NOTICE
+  EXITED
+
+  @@map("employee_status")
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  NON_BINARY
+  UNDISCLOSED
+
+  @@map("gender")
+}
+
+enum EmployeeEventKind {
+  JOINED
+  TRANSFER
+  PROMOTION
+  MANAGER_CHANGE
+  NOTICE
+  NOTICE_WITHDRAWN
+  EXIT
+
+  @@map("employee_event_kind")
+}
+
+/// A person employed by one of the tenant's companies. Not every employee signs in: `membershipId` links
+/// the record to a sign-in account when they have one. Every reference is tenant-qualified.
+model Employee {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  employeeCode     String         @map("employee_code")
+  membershipId     String?        @map("membership_id") @db.Uuid
+  firstName        String         @map("first_name")
+  lastName         String         @map("last_name")
+  preferredName    String?        @map("preferred_name")
+  workEmail        String?        @map("work_email")
+  personalEmail    String?        @map("personal_email")
+  phone            String?
+  dateOfBirth      DateTime?      @map("date_of_birth") @db.Date
+  gender           Gender?
+  companyId        String         @map("company_id") @db.Uuid
+  branchId         String?        @map("branch_id") @db.Uuid
+  departmentId     String?        @map("department_id") @db.Uuid
+  designationId    String?        @map("designation_id") @db.Uuid
+  gradeId          String?        @map("grade_id") @db.Uuid
+  employmentTypeId String?        @map("employment_type_id") @db.Uuid
+  costCentreId     String?        @map("cost_centre_id") @db.Uuid
+  managerId        String?        @map("manager_id") @db.Uuid
+  dateOfJoining    DateTime       @map("date_of_joining") @db.Date
+  probationEndDate DateTime?      @map("probation_end_date") @db.Date
+  status           EmployeeStatus @default(ACTIVE)
+  noticeGivenOn    DateTime?      @map("notice_given_on") @db.Date
+  lastWorkingDay   DateTime?      @map("last_working_day") @db.Date
+  exitReasonId     String?        @map("exit_reason_id") @db.Uuid
+  exitedOn         DateTime?      @map("exited_on") @db.Date
+  /// Optimistic concurrency: an update must name the version it was based on.
+  version          Int            @default(1)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership        TenantMembership?  @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict)
+  company           Company            @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  branch            Branch?            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  department        Department?        @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: Restrict)
+  designation       LookupValue?       @relation("EmployeeDesignation", fields: [tenantId, designationId], references: [tenantId, id], onDelete: Restrict)
+  grade             LookupValue?       @relation("EmployeeGrade", fields: [tenantId, gradeId], references: [tenantId, id], onDelete: Restrict)
+  employmentType    LookupValue?       @relation("EmployeeEmploymentType", fields: [tenantId, employmentTypeId], references: [tenantId, id], onDelete: Restrict)
+  costCentre        LookupValue?       @relation("EmployeeCostCentre", fields: [tenantId, costCentreId], references: [tenantId, id], onDelete: Restrict)
+  exitReason        LookupValue?       @relation("EmployeeExitReason", fields: [tenantId, exitReasonId], references: [tenantId, id], onDelete: Restrict)
+  manager           Employee?          @relation("EmployeeManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
+  reports           Employee[]         @relation("EmployeeManager")
+  sensitive         EmployeeSensitive?
+  events            EmployeeEvent[]
+  emergencyContacts EmergencyContact[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, employeeCode])
+  @@unique([tenantId, membershipId])
+  @@unique([tenantId, workEmail])
+  @@index([tenantId, status])
+  @@index([tenantId, companyId])
+  @@index([tenantId, branchId])
+  @@index([tenantId, departmentId])
+  @@index([tenantId, managerId])
+  @@map("employee")
+}
+
+/// Identity and bank details. Numbers are encrypted (AES-256-GCM, bound to the employee and field); only
+/// the last four characters are stored in clear, for masked display.
+model EmployeeSensitive {
+  employeeId        String   @id @map("employee_id") @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  panSealed         String?  @map("pan_sealed")
+  panLast4          String?  @map("pan_last4")
+  aadhaarSealed     String?  @map("aadhaar_sealed")
+  aadhaarLast4      String?  @map("aadhaar_last4")
+  bankAccountSealed String?  @map("bank_account_sealed")
+  bankAccountLast4  String?  @map("bank_account_last4")
+  bankIfsc          String?  @map("bank_ifsc")
+  bankName          String?  @map("bank_name")
+  uan               String?
+  updatedByUserId   String?  @map("updated_by_user_id") @db.Uuid
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId])
+  @@map("employee_sensitive")
+}
+
+/// Append-only employment history: joining, transfers, promotions, manager changes, notice and exit.
+model EmployeeEvent {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  employeeId    String            @map("employee_id") @db.Uuid
+  kind          EmployeeEventKind
+  effectiveDate DateTime          @map("effective_date") @db.Date
+  /// Field → { from, to } with display names, as they were at the time.
+  changes       Json              @default("{}")
+  note          String?
+  actorUserId   String?           @map("actor_user_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, employeeId, effectiveDate])
+  @@map("employee_event")
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  employeeId   String   @map("employee_id") @db.Uuid
+  name         String
+  relationship String
+  phone        String
+  email        String?
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, employeeId])
+  @@map("emergency_contact")
+}
+
+/// Next automatic employee number per organisation (EMP-0001, EMP-0002, …).
+model EmployeeCounter {
+  tenantId   String @id @map("tenant_id") @db.Uuid
+  nextNumber Int    @default(1) @map("next_number")
+
+  @@map("employee_counter")
 }

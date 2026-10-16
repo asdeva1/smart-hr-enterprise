@@ -2,8 +2,8 @@
 # Writes a consistent, compressed backup of the Smart HR database to ./backups (or the directory given).
 #   ./backup.sh [/path/to/backups]
 # Run it from cron, then copy the files off this server. The backup contains personal data: store it
-# encrypted, with the same care as the live database. Keep MFA_ENCRYPTION_KEYS with it, or two-step
-# verification secrets in the backup can't be read.
+# encrypted, with the same care as the live database. Keep MFA_ENCRYPTION_KEYS and DATA_ENCRYPTION_KEYS
+# with it, or two-step verification secrets, identity numbers and bank details in the backup can't be read.
 set -euo pipefail
 cd "$(dirname "$0")"
 

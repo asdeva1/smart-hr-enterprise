@@ -1,6 +1,23 @@
 import { baseServerEnvSchema, commaList, loadEnv, z } from '@smart-hr/config';
 import { parsePublicKeys, type PublicKeyRing } from '@smart-hr/licensing';
 
+/** Comma-separated `id:base64key` pairs. Older keys stay listed so existing values can still be decrypted. */
+const keyRing = z
+  .string()
+  .min(1)
+  .transform((value, ctx) => {
+    const keys: Record<string, string> = {};
+    for (const pair of value.split(',')) {
+      const [id, key] = pair.split(':').map((s) => s.trim());
+      if (!id || !key) {
+        ctx.addIssue({ code: 'custom', message: 'Use the format id:base64key,id2:base64key' });
+        return z.NEVER;
+      }
+      keys[id] = key;
+    }
+    return keys;
+  });
+
 const minutes = (fallback: number) => z.coerce.number().int().min(1).max(10_080).default(fallback);
 
 export const apiEnvSchema = baseServerEnvSchema
@@ -67,22 +84,13 @@ export const apiEnvSchema = baseServerEnvSchema
     // MFA
     MFA_ISSUER: z.string().min(1).max(64).default('Smart HR'),
     /** Comma-separated `id:base64key` pairs (32-byte keys). Older keys stay listed to decrypt existing secrets. */
-    MFA_ENCRYPTION_KEYS: z
-      .string()
-      .min(1)
-      .transform((value, ctx) => {
-        const keys: Record<string, string> = {};
-        for (const pair of value.split(',')) {
-          const [id, key] = pair.split(':').map((s) => s.trim());
-          if (!id || !key) {
-            ctx.addIssue({ code: 'custom', message: 'Use the format id:base64key,id2:base64key' });
-            return z.NEVER;
-          }
-          keys[id] = key;
-        }
-        return keys;
-      }),
+    MFA_ENCRYPTION_KEYS: keyRing,
     MFA_ENCRYPTION_KEY_ID: z.string().min(1),
+
+    // Personal data (identity numbers, bank details): a separate key ring from MFA, so each can be rotated
+    // and protected on its own.
+    DATA_ENCRYPTION_KEYS: keyRing,
+    DATA_ENCRYPTION_KEY_ID: z.string().min(1),
   })
   .transform((env) => ({
     ...env,
@@ -94,6 +102,21 @@ export const apiEnvSchema = baseServerEnvSchema
         code: 'custom',
         path: ['MFA_ENCRYPTION_KEY_ID'],
         message: 'must name one of MFA_ENCRYPTION_KEYS',
+      });
+    }
+    if (!(env.DATA_ENCRYPTION_KEY_ID in env.DATA_ENCRYPTION_KEYS)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATA_ENCRYPTION_KEY_ID'],
+        message: 'must name one of DATA_ENCRYPTION_KEYS',
+      });
+    }
+    const mfaKeys = new Set(Object.values(env.MFA_ENCRYPTION_KEYS));
+    if (Object.values(env.DATA_ENCRYPTION_KEYS).some((key) => mfaKeys.has(key))) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['DATA_ENCRYPTION_KEYS'],
+        message: 'must not reuse a key from MFA_ENCRYPTION_KEYS',
       });
     }
     if (env.DEPLOYMENT_MODE === 'inhouse') {
