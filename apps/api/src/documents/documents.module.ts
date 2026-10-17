@@ -1,5 +1,4 @@
 import { Module, type OnModuleInit } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
 import type { ApiEnv } from '../config/env.js';
 import { API_ENV } from '../infra/tokens.js';
 import { TenantExportService } from '../tenant/export.service.js';
@@ -8,22 +7,10 @@ import { DocumentsService } from './documents.service.js';
 import { FilesService } from './files.service.js';
 import { SignaturesService } from './signatures.service.js';
 import { FILE_STORAGE, LocalFileStorage } from './storage.js';
+import { uploadsModule } from './uploads.js';
 
 @Module({
-  imports: [
-    // Uploads are held in memory (they are small and are encrypted before anything is written).
-    MulterModule.registerAsync({
-      inject: [API_ENV],
-      useFactory: (env: ApiEnv) => ({
-        limits: {
-          fileSize: env.DOCUMENT_MAX_UPLOAD_MB * 1024 * 1024,
-          files: 1,
-          fields: 20,
-          fieldSize: 8 * 1024,
-        },
-      }),
-    }),
-  ],
+  imports: [uploadsModule()],
   controllers: [DocumentsController, SignaturesController],
   providers: [
     {
@@ -35,6 +22,7 @@ import { FILE_STORAGE, LocalFileStorage } from './storage.js';
     DocumentsService,
     SignaturesService,
   ],
+  exports: [FilesService, DocumentsService],
 })
 export class DocumentsModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}

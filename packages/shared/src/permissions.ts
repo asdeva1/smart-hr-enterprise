@@ -45,6 +45,19 @@ export const PERMISSIONS = {
     label: 'Add, change and archive employee documents, make letters and send them for signature',
   },
   'documents.configure': { module: 'documents', label: 'Maintain letter templates' },
+  'recruitment.view': {
+    module: 'recruitment',
+    label: 'See job openings, candidates and their progress in their part of the organisation',
+  },
+  'recruitment.manage': {
+    module: 'recruitment',
+    label:
+      'Open positions, add candidates, move them through the pipeline, schedule interviews and make offers',
+  },
+  'onboarding.manage': {
+    module: 'recruitment',
+    label: 'Maintain onboarding checklists and start onboarding for new joiners',
+  },
 } as const satisfies Record<string, { module: string; label: string }>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -61,6 +74,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   attendance: 'Attendance',
   leave: 'Leave and holidays',
   documents: 'Documents',
+  recruitment: 'Recruitment and onboarding',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -92,7 +106,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: 'hr_admin',
     name: 'HR administrator',
     description:
-      'Maintains employee records, their history and personal details, attendance and shifts, leave and holidays, documents and letters, and HR reference lists.',
+      'Maintains employee records, their history and personal details, attendance and shifts, leave and holidays, documents and letters, recruitment and onboarding, and HR reference lists.',
     permissions: [
       'org.view',
       'master_data.manage',
@@ -110,6 +124,9 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'documents.view',
       'documents.manage',
       'documents.configure',
+      'recruitment.view',
+      'recruitment.manage',
+      'onboarding.manage',
     ],
   },
   {
@@ -125,6 +142,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'attendance.view',
       'leave.view',
       'documents.view',
+      'recruitment.view',
     ],
   },
   {

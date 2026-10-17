@@ -78,6 +78,14 @@ export const NOTIFICATION_CATEGORIES = {
     label: 'A document on my record, or one I added, is about to expire',
     emailDefault: true,
   },
+  'recruitment.interview': {
+    label: 'I was asked to interview a candidate, or an interview I am on changed',
+    emailDefault: true,
+  },
+  'onboarding.task': {
+    label: 'An onboarding task was given to me',
+    emailDefault: true,
+  },
   'subscription.changed': {
     label: 'My organisation’s subscription ended or changed (owners)',
     emailDefault: true,

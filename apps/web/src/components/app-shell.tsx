@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  Briefcase,
   Building,
   Building2,
   CalendarDays,
@@ -16,6 +17,7 @@ import {
   LayoutGrid,
   Menu,
   ListChecks,
+  ListTodo,
   PackageCheck,
   Palette,
   ScrollText,
@@ -72,6 +74,8 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Attendance', icon: Clock, href: '/attendance', feature: 'attendance.basic' },
       { label: 'Leave', icon: CalendarDays, href: '/leave', feature: 'leave.basic' },
       { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
+      { label: 'Recruitment', icon: Briefcase, href: '/recruitment', feature: 'recruitment' },
+      { label: 'Onboarding', icon: ListTodo, href: '/onboarding', feature: 'onboarding' },
       { label: 'Payroll', icon: Wallet, phase: 14 },
     ],
   },

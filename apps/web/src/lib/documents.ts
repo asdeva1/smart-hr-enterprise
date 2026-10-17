@@ -170,10 +170,15 @@ export const useSignature = (id: string) =>
 export const fileUrl = (path: string) => `${apiBaseUrl()}${path}`;
 
 /** Sends a file with form fields (multipart), with the same CSRF and error handling as apiFetch. */
-export async function apiUpload<T>(path: string, file: File, fields: Record<string, string>): Promise<T> {
+export async function apiUpload<T>(
+  path: string,
+  file: File,
+  fields: Record<string, string>,
+  fileField = 'file',
+): Promise<T> {
   const form = new FormData();
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
-  form.append('file', file);
+  form.append(fileField, file);
   const headers: Record<string, string> = {};
   const csrf = readCookie('shr_csrf');
   if (csrf) headers['x-csrf-token'] = csrf;

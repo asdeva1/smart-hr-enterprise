@@ -457,95 +457,104 @@ export class EmployeesService {
   // ---- Creating and correcting --------------------------------------------------------------------
 
   async create(tenant: TenantContext, auth: AuthContext, input: CreateEmployee, meta: RequestMeta) {
-    return this.run(tenant, auth, async (tx) => {
-      const org = await OrgIndex.load(tx, tenant.id);
-      const placement = {
-        companyId: input.companyId,
-        branchId: input.branchId ?? null,
-        departmentId: input.departmentId ?? null,
-      };
-      org.assertPlacement(placement);
-      if (!tenant.permissions.allows('employees.manage', org.scopesOf(placement))) {
-        throw new ForbiddenError();
-      }
-      const lookups = await this.checkLookups(tx, {
-        designationId: input.designationId,
-        gradeId: input.gradeId,
-        employmentTypeId: input.employmentTypeId,
-        costCentreId: input.costCentreId,
-      });
-      const manager = await this.checkManager(tx, null, input.managerId);
-      await this.entitlements.assertWithinLimit(tx, 'employees.max');
-      const employeeCode = input.employeeCode ?? (await this.nextCode(tx, tenant.id));
-      let created;
-      try {
-        created = await tx.employee.create({
-          data: {
-            tenantId: tenant.id,
-            employeeCode,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            preferredName: input.preferredName ?? null,
-            workEmail: input.workEmail ? normalizeEmail(input.workEmail) : null,
-            personalEmail: input.personalEmail ? normalizeEmail(input.personalEmail) : null,
-            phone: input.phone ?? null,
-            dateOfBirth: toDateOrNull(input.dateOfBirth) ?? null,
-            gender: input.gender ?? null,
-            companyId: input.companyId,
-            branchId: input.branchId ?? null,
-            departmentId: input.departmentId ?? null,
-            designationId: input.designationId ?? null,
-            gradeId: input.gradeId ?? null,
-            employmentTypeId: input.employmentTypeId ?? null,
-            costCentreId: input.costCentreId ?? null,
-            managerId: input.managerId ?? null,
-            dateOfJoining: toDate(input.dateOfJoining),
-            probationEndDate: toDateOrNull(input.probationEndDate) ?? null,
-          },
-          select: { id: true },
-        });
-      } catch (error) {
-        this.uniqueError(error);
-      }
-      const name = (id: string | null | undefined) => (id ? (lookups.get(id)?.name ?? null) : null);
-      await this.event(
-        tx,
-        tenant.id,
-        created.id,
-        'JOINED',
-        toDate(input.dateOfJoining),
-        {
-          company: { from: null, to: org.companies.get(input.companyId)?.name ?? null },
-          ...(input.branchId
-            ? { branch: { from: null, to: org.branches.get(input.branchId)?.name ?? null } }
-            : {}),
-          ...(input.departmentId
-            ? { department: { from: null, to: org.departments.get(input.departmentId)?.name ?? null } }
-            : {}),
-          ...(input.designationId ? { designation: { from: null, to: name(input.designationId) } } : {}),
-          ...(input.gradeId ? { grade: { from: null, to: name(input.gradeId) } } : {}),
-          ...(manager ? { manager: { from: null, to: displayName(manager) } } : {}),
-        },
-        null,
-        auth.user.id,
-      );
-      await this.audit.recordInTransaction(
-        tx,
-        {
-          action: 'employee.create',
-          outcome: 'SUCCESS',
-          tenantId: tenant.id,
-          actorUserId: auth.user.id,
-          targetType: 'employee',
-          targetId: created.id,
-          metadata: { employeeCode },
-        },
-        meta,
-      );
-      return present(
-        await tx.employee.findUniqueOrThrow({ where: { id: created.id }, select: EMPLOYEE_SELECT }),
-      );
+    return this.run(tenant, auth, (tx) => this.createIn(tx, tenant, auth, input, meta));
+  }
+
+  /** Adds an employee inside the caller's transaction (also used when a candidate is hired). */
+  async createIn(
+    tx: TenantTransaction,
+    tenant: TenantContext,
+    auth: AuthContext,
+    input: CreateEmployee,
+    meta: RequestMeta,
+  ) {
+    const org = await OrgIndex.load(tx, tenant.id);
+    const placement = {
+      companyId: input.companyId,
+      branchId: input.branchId ?? null,
+      departmentId: input.departmentId ?? null,
+    };
+    org.assertPlacement(placement);
+    if (!tenant.permissions.allows('employees.manage', org.scopesOf(placement))) {
+      throw new ForbiddenError();
+    }
+    const lookups = await this.checkLookups(tx, {
+      designationId: input.designationId,
+      gradeId: input.gradeId,
+      employmentTypeId: input.employmentTypeId,
+      costCentreId: input.costCentreId,
     });
+    const manager = await this.checkManager(tx, null, input.managerId);
+    await this.entitlements.assertWithinLimit(tx, 'employees.max');
+    const employeeCode = input.employeeCode ?? (await this.nextCode(tx, tenant.id));
+    let created;
+    try {
+      created = await tx.employee.create({
+        data: {
+          tenantId: tenant.id,
+          employeeCode,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          preferredName: input.preferredName ?? null,
+          workEmail: input.workEmail ? normalizeEmail(input.workEmail) : null,
+          personalEmail: input.personalEmail ? normalizeEmail(input.personalEmail) : null,
+          phone: input.phone ?? null,
+          dateOfBirth: toDateOrNull(input.dateOfBirth) ?? null,
+          gender: input.gender ?? null,
+          companyId: input.companyId,
+          branchId: input.branchId ?? null,
+          departmentId: input.departmentId ?? null,
+          designationId: input.designationId ?? null,
+          gradeId: input.gradeId ?? null,
+          employmentTypeId: input.employmentTypeId ?? null,
+          costCentreId: input.costCentreId ?? null,
+          managerId: input.managerId ?? null,
+          dateOfJoining: toDate(input.dateOfJoining),
+          probationEndDate: toDateOrNull(input.probationEndDate) ?? null,
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      this.uniqueError(error);
+    }
+    const name = (id: string | null | undefined) => (id ? (lookups.get(id)?.name ?? null) : null);
+    await this.event(
+      tx,
+      tenant.id,
+      created.id,
+      'JOINED',
+      toDate(input.dateOfJoining),
+      {
+        company: { from: null, to: org.companies.get(input.companyId)?.name ?? null },
+        ...(input.branchId
+          ? { branch: { from: null, to: org.branches.get(input.branchId)?.name ?? null } }
+          : {}),
+        ...(input.departmentId
+          ? { department: { from: null, to: org.departments.get(input.departmentId)?.name ?? null } }
+          : {}),
+        ...(input.designationId ? { designation: { from: null, to: name(input.designationId) } } : {}),
+        ...(input.gradeId ? { grade: { from: null, to: name(input.gradeId) } } : {}),
+        ...(manager ? { manager: { from: null, to: displayName(manager) } } : {}),
+      },
+      null,
+      auth.user.id,
+    );
+    await this.audit.recordInTransaction(
+      tx,
+      {
+        action: 'employee.create',
+        outcome: 'SUCCESS',
+        tenantId: tenant.id,
+        actorUserId: auth.user.id,
+        targetType: 'employee',
+        targetId: created.id,
+        metadata: { employeeCode },
+      },
+      meta,
+    );
+    return present(
+      await tx.employee.findUniqueOrThrow({ where: { id: created.id }, select: EMPLOYEE_SELECT }),
+    );
   }
 
   async update(

@@ -56,23 +56,34 @@ model Tenant {
   lookupValues  LookupValue[]
   subscription  Subscription?
 
-  employees             Employee[]
-  shifts                Shift[]
-  shiftAssignments      ShiftAssignment[]
-  attendancePunches     AttendancePunch[]
-  attendanceDays        AttendanceDay[]
-  attendanceCorrections AttendanceCorrection[]
-  holidayCalendars      HolidayCalendar[]
-  holidays              Holiday[]
-  leaveTypes            LeaveType[]
-  leaveLedger           LeaveLedgerEntry[]
-  leaveRequests         LeaveRequest[]
-  employeeChanges       EmployeeChangeRequest[]
-  storedFiles           StoredFile[]
-  employeeDocuments     EmployeeDocument[]
-  letterTemplates       LetterTemplate[]
-  signatureRequests     SignatureRequest[]
-  signatureSigners      SignatureSigner[]
+  employees               Employee[]
+  shifts                  Shift[]
+  shiftAssignments        ShiftAssignment[]
+  attendancePunches       AttendancePunch[]
+  attendanceDays          AttendanceDay[]
+  attendanceCorrections   AttendanceCorrection[]
+  holidayCalendars        HolidayCalendar[]
+  holidays                Holiday[]
+  leaveTypes              LeaveType[]
+  leaveLedger             LeaveLedgerEntry[]
+  leaveRequests           LeaveRequest[]
+  employeeChanges         EmployeeChangeRequest[]
+  storedFiles             StoredFile[]
+  employeeDocuments       EmployeeDocument[]
+  letterTemplates         LetterTemplate[]
+  signatureRequests       SignatureRequest[]
+  signatureSigners        SignatureSigner[]
+  jobOpenings             JobOpening[]
+  candidates              Candidate[]
+  jobApplications         JobApplication[]
+  applicationEvents       ApplicationEvent[]
+  interviews              Interview[]
+  interviewFeedback       InterviewFeedback[]
+  jobOffers               JobOffer[]
+  onboardingTemplates     OnboardingTemplate[]
+  onboardingTemplateTasks OnboardingTemplateTask[]
+  onboardingPlans         OnboardingPlan[]
+  onboardingTasks         OnboardingTask[]
 
   @@map("tenant")
 }
@@ -207,6 +218,7 @@ model Company {
 
   holidayCalendars HolidayCalendar[]
   employees        Employee[]
+  jobOpenings      JobOpening[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -980,6 +992,8 @@ model Employee {
   leaveLedger           LeaveLedgerEntry[]
   changeRequests        EmployeeChangeRequest[]
   documents             EmployeeDocument[]
+  onboardingPlans       OnboardingPlan[]
+  hiredFrom             JobApplication[]
   leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
 
@@ -1617,4 +1631,338 @@ model SignatureSigner {
   @@unique([requestId, position])
   @@index([tenantId, userId, status])
   @@map("signature_signer")
+}
+
+// ---- Recruitment and onboarding (Phase 13) ---------------------------------------------------------
+
+enum JobOpeningStatus {
+  DRAFT
+  PENDING_APPROVAL
+  OPEN
+  ON_HOLD
+  CLOSED
+
+  @@map("job_opening_status")
+}
+
+enum ApplicationStage {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+
+  @@map("application_stage")
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+
+  @@map("interview_status")
+}
+
+enum InterviewRecommendation {
+  STRONG_YES
+  YES
+  NO
+  STRONG_NO
+
+  @@map("interview_recommendation")
+}
+
+enum JobOfferStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+  ACCEPTED
+  DECLINED
+
+  @@map("job_offer_status")
+}
+
+enum OnboardingAssignee {
+  HR
+  MANAGER
+  EMPLOYEE
+
+  @@map("onboarding_assignee")
+}
+
+enum OnboardingPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("onboarding_plan_status")
+}
+
+enum OnboardingTaskStatus {
+  OPEN
+  DONE
+  SKIPPED
+
+  @@map("onboarding_task_status")
+}
+
+/// A position to fill. Opened only after approval (approval subject `job_requisition`).
+model JobOpening {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  code              String
+  title             String
+  companyId         String           @map("company_id") @db.Uuid
+  branchId          String?          @map("branch_id") @db.Uuid
+  departmentId      String?          @map("department_id") @db.Uuid
+  designationId     String?          @map("designation_id") @db.Uuid
+  employmentTypeId  String?          @map("employment_type_id") @db.Uuid
+  hiringManagerId   String?          @map("hiring_manager_id") @db.Uuid
+  positions         Int              @default(1)
+  description       String
+  status            JobOpeningStatus @default(DRAFT)
+  approvalRequestId String?          @map("approval_request_id") @db.Uuid
+  createdByUserId   String           @map("created_by_user_id") @db.Uuid
+  openedAt          DateTime?        @map("opened_at") @db.Timestamptz(6)
+  closedAt          DateTime?        @map("closed_at") @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company      Company          @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  applications JobApplication[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("job_opening")
+}
+
+/// Someone who applied or was sourced. One record per email in an organisation, across openings.
+model Candidate {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  /// Lower-cased.
+  email           String
+  phone           String?
+  source          String?
+  resumeFileId    String?  @map("resume_file_id") @db.Uuid
+  notes           String?
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  applications JobApplication[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, email])
+  @@map("candidate")
+}
+
+/// A candidate in one opening's pipeline.
+model JobApplication {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  openingId       String           @map("opening_id") @db.Uuid
+  candidateId     String           @map("candidate_id") @db.Uuid
+  stage           ApplicationStage @default(APPLIED)
+  closedReason    String?          @map("closed_reason")
+  hiredEmployeeId String?          @map("hired_employee_id") @db.Uuid
+  createdByUserId String           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  opening       JobOpening         @relation(fields: [tenantId, openingId], references: [tenantId, id], onDelete: Restrict)
+  candidate     Candidate          @relation(fields: [tenantId, candidateId], references: [tenantId, id], onDelete: Restrict)
+  hiredEmployee Employee?          @relation(fields: [tenantId, hiredEmployeeId], references: [tenantId, id], onDelete: Restrict)
+  events        ApplicationEvent[]
+  interviews    Interview[]
+  offers        JobOffer[]
+
+  @@unique([tenantId, id])
+  @@unique([openingId, candidateId])
+  @@index([tenantId, openingId, stage])
+  @@map("job_application")
+}
+
+/// Append-only history of an application's stages.
+model ApplicationEvent {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  tenantId      String            @map("tenant_id") @db.Uuid
+  applicationId String            @map("application_id") @db.Uuid
+  fromStage     ApplicationStage? @map("from_stage")
+  toStage       ApplicationStage  @map("to_stage")
+  note          String?
+  actorUserId   String            @map("actor_user_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  application JobApplication @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, applicationId])
+  @@map("application_event")
+}
+
+model Interview {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  applicationId   String          @map("application_id") @db.Uuid
+  title           String
+  scheduledAt     DateTime        @map("scheduled_at") @db.Timestamptz(6)
+  durationMinutes Int             @default(60) @map("duration_minutes")
+  location        String?
+  status          InterviewStatus @default(SCHEDULED)
+  createdByUserId String          @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  application JobApplication      @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict)
+  feedback    InterviewFeedback[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, applicationId])
+  @@map("interview")
+}
+
+/// One interviewer's part in an interview; their feedback is final once submitted.
+model InterviewFeedback {
+  id             String                   @id @default(uuid(7)) @db.Uuid
+  tenantId       String                   @map("tenant_id") @db.Uuid
+  interviewId    String                   @map("interview_id") @db.Uuid
+  membershipId   String                   @map("membership_id") @db.Uuid
+  userId         String                   @map("user_id") @db.Uuid
+  name           String
+  rating         Int?
+  recommendation InterviewRecommendation?
+  comments       String?
+  submittedAt    DateTime?                @map("submitted_at") @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  interview Interview @relation(fields: [tenantId, interviewId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([interviewId, membershipId])
+  @@index([tenantId, userId])
+  @@map("interview_feedback")
+}
+
+/// An offer to a candidate. Approved by people (approval subject `job_offer`), then accepted or declined.
+model JobOffer {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  tenantId          String         @map("tenant_id") @db.Uuid
+  applicationId     String         @map("application_id") @db.Uuid
+  designationId     String?        @map("designation_id") @db.Uuid
+  joiningDate       DateTime       @map("joining_date") @db.Date
+  /// Annual cost to company offered, in the company's currency.
+  annualCtc         Decimal?       @map("annual_ctc") @db.Decimal(14, 2)
+  currency          String?        @db.Char(3)
+  notes             String?
+  status            JobOfferStatus @default(PENDING_APPROVAL)
+  approvalRequestId String?        @map("approval_request_id") @db.Uuid
+  decisionNote      String?        @map("decision_note")
+  decidedAt         DateTime?      @map("decided_at") @db.Timestamptz(6)
+  respondedAt       DateTime?      @map("responded_at") @db.Timestamptz(6)
+  createdByUserId   String         @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  application JobApplication @relation(fields: [tenantId, applicationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, applicationId])
+  @@map("job_offer")
+}
+
+/// A checklist used to onboard new joiners.
+model OnboardingTemplate {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  name      String
+  status    DocumentStatus @default(ACTIVE)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tasks  OnboardingTemplateTask[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@map("onboarding_template")
+}
+
+model OnboardingTemplateTask {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  tenantId      String             @map("tenant_id") @db.Uuid
+  templateId    String             @map("template_id") @db.Uuid
+  position      Int
+  title         String
+  description   String?
+  assignee      OnboardingAssignee
+  /// Days from the joining date (negative = before they join).
+  dueOffsetDays Int                @default(0) @map("due_offset_days")
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  template OnboardingTemplate @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([templateId, position])
+  @@map("onboarding_template_task")
+}
+
+/// One new joiner's onboarding: tasks copied from a template, each with a person and a due date.
+model OnboardingPlan {
+  id              String               @id @default(uuid(7)) @db.Uuid
+  tenantId        String               @map("tenant_id") @db.Uuid
+  employeeId      String               @map("employee_id") @db.Uuid
+  templateName    String?              @map("template_name")
+  startDate       DateTime             @map("start_date") @db.Date
+  status          OnboardingPlanStatus @default(ACTIVE)
+  createdByUserId String               @map("created_by_user_id") @db.Uuid
+  completedAt     DateTime?            @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee         @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  tasks    OnboardingTask[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId])
+  @@map("onboarding_plan")
+}
+
+model OnboardingTask {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  planId            String               @map("plan_id") @db.Uuid
+  position          Int
+  title             String
+  description       String?
+  assignee          OnboardingAssignee
+  /// Who does it, worked out when the plan was made (the employee, their manager, or the HR person).
+  assigneeUserId    String?              @map("assignee_user_id") @db.Uuid
+  dueDate           DateTime             @map("due_date") @db.Date
+  status            OnboardingTaskStatus @default(OPEN)
+  completedAt       DateTime?            @map("completed_at") @db.Timestamptz(6)
+  completedByUserId String?              @map("completed_by_user_id") @db.Uuid
+  note              String?
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan   OnboardingPlan @relation(fields: [tenantId, planId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([planId, position])
+  @@index([tenantId, assigneeUserId, status])
+  @@map("onboarding_task")
 }

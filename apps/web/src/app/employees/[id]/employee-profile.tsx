@@ -28,15 +28,19 @@ import { LifecycleDialog, type LifecycleAction } from './lifecycle-dialog';
 import { PendingChanges } from './pending-changes';
 import { SensitivePanel } from './sensitive-panel';
 import { DocumentsPanel } from '@/components/documents/documents-panel';
+import { OnboardingPanel } from '@/components/onboarding/onboarding-panel';
 import { can, hasFeature } from '@/lib/permissions';
 
-type Tab = 'overview' | 'identity' | 'contacts' | 'documents' | 'history';
+type Tab = 'overview' | 'identity' | 'contacts' | 'documents' | 'onboarding' | 'history';
 
 export function EmployeeProfile({ id, session }: { id: string; session: SessionView }) {
   const employee = useEmployee(id);
   const params = useSearchParams();
   const client = useQueryClient();
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'documents' ? 'documents' : 'overview');
+  const initialTab = params.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    initialTab === 'documents' || initialTab === 'onboarding' ? initialTab : 'overview',
+  );
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<LifecycleAction | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | undefined>(
@@ -137,6 +141,9 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
           ...(e.can.viewSensitive ? [{ value: 'identity' as const, label: 'Identity and bank' }] : []),
           { value: 'contacts', label: 'Emergency contacts' },
           ...(showDocuments ? [{ value: 'documents' as const, label: 'Documents' }] : []),
+          ...(hasFeature(session, 'onboarding')
+            ? [{ value: 'onboarding' as const, label: 'Onboarding' }]
+            : []),
           { value: 'history', label: 'History' },
         ]}
       />
@@ -154,6 +161,7 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
           }
         />
       )}
+      {tab === 'onboarding' && <OnboardingPanel employeeId={e.id} />}
       {tab === 'history' && <HistoryPanel id={e.id} />}
       {editing && (
         <EditDetailsDialog

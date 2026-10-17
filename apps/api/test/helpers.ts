@@ -204,6 +204,17 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.onboardingTask.deleteMany({ where: inTenants });
+    await this.db.onboardingPlan.deleteMany({ where: inTenants });
+    await this.db.onboardingTemplateTask.deleteMany({ where: inTenants });
+    await this.db.onboardingTemplate.deleteMany({ where: inTenants });
+    await this.db.interviewFeedback.deleteMany({ where: inTenants });
+    await this.db.interview.deleteMany({ where: inTenants });
+    await this.db.jobOffer.deleteMany({ where: inTenants });
+    await this.db.applicationEvent.deleteMany({ where: inTenants });
+    await this.db.jobApplication.deleteMany({ where: inTenants });
+    await this.db.candidate.deleteMany({ where: inTenants });
+    await this.db.jobOpening.deleteMany({ where: inTenants });
     await this.db.signatureSigner.deleteMany({ where: inTenants });
     await this.db.signatureRequest.deleteMany({ where: inTenants });
     await this.db.employeeDocument.deleteMany({ where: inTenants });

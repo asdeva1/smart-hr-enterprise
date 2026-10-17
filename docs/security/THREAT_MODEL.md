@@ -54,6 +54,14 @@ Method: STRIDE per asset, with the control in place, its evidence, and what rema
 | Signing from an unattended session                    | Signing needs a recent password entry (and the code, with two-step verification on)                                           |
 | Managers or colleagues browse others' documents       | Scope-checked `documents.view/manage`; employees see only what is shared with them; 404 otherwise; downloads audited          |
 
+## Recruitment (Phase 13)
+
+| Threat                                              | Control                                                                                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Candidates' personal data seen by people not hiring | Scope-checked `recruitment.view/manage`; interviewers see only their applications; résumés encrypted, downloads audited |
+| Interviewers influencing each other                 | Blind feedback until one's own is given; submitted feedback final in the database                                       |
+| An offer or hire made without sign-off              | Openings and offers go through the approval engine; terms can't be rewritten; hiring needs `employees.manage`           |
+
 ## Open risks
 
 | Risk                                                                                                           | Plan                                                                                                                    |
@@ -63,5 +71,6 @@ Method: STRIDE per asset, with the control in place, its evidence, and what rema
 | Email is the reset channel                                                                                     | Phase 3 adds tenant MFA enforcement; reset does not bypass MFA at next sign-in                                          |
 | Platform-operator cross-tenant access path not yet designed                                                    | Phase 6: separate role, audited, time-boxed                                                                             |
 | Repository is public                                                                                           | Owner decision; make private before customer-specific code lands                                                        |
+| Candidate data has no retention or erasure workflow yet                                                        | Compliance work (retention rules, erasure requests) in a later phase                                                    |
 | Uploaded files are not virus-scanned                                                                           | A scanner service with the AWS phase; until then only the listed types are accepted and files are never rendered inline |
 | No Content-Security-Policy on the web app (XSS could still act as the user, though not steal the session)      | Nonce-based CSP via the Next.js proxy, tested in Playwright                                                             |
