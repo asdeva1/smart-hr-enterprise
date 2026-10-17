@@ -21,15 +21,15 @@ export class SubscriptionExpiryService {
     @Inject(WORKER_ENV) private readonly env: WorkerEnv,
   ) {}
 
-  async sweep(): Promise<{ expired: number }> {
-    const expired = await this.db.$transaction(async (tx) => {
+  async sweep(): Promise<{ expired: number; skipped: boolean }> {
+    const result = await this.db.$transaction(async (tx) => {
       // A platform action: the database only lets platform actors write subscriptions.
       await tx.$executeRaw`SELECT set_config('app.platform_actor', 'on', true)`;
       // One sweep at a time across every worker replica: an overlapping run skips its turn instead of
       // expiring (and notifying about) the same subscriptions twice.
       const lock = await tx.$queryRaw<{ locked: boolean }[]>`
         SELECT pg_try_advisory_xact_lock(hashtext('subscription-expiry-sweep')) AS locked`;
-      if (!lock[0]?.locked) return 0;
+      if (!lock[0]?.locked) return null;
       const due = await tx.$queryRaw<{ tenant_id: string }[]>`
         SELECT tenant_id FROM subscriptions_due_to_expire(${BATCH}::int)`;
       let count = 0;
@@ -86,7 +86,8 @@ export class SubscriptionExpiryService {
       }
       return count;
     });
-    if (expired > 0) this.logger.log(`Recorded ${expired} expired subscription(s)`);
-    return { expired };
+    if (result === null) return { expired: 0, skipped: true };
+    if (result > 0) this.logger.log(`Recorded ${result} expired subscription(s)`);
+    return { expired: result, skipped: false };
   }
 }
