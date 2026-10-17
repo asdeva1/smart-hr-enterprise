@@ -139,7 +139,9 @@ describe('subscription expiry sweep', () => {
       where: { tenantId: lapsedTrial.tenantId, recipientUserId: lapsedTrial.ownerId },
     });
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toMatchObject({ category: 'subscription.changed', emailStatus: 'PENDING' });
+    expect(notices[0]).toMatchObject({ category: 'subscription.changed' });
+    // An email is queued for it. The outbox test in another file may already have delivered it.
+    expect(['PENDING', 'SENT']).toContain(notices[0]?.emailStatus);
 
     const audit = await owner.auditEvent.findMany({
       where: { tenantId: lapsedPaid.tenantId, action: 'platform.subscription.expire' },
