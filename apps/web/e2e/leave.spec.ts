@@ -4,7 +4,7 @@
  * employee cancels it again. The employee is invited from their record and signs in from the emailed link.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -104,7 +104,7 @@ test('an owner sets up a leave type and a company holiday', async ({ page }) => 
 });
 
 test('an employee applies, their manager approves, and the balance goes down', async ({ page, browser }) => {
-  const email = await latestEmailTo(staffEmail);
+  const email = await waitForEmail(staffEmail, '/reset-password?token=');
   const link = /https?:\/\/\S+reset-password\?\S+/.exec(email)?.[0];
   expect(link).toBeTruthy();
   const url = new URL(link!);

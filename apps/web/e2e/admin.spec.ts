@@ -3,7 +3,7 @@
  * The ADMIN account is an organisation owner (created by the CI bootstrap step).
  */
 import { expect, test, type Page } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -82,7 +82,7 @@ test('an owner invites someone, who joins from the email with only their role’
   await expect(page.getByRole('link', { name: 'Invited Person' })).toBeVisible();
 
   // The invitee, in their own browser.
-  const body = await latestEmailTo(email);
+  const body = await waitForEmail(email, '/reset-password?token=');
   const link = /https?:\/\/\S+\/reset-password\?token=[A-Za-z0-9_-]+&invite=1/.exec(body)?.[0];
   expect(link, 'invitation email contains a set-up link').toBeTruthy();
 

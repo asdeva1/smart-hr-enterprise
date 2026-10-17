@@ -4,7 +4,7 @@
  * doesn't depend on other files' accounts. Each run uses its own company, shift and people.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -117,7 +117,7 @@ test('an owner sets up a shift and clocks in and out', async ({ page }) => {
 
 test('an employee asks for a correction and their manager approves it', async ({ page, browser }) => {
   // The nurse accepts the invitation from the email and signs in.
-  const email = await latestEmailTo(staffEmail);
+  const email = await waitForEmail(staffEmail, '/reset-password?token=');
   const link = /https?:\/\/\S+reset-password\?\S+/.exec(email)?.[0];
   expect(link).toBeTruthy();
   const url = new URL(link!);

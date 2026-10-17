@@ -4,7 +4,7 @@
  * and the promotion then appears in the history. The setting is turned back off at the end.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -91,11 +91,12 @@ test('a promotion waits for approval when the organisation asks for it', async (
   });
   employeeId = staff.body.id;
 
-  // The setting, through the settings page.
+  // The setting, through the settings page (from "straight away", whatever an earlier attempt left).
+  await api(page, 'PUT', '/v1/tenant/configuration', { values: { employment_changes: 'DIRECT' } });
   await page.goto('/admin/settings');
   await page.getByLabel('Employment changes').selectOption('APPROVAL');
   await page.getByRole('button', { name: 'Save settings' }).click();
-  await expect(page.getByText(/Saved 1 setting/)).toBeVisible();
+  await expect(page.getByText(/Saved 1 setting/)).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/employees/${employeeId}`);
   await page.getByLabel('Change employment').selectOption('promotion');
@@ -111,7 +112,7 @@ test('a promotion waits for approval when the organisation asks for it', async (
 });
 
 test('the approver approves it, and only then it is applied', async ({ page, browser }) => {
-  const email = await latestEmailTo(approverEmail);
+  const email = await waitForEmail(approverEmail, '/reset-password?token=');
   const link = /https?:\/\/\S+reset-password\?\S+/.exec(email)?.[0];
   expect(link).toBeTruthy();
   const url = new URL(link!);

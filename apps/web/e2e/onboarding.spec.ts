@@ -4,7 +4,7 @@
  * Every run creates its own organisation (unique slug), so it is re-runnable.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -55,7 +55,7 @@ test('an operator provisions an organisation and its owner is invited', async ({
 });
 
 test('the owner accepts the invitation, brands the organisation and exports its data', async ({ page }) => {
-  const email = await latestEmailTo(ownerEmail);
+  const email = await waitForEmail(ownerEmail, '/reset-password?token=');
   const link = /https?:\/\/\S+reset-password\?\S+/.exec(email)?.[0];
   expect(link).toBeTruthy();
   await page.goto(new URL(link!).pathname + new URL(link!).search);
