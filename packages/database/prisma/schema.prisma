@@ -84,6 +84,13 @@ model Tenant {
   onboardingTemplateTasks OnboardingTemplateTask[]
   onboardingPlans         OnboardingPlan[]
   onboardingTasks         OnboardingTask[]
+  payComponents           PayComponent[]
+  employeeSalaries        EmployeeSalary[]
+  employeePayrolls        EmployeePayroll[]
+  payrollSettings         PayrollSetting[]
+  professionalTaxTables   ProfessionalTaxTable[]
+  payrollRuns             PayrollRun[]
+  payslips                Payslip[]
 
   @@map("tenant")
 }
@@ -219,6 +226,8 @@ model Company {
   holidayCalendars HolidayCalendar[]
   employees        Employee[]
   jobOpenings      JobOpening[]
+  payrollSetting   PayrollSetting[]
+  payrollRuns      PayrollRun[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -994,6 +1003,9 @@ model Employee {
   documents             EmployeeDocument[]
   onboardingPlans       OnboardingPlan[]
   hiredFrom             JobApplication[]
+  salaries              EmployeeSalary[]
+  payrollProfile        EmployeePayroll[]
+  payslips              Payslip[]
   leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
 
@@ -1965,4 +1977,193 @@ model OnboardingTask {
   @@unique([planId, position])
   @@index([tenantId, assigneeUserId, status])
   @@map("onboarding_task")
+}
+
+// ---- Payroll (Phase 14) ----------------------------------------------------------------------------
+
+enum PayComponentKind {
+  EARNING
+  DEDUCTION
+
+  @@map("pay_component_kind")
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+
+  @@map("payroll_run_status")
+}
+
+/// A line that can appear on a payslip: basic, HRA, special allowance, a canteen deduction, …
+model PayComponent {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  code      String
+  name      String
+  kind      PayComponentKind
+  taxable   Boolean          @default(true)
+  /// Counts as "wages" for provident fund (basic, dearness allowance, retaining allowance).
+  pfWage    Boolean          @default(false) @map("pf_wage")
+  esiWage   Boolean          @default(true) @map("esi_wage")
+  prorate   Boolean          @default(true)
+  sortOrder Int              @default(0) @map("sort_order")
+  status    RecordStatus     @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("pay_component")
+}
+
+/// An employee's pay from a date. Revisions are added, never changed.
+model EmployeeSalary {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  employeeId      String   @map("employee_id") @db.Uuid
+  effectiveFrom   DateTime @map("effective_from") @db.Date
+  annualCtc       Decimal  @map("annual_ctc") @db.Decimal(14, 2)
+  /// [{ componentId, code, name, monthly }]
+  lines           Json
+  note            String?
+  createdByUserId String   @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, effectiveFrom])
+  @@map("employee_salary")
+}
+
+/// How statutory rules apply to one employee.
+model EmployeePayroll {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  employeeId    String   @map("employee_id") @db.Uuid
+  pfEnabled     Boolean  @default(true) @map("pf_enabled")
+  /// Contribute on full wages above the ceiling (voluntary, both sides agreeing).
+  pfOnFullWages Boolean  @default(false) @map("pf_on_full_wages")
+  esiEnabled    Boolean  @default(true) @map("esi_enabled")
+  /// State for professional tax (two-letter code), or none.
+  ptState       String?  @map("pt_state")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId])
+  @@map("employee_payroll")
+}
+
+/// Statutory registrations and switches for one company.
+model PayrollSetting {
+  id                String   @id @default(uuid(7)) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  pfEnabled         Boolean  @default(true) @map("pf_enabled")
+  esiEnabled        Boolean  @default(true) @map("esi_enabled")
+  /// Count allowances above half of pay as PF wages (Code on Social Security).
+  labourCodeWages   Boolean  @default(true) @map("labour_code_wages")
+  pfEstablishmentId String?  @map("pf_establishment_id")
+  esiEmployerCode   String?  @map("esi_employer_code")
+  tan               String?
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, companyId])
+  @@map("payroll_setting")
+}
+
+/// A state's professional-tax slabs as the organisation uses them.
+model ProfessionalTaxTable {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  state     String
+  name      String
+  /// [{ upTo, amount, february? }]
+  slabs     Json
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, state])
+  @@map("professional_tax_table")
+}
+
+/// One month's payroll for one company. Approved by people before anyone is paid.
+model PayrollRun {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  companyId         String           @map("company_id") @db.Uuid
+  year              Int
+  month             Int
+  status            PayrollRunStatus @default(DRAFT)
+  employeeCount     Int              @default(0) @map("employee_count")
+  gross             Decimal          @default(0) @db.Decimal(14, 2)
+  deductions        Decimal          @default(0) @db.Decimal(14, 2)
+  net               Decimal          @default(0) @db.Decimal(14, 2)
+  employerCost      Decimal          @default(0) @map("employer_cost") @db.Decimal(14, 2)
+  approvalRequestId String?          @map("approval_request_id") @db.Uuid
+  createdByUserId   String           @map("created_by_user_id") @db.Uuid
+  calculatedAt      DateTime?        @map("calculated_at") @db.Timestamptz(6)
+  approvedAt        DateTime?        @map("approved_at") @db.Timestamptz(6)
+  paidAt            DateTime?        @map("paid_at") @db.Timestamptz(6)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company  Company   @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  payslips Payslip[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, companyId, year, month])
+  @@map("payroll_run")
+}
+
+/// One employee's pay for a run. Final once the run is approved.
+model Payslip {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  runId           String   @map("run_id") @db.Uuid
+  employeeId      String   @map("employee_id") @db.Uuid
+  employedDays    Int      @map("employed_days")
+  lopDays         Decimal  @default(0) @map("lop_days") @db.Decimal(5, 1)
+  /// Loss of pay entered by hand, replacing what attendance says.
+  lopOverride     Decimal? @map("lop_override") @db.Decimal(5, 1)
+  paidDays        Decimal  @map("paid_days") @db.Decimal(5, 1)
+  earnings        Json
+  deductions      Json
+  employer        Json
+  adjustments     Json     @default("[]")
+  gross           Decimal  @db.Decimal(14, 2)
+  totalDeductions Decimal  @map("total_deductions") @db.Decimal(14, 2)
+  net             Decimal  @db.Decimal(14, 2)
+  employerCost    Decimal  @map("employer_cost") @db.Decimal(14, 2)
+  pfWages         Decimal  @default(0) @map("pf_wages") @db.Decimal(14, 2)
+  esiWages        Decimal  @default(0) @map("esi_wages") @db.Decimal(14, 2)
+  esiCovered      Boolean  @default(false) @map("esi_covered")
+  taxable         Decimal  @default(0) @db.Decimal(14, 2)
+  tds             Json?
+  warnings        Json     @default("[]")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  run      PayrollRun @relation(fields: [tenantId, runId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee   @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([runId, employeeId])
+  @@index([tenantId, employeeId])
+  @@map("payslip")
 }

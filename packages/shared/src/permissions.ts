@@ -54,6 +54,19 @@ export const PERMISSIONS = {
     label:
       'Open positions, add candidates, move them through the pipeline, schedule interviews and make offers',
   },
+  'payroll.view': {
+    module: 'payroll',
+    label: 'See salaries, payroll runs and payslips in their part of the organisation',
+  },
+  'payroll.manage': {
+    module: 'payroll',
+    label:
+      'Set salaries, prepare payroll runs and send them for approval, and export bank and statutory files',
+  },
+  'payroll.configure': {
+    module: 'payroll',
+    label: 'Set up pay components, statutory registrations and professional tax',
+  },
   'onboarding.manage': {
     module: 'recruitment',
     label: 'Maintain onboarding checklists and start onboarding for new joiners',
@@ -75,6 +88,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   leave: 'Leave and holidays',
   documents: 'Documents',
   recruitment: 'Recruitment and onboarding',
+  payroll: 'Payroll',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -127,6 +141,20 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'recruitment.view',
       'recruitment.manage',
       'onboarding.manage',
+    ],
+  },
+  {
+    key: 'payroll_admin',
+    name: 'Payroll administrator',
+    description:
+      'Sets salaries, prepares monthly payroll and sends it for approval, and exports bank and statutory files. Sees bank details to pay people.',
+    permissions: [
+      'org.view',
+      'employees.view',
+      'employees.sensitive.view',
+      'payroll.view',
+      'payroll.manage',
+      'payroll.configure',
     ],
   },
   {

@@ -204,6 +204,18 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.$executeRaw`ALTER TABLE "payslip" DISABLE TRIGGER payslip_check`;
+    try {
+      await this.db.payslip.deleteMany({ where: inTenants });
+    } finally {
+      await this.db.$executeRaw`ALTER TABLE "payslip" ENABLE TRIGGER payslip_check`;
+    }
+    await this.db.payrollRun.deleteMany({ where: inTenants });
+    await this.db.employeeSalary.deleteMany({ where: inTenants });
+    await this.db.employeePayroll.deleteMany({ where: inTenants });
+    await this.db.payrollSetting.deleteMany({ where: inTenants });
+    await this.db.professionalTaxTable.deleteMany({ where: inTenants });
+    await this.db.payComponent.deleteMany({ where: inTenants });
     await this.db.onboardingTask.deleteMany({ where: inTenants });
     await this.db.onboardingPlan.deleteMany({ where: inTenants });
     await this.db.onboardingTemplateTask.deleteMany({ where: inTenants });

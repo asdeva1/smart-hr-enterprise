@@ -86,6 +86,7 @@ export const NOTIFICATION_CATEGORIES = {
     label: 'An onboarding task was given to me',
     emailDefault: true,
   },
+  'payroll.payslip': { label: 'My payslip is ready', emailDefault: true },
   'subscription.changed': {
     label: 'My organisation’s subscription ended or changed (owners)',
     emailDefault: true,

@@ -76,7 +76,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
       { label: 'Recruitment', icon: Briefcase, href: '/recruitment', feature: 'recruitment' },
       { label: 'Onboarding', icon: ListTodo, href: '/onboarding', feature: 'onboarding' },
-      { label: 'Payroll', icon: Wallet, phase: 14 },
+      { label: 'Payroll', icon: Wallet, href: '/payroll', feature: 'payroll' },
     ],
   },
   {

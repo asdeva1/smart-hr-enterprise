@@ -18,7 +18,7 @@ import { EmployeesService } from './employees.service.js';
     EmployeeAccountService,
     EmployeeChangesService,
   ],
-  exports: [EmployeesService],
+  exports: [EmployeesService, EmployeeSensitiveService],
 })
 export class EmployeesModule implements OnModuleInit {
   constructor(

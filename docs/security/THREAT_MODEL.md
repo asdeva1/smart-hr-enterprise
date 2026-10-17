@@ -62,6 +62,16 @@ Method: STRIDE per asset, with the control in place, its evidence, and what rema
 | Interviewers influencing each other                 | Blind feedback until one's own is given; submitted feedback final in the database                                       |
 | An offer or hire made without sign-off              | Openings and offers go through the approval engine; terms can't be rewritten; hiring needs `employees.manage`           |
 
+## Payroll (Phase 14)
+
+| Threat                                            | Control                                                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Pay released without sign-off, or by its preparer | Every run goes through the approval engine; requesters never approve their own; no automatic approval                    |
+| Approved pay altered afterwards                   | Database triggers keep approved, paid and cancelled runs and their payslips final; salary history insert-only            |
+| Salaries seen by people not running payroll       | Scope-checked `payroll.*` permissions (not in the HR administrator role); employees see only their own approved payslips |
+| Bank account numbers leaked through exports       | Bank file needs `payroll.manage`, recent password entry, approved pay; audited; payslip emails carry no amounts          |
+| Formula injection through exported CSVs           | Cells starting with `=`, `+`, `-`, `@` (other than numbers) are neutralised                                              |
+
 ## Open risks
 
 | Risk                                                                                                           | Plan                                                                                                                    |

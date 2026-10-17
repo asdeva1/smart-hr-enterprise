@@ -36,7 +36,7 @@ export async function createApp(
     origin: env.CORS_ORIGINS,
     credentials: true,
     allowedHeaders: ['content-type', 'x-csrf-token', 'x-request-id'],
-    exposedHeaders: ['x-request-id', 'retry-after'],
+    exposedHeaders: ['x-request-id', 'retry-after', 'content-disposition'],
   });
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new ProblemDetailsFilter(logger));

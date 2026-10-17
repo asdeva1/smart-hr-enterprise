@@ -12,3 +12,4 @@ export * from './attendance.js';
 export * from './leave.js';
 export * from './documents.js';
 export * from './recruitment.js';
+export * from './payroll.js';

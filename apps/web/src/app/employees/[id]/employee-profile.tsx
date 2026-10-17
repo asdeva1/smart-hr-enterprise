@@ -29,9 +29,10 @@ import { PendingChanges } from './pending-changes';
 import { SensitivePanel } from './sensitive-panel';
 import { DocumentsPanel } from '@/components/documents/documents-panel';
 import { OnboardingPanel } from '@/components/onboarding/onboarding-panel';
+import { PayPanel } from '@/components/payroll/pay-panel';
 import { can, hasFeature } from '@/lib/permissions';
 
-type Tab = 'overview' | 'identity' | 'contacts' | 'documents' | 'onboarding' | 'history';
+type Tab = 'overview' | 'identity' | 'contacts' | 'documents' | 'onboarding' | 'pay' | 'history';
 
 export function EmployeeProfile({ id, session }: { id: string; session: SessionView }) {
   const employee = useEmployee(id);
@@ -39,7 +40,9 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
   const client = useQueryClient();
   const initialTab = params.get('tab');
   const [tab, setTab] = useState<Tab>(
-    initialTab === 'documents' || initialTab === 'onboarding' ? initialTab : 'overview',
+    initialTab === 'documents' || initialTab === 'onboarding' || initialTab === 'pay'
+      ? initialTab
+      : 'overview',
   );
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<LifecycleAction | null>(null);
@@ -162,6 +165,7 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
         />
       )}
       {tab === 'onboarding' && <OnboardingPanel employeeId={e.id} />}
+      {tab === 'pay' && <PayPanel employeeId={e.id} />}
       {tab === 'history' && <HistoryPanel id={e.id} />}
       {editing && (
         <EditDetailsDialog
