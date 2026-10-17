@@ -39,6 +39,8 @@ A policy is an ordered list of stages:
 
 Approvers are resolved when a stage starts, for the request's scope: a role or permission assignment counts only if its scope covers the request (whole organisation, or the request's company, branch or department chain).
 
+Requests about one employee (leave, attendance corrections) can use the **Reporting manager** rule, one to three levels up the employee's reporting line. Until an organisation sets its own policy for those request types, they go to the reporting manager, with the owners as the backstop when nobody who can sign in is found.
+
 ### Rules the engine enforces
 
 - **Nobody approves their own request**, directly or as a delegate.

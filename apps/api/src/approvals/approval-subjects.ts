@@ -10,6 +10,8 @@ export interface ApprovalSubjectHandler {
   onRejected?(tx: TenantTransaction, request: ApprovalRequest, comment: string | null): Promise<void>;
   onReturned?(tx: TenantTransaction, request: ApprovalRequest, comment: string | null): Promise<void>;
   onCancelled?(tx: TenantTransaction, request: ApprovalRequest): Promise<void>;
+  /** A request that was sent back has been submitted again and is pending once more. */
+  onResubmitted?(tx: TenantTransaction, request: ApprovalRequest): Promise<void>;
   /** Web link to the subject, shown in the approval and its notifications. */
   link?(request: ApprovalRequest): string;
 }

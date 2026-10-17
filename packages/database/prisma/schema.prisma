@@ -56,7 +56,12 @@ model Tenant {
   lookupValues  LookupValue[]
   subscription  Subscription?
 
-  employees Employee[]
+  employees             Employee[]
+  shifts                Shift[]
+  shiftAssignments      ShiftAssignment[]
+  attendancePunches     AttendancePunch[]
+  attendanceDays        AttendanceDay[]
+  attendanceCorrections AttendanceCorrection[]
 
   @@map("tenant")
 }
@@ -494,6 +499,8 @@ model ApprovalRequest {
   scopeType               ScopeType        @map("scope_type")
   scopeId                 String           @map("scope_id") @db.Uuid
   requestedByMembershipId String           @map("requested_by_membership_id") @db.Uuid
+  /// The employee the request is about, when there is one; "reporting manager" approvers are found from it.
+  subjectEmployeeId       String?          @map("subject_employee_id") @db.Uuid
   status                  ApprovalStatus   @default(PENDING)
   /// Index into the policy's stages; meaningful while PENDING.
   currentStage            Int              @default(0) @map("current_stage")
@@ -504,6 +511,7 @@ model ApprovalRequest {
   decidedAt               DateTime?        @map("decided_at") @db.Timestamptz(6)
   policy                  ApprovalPolicy   @relation(fields: [tenantId, policyId], references: [tenantId, id], onDelete: Restrict)
   requestedBy             TenantMembership @relation("ApprovalRequester", fields: [tenantId, requestedByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  subjectEmployee         Employee?        @relation(fields: [tenantId, subjectEmployeeId], references: [tenantId, id], onDelete: Restrict)
   tasks                   ApprovalTask[]
 
   /// A subject has at most one approval request.
@@ -937,21 +945,26 @@ model Employee {
   createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  membership        TenantMembership?  @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict)
-  company           Company            @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
-  branch            Branch?            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  department        Department?        @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: Restrict)
-  designation       LookupValue?       @relation("EmployeeDesignation", fields: [tenantId, designationId], references: [tenantId, id], onDelete: Restrict)
-  grade             LookupValue?       @relation("EmployeeGrade", fields: [tenantId, gradeId], references: [tenantId, id], onDelete: Restrict)
-  employmentType    LookupValue?       @relation("EmployeeEmploymentType", fields: [tenantId, employmentTypeId], references: [tenantId, id], onDelete: Restrict)
-  costCentre        LookupValue?       @relation("EmployeeCostCentre", fields: [tenantId, costCentreId], references: [tenantId, id], onDelete: Restrict)
-  exitReason        LookupValue?       @relation("EmployeeExitReason", fields: [tenantId, exitReasonId], references: [tenantId, id], onDelete: Restrict)
-  manager           Employee?          @relation("EmployeeManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
-  reports           Employee[]         @relation("EmployeeManager")
-  sensitive         EmployeeSensitive?
-  events            EmployeeEvent[]
-  emergencyContacts EmergencyContact[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership            TenantMembership?      @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict)
+  company               Company                @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  branch                Branch?                @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  department            Department?            @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: Restrict)
+  designation           LookupValue?           @relation("EmployeeDesignation", fields: [tenantId, designationId], references: [tenantId, id], onDelete: Restrict)
+  grade                 LookupValue?           @relation("EmployeeGrade", fields: [tenantId, gradeId], references: [tenantId, id], onDelete: Restrict)
+  employmentType        LookupValue?           @relation("EmployeeEmploymentType", fields: [tenantId, employmentTypeId], references: [tenantId, id], onDelete: Restrict)
+  costCentre            LookupValue?           @relation("EmployeeCostCentre", fields: [tenantId, costCentreId], references: [tenantId, id], onDelete: Restrict)
+  exitReason            LookupValue?           @relation("EmployeeExitReason", fields: [tenantId, exitReasonId], references: [tenantId, id], onDelete: Restrict)
+  manager               Employee?              @relation("EmployeeManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
+  reports               Employee[]             @relation("EmployeeManager")
+  sensitive             EmployeeSensitive?
+  events                EmployeeEvent[]
+  emergencyContacts     EmergencyContact[]
+  shiftAssignments      ShiftAssignment[]
+  attendancePunches     AttendancePunch[]
+  attendanceDays        AttendanceDay[]
+  attendanceCorrections AttendanceCorrection[]
+  approvalRequests      ApprovalRequest[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeCode])
@@ -1031,4 +1044,172 @@ model EmployeeCounter {
   nextNumber Int    @default(1) @map("next_number")
 
   @@map("employee_counter")
+}
+
+// ---- Attendance (Phase 9) ---------------------------------------------------------------------------
+
+enum AttendanceDayStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+  WEEKLY_OFF
+
+  @@map("attendance_day_status")
+}
+
+enum PunchDirection {
+  IN
+  OUT
+
+  @@map("punch_direction")
+}
+
+enum PunchSource {
+  /// The employee, from the web app.
+  WEB
+  /// Entered by someone with attendance.manage on the employee's behalf.
+  ADMIN
+  /// Written when a correction is approved.
+  CORRECTION
+  /// Uploaded from a file or a device export.
+  IMPORT
+
+  @@map("punch_source")
+}
+
+enum AttendanceCorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+
+  @@map("attendance_correction_status")
+}
+
+/// A working pattern. Times are minutes after local midnight in the employee's time zone; an end before the
+/// start means the shift crosses midnight.
+model Shift {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  tenantId       String       @map("tenant_id") @db.Uuid
+  code           String
+  name           String
+  startMinute    Int          @map("start_minute")
+  endMinute      Int          @map("end_minute")
+  breakMinutes   Int          @default(0) @map("break_minutes")
+  /// Arriving within this many minutes of the start isn't late.
+  graceMinutes   Int          @default(10) @map("grace_minutes")
+  /// Worked minutes needed for a half day and a full day.
+  halfDayMinutes Int          @default(240) @map("half_day_minutes")
+  fullDayMinutes Int          @default(480) @map("full_day_minutes")
+  /// Days of the week that are off: 0 = Sunday … 6 = Saturday.
+  weeklyOffs     Int[]        @default([0]) @map("weekly_offs")
+  /// Used for employees with no assignment.
+  isDefault      Boolean      @default(false) @map("is_default")
+  status         RecordStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  assignments ShiftAssignment[]
+  days        AttendanceDay[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("shift")
+}
+
+/// Which shift an employee works from a date onwards. The latest assignment on or before a day applies.
+model ShiftAssignment {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  employeeId      String   @map("employee_id") @db.Uuid
+  shiftId         String   @map("shift_id") @db.Uuid
+  effectiveFrom   DateTime @map("effective_from") @db.Date
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  shift    Shift    @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, effectiveFrom])
+  @@index([tenantId, shiftId])
+  @@map("shift_assignment")
+}
+
+/// One clock-in or clock-out. Append-only: mistakes are fixed by an approved correction, never by editing.
+model AttendancePunch {
+  id               String         @id @default(uuid(7)) @db.Uuid
+  tenantId         String         @map("tenant_id") @db.Uuid
+  employeeId       String         @map("employee_id") @db.Uuid
+  at               DateTime       @db.Timestamptz(6)
+  direction        PunchDirection
+  source           PunchSource
+  note             String?
+  recordedByUserId String?        @map("recorded_by_user_id") @db.Uuid
+  correctionId     String?        @map("correction_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee   Employee              @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  correction AttendanceCorrection? @relation(fields: [tenantId, correctionId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, employeeId, at])
+  @@map("attendance_punch")
+}
+
+/// The computed result for one employee and local date. Recomputed whenever its punches, corrections or shift
+/// change; days without a row are read as absent (working day in the past) or weekly off.
+model AttendanceDay {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  employeeId        String              @map("employee_id") @db.Uuid
+  date              DateTime            @db.Date
+  shiftId           String?             @map("shift_id") @db.Uuid
+  status            AttendanceDayStatus
+  firstIn           DateTime?           @map("first_in") @db.Timestamptz(6)
+  lastOut           DateTime?           @map("last_out") @db.Timestamptz(6)
+  workedMinutes     Int                 @default(0) @map("worked_minutes")
+  lateMinutes       Int                 @default(0) @map("late_minutes")
+  earlyLeaveMinutes Int                 @default(0) @map("early_leave_minutes")
+  overtimeMinutes   Int                 @default(0) @map("overtime_minutes")
+  /// An approved correction contributed to this day.
+  corrected         Boolean             @default(false)
+  computedAt        DateTime            @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  shift    Shift?   @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, date])
+  @@index([tenantId, date])
+  @@map("attendance_day")
+}
+
+/// A request to fix a day's times (a forgotten clock-out, a device failure). Applied only once approved.
+model AttendanceCorrection {
+  id                String                     @id @default(uuid(7)) @db.Uuid
+  tenantId          String                     @map("tenant_id") @db.Uuid
+  employeeId        String                     @map("employee_id") @db.Uuid
+  date              DateTime                   @db.Date
+  inAt              DateTime?                  @map("in_at") @db.Timestamptz(6)
+  outAt             DateTime?                  @map("out_at") @db.Timestamptz(6)
+  reason            String
+  status            AttendanceCorrectionStatus @default(PENDING)
+  approvalRequestId String?                    @map("approval_request_id") @db.Uuid
+  requestedByUserId String                     @map("requested_by_user_id") @db.Uuid
+  decisionNote      String?                    @map("decision_note")
+  decidedAt         DateTime?                  @map("decided_at") @db.Timestamptz(6)
+  createdAt         DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee          @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  punches  AttendancePunch[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, date])
+  @@index([tenantId, status])
+  @@map("attendance_correction")
 }

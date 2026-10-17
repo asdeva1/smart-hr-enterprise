@@ -57,6 +57,10 @@ beforeAll(async () => {
 afterAll(async () => {
   if (owner) {
     const tenants = { tenantId: { in: [tenantA, tenantB] } };
+    await owner.attendancePunch.deleteMany({ where: tenants });
+    await owner.attendanceCorrection.deleteMany({ where: tenants });
+    await owner.shiftAssignment.deleteMany({ where: tenants });
+    await owner.shift.deleteMany({ where: tenants });
     await owner.employeeEvent.deleteMany({ where: tenants });
     await owner.employee.deleteMany({ where: tenants });
     await owner.lookupValue.deleteMany({ where: tenants });
@@ -334,5 +338,64 @@ describe('employee records', () => {
     expect(String(edit)).toMatch(/permission denied/i);
     const del = await expectRejected(withTenant(app, tenantA, (tx) => tx.$executeRaw`DELETE FROM employee`));
     expect(String(del)).toMatch(/permission denied/i);
+  });
+});
+
+describe('attendance', () => {
+  it('isolates attendance by tenant, keeps clock-ins append-only, checks shifts and closes decided corrections', async () => {
+    const employee = await withTenant(app, tenantA, (tx) =>
+      tx.employee.create({
+        data: {
+          tenantId: tenantA,
+          employeeCode: `ATT-${run}`,
+          firstName: 'C',
+          lastName: 'D',
+          companyId: companyA,
+          dateOfJoining: new Date('2026-01-01'),
+        },
+      }),
+    );
+    await withTenant(app, tenantA, (tx) =>
+      tx.attendancePunch.create({
+        data: { tenantId: tenantA, employeeId: employee.id, at: new Date(), direction: 'IN', source: 'WEB' },
+      }),
+    );
+    expect(await withTenant(app, tenantB, (tx) => tx.attendancePunch.count())).toBe(0);
+
+    for (const statement of [
+      (tx: TenantTransaction) => tx.$executeRaw`UPDATE attendance_punch SET direction = 'OUT'`,
+      (tx: TenantTransaction) => tx.$executeRaw`DELETE FROM attendance_punch`,
+      (tx: TenantTransaction) => tx.$executeRaw`DELETE FROM shift_assignment`,
+    ]) {
+      expect(String(await expectRejected(withTenant(app, tenantA, statement)))).toMatch(/permission denied/i);
+    }
+
+    const badShift = await expectRejected(
+      withTenant(app, tenantA, (tx) =>
+        tx.shift.create({
+          data: { tenantId: tenantA, code: 'BAD', name: 'Bad', startMinute: 600, endMinute: 600 },
+        }),
+      ),
+    );
+    expect(String(badShift)).toMatch(/must be different/);
+
+    const correction = await withTenant(app, tenantA, (tx) =>
+      tx.attendanceCorrection.create({
+        data: {
+          tenantId: tenantA,
+          employeeId: employee.id,
+          date: new Date('2026-02-02'),
+          reason: 'test',
+          requestedByUserId: userA,
+          status: 'REJECTED',
+        },
+      }),
+    );
+    const reopen = await expectRejected(
+      withTenant(app, tenantA, (tx) =>
+        tx.attendanceCorrection.update({ where: { id: correction.id }, data: { status: 'APPROVED' } }),
+      ),
+    );
+    expect(String(reopen)).toMatch(/already rejected/);
   });
 });

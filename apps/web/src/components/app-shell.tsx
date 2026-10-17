@@ -69,7 +69,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         permission: 'employees.view',
         feature: 'hr.core',
       },
-      { label: 'Attendance', icon: Clock, phase: 9 },
+      { label: 'Attendance', icon: Clock, href: '/attendance', feature: 'attendance.basic' },
       { label: 'Leave', icon: CalendarDays, phase: 10 },
       { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
       { label: 'Payroll', icon: Wallet, phase: 14 },

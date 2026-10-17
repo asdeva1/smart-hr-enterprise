@@ -9,6 +9,7 @@ import {
 import {
   APPROVAL_SUBJECTS,
   AppError,
+  defaultApproverIsManager,
   isApprovalSubject,
   NOTIFICATION_CATEGORIES,
   NotFoundError,
@@ -43,12 +44,19 @@ export interface SubmitInput {
   currency?: string;
   /** Where the subject sits in the organisation; approvers are resolved for this scope. */
   scope: ScopeRef;
+  /** The employee the request is about, so "reporting manager" rules can find their manager. */
+  subjectEmployeeId?: string;
 }
 
 export type Decision = 'APPROVE' | 'REJECT' | 'RETURN';
 
-const DEFAULT_POLICY: ApprovalPolicyDefinition = {
+const OWNERS_POLICY: ApprovalPolicyDefinition = {
   stages: [{ name: 'Organisation owner', mode: 'ANY', approvers: [{ type: 'OWNERS' }] }],
+  distinctApprovers: true,
+};
+
+const MANAGER_POLICY: ApprovalPolicyDefinition = {
+  stages: [{ name: 'Reporting manager', mode: 'ANY', approvers: [{ type: 'MANAGER', levels: 1 }] }],
   distinctApprovers: true,
 };
 
@@ -72,7 +80,10 @@ export class ApprovalEngine {
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
-  /** The active policy for a subject type, creating the default (owners approve) on first use. */
+  /**
+   * The active policy for a subject type, creating the default on first use: the reporting manager for
+   * requests about one employee (leave, attendance corrections), the owners for everything else.
+   */
   async activePolicy(tx: TenantTransaction, tenantId: string, subjectType: string) {
     const active = await tx.approvalPolicy.findFirst({
       where: { subjectType, isActive: true },
@@ -88,8 +99,9 @@ export class ApprovalEngine {
         tenantId,
         subjectType,
         version: (latest?.version ?? 0) + 1,
-        name: 'Default — organisation owners approve',
-        definition: DEFAULT_POLICY,
+        ...(defaultApproverIsManager(subjectType)
+          ? { name: 'Default — reporting manager approves', definition: MANAGER_POLICY }
+          : { name: 'Default — organisation owners approve', definition: OWNERS_POLICY }),
       },
     });
   }
@@ -111,6 +123,7 @@ export class ApprovalEngine {
         scopeType: input.scope.type,
         scopeId: input.scope.id,
         requestedByMembershipId: actor.membershipId,
+        subjectEmployeeId: input.subjectEmployeeId ?? null,
       },
     });
     await this.audit.recordInTransaction(
@@ -275,6 +288,7 @@ export class ApprovalEngine {
       },
       meta,
     );
+    await this.subjects.get(reopened.subjectType).onResubmitted?.(tx, reopened);
     return this.advance(tx, reopened, 0, new Set());
   }
 
@@ -365,6 +379,42 @@ export class ApprovalEngine {
     return approved;
   }
 
+  /**
+   * The sign-in membership of the manager `levels` steps up from the subject employee, if that person can
+   * sign in. Nobody (and so the owners' backstop) when there is no subject employee, no manager that far up,
+   * or the manager has no active sign-in.
+   */
+  private async managerOf(
+    tx: TenantTransaction,
+    employeeId: string | null,
+    levels: number,
+  ): Promise<string[]> {
+    let current = employeeId;
+    for (let step = 0; current && step < levels; step++) {
+      const row = await tx.employee.findUnique({ where: { id: current }, select: { managerId: true } });
+      current = row?.managerId ?? null;
+    }
+    if (!current || current === employeeId) return [];
+    const manager = await tx.employee.findUnique({
+      where: { id: current },
+      select: {
+        status: true,
+        membership: { select: { id: true, status: true, user: { select: { status: true } } } },
+      },
+    });
+    const m = manager?.membership;
+    if (
+      !manager ||
+      manager.status === 'EXITED' ||
+      !m ||
+      m.status !== 'ACTIVE' ||
+      m.user.status !== 'ACTIVE'
+    ) {
+      return [];
+    }
+    return [m.id];
+  }
+
   /** Active members matching the rules at a scope covering the request, minus `exclude`. */
   private async resolve(
     tx: TenantTransaction,
@@ -396,6 +446,8 @@ export class ApprovalEngine {
           select: { membershipId: true, scopeType: true, scopeId: true },
         });
         ids = rows.filter(covers).map((r) => r.membershipId);
+      } else if (rule.type === 'MANAGER') {
+        ids = await this.managerOf(tx, request.subjectEmployeeId, rule.levels);
       } else if (rule.type === 'MEMBER') {
         const m = await tx.tenantMembership.findFirst({
           where: { id: rule.membershipId, ...activeMember },

@@ -200,6 +200,14 @@ export class Fixtures {
     await this.db.entitlementOverride.deleteMany({ where: inTenants });
     await this.db.subscriptionEvent.deleteMany({ where: inTenants });
     await this.db.notification.deleteMany({ where: inTenants });
+    // Approval requests can point at employees, so they go first.
+    await this.db.approvalTask.deleteMany({ where: inTenants });
+    await this.db.approvalRequest.deleteMany({ where: inTenants });
+    await this.db.attendancePunch.deleteMany({ where: inTenants });
+    await this.db.attendanceDay.deleteMany({ where: inTenants });
+    await this.db.attendanceCorrection.deleteMany({ where: inTenants });
+    await this.db.shiftAssignment.deleteMany({ where: inTenants });
+    await this.db.shift.deleteMany({ where: inTenants });
     await this.db.emergencyContact.deleteMany({ where: inTenants });
     await this.db.employeeEvent.deleteMany({ where: inTenants });
     await this.db.employeeSensitive.deleteMany({ where: inTenants });
@@ -208,8 +216,6 @@ export class Fixtures {
     await this.db.employeeCounter.deleteMany({ where: inTenants });
     await this.db.lookupValue.deleteMany({ where: inTenants });
     await this.db.notificationPreference.deleteMany({ where: inTenants });
-    await this.db.approvalTask.deleteMany({ where: inTenants });
-    await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.approvalDelegation.deleteMany({ where: inTenants });
     await this.db.approvalPolicy.deleteMany({ where: inTenants });
     await this.db.roleAssignment.deleteMany({ where: inTenants });

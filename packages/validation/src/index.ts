@@ -8,3 +8,4 @@ export * from './plans.js';
 export * from './onboarding.js';
 export * from './licence.js';
 export * from './employees.js';
+export * from './attendance.js';

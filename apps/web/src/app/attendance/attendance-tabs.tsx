@@ -1,0 +1,35 @@
+'use client';
+
+import Link from 'next/link';
+import type { SessionView } from '@/lib/api';
+import { can } from '@/lib/permissions';
+import { cn } from '@/lib/utils';
+
+const TABS = [
+  { href: '/attendance', label: 'My attendance' },
+  { href: '/attendance/team', label: 'Team' },
+  { href: '/attendance/register', label: 'Monthly register' },
+  { href: '/attendance/shifts', label: 'Shifts', needs: ['attendance.configure', 'attendance.manage'] },
+];
+
+/** Section navigation. Team and register show for everyone: managers see their reporting line there. */
+export function AttendanceTabs({ session, active }: { session: SessionView; active: string }) {
+  const tabs = TABS.filter((t) => !t.needs || t.needs.some((p) => can(session, p)));
+  return (
+    <nav aria-label="Attendance" className="flex gap-1 overflow-x-auto border-b border-border">
+      {tabs.map((t) => (
+        <Link
+          key={t.href}
+          href={t.href}
+          aria-current={t.href === active ? 'page' : undefined}
+          className={cn(
+            '-mb-px border-b-2 border-transparent px-3.5 py-3 font-medium whitespace-nowrap text-[#3e4c57]',
+            t.href === active && 'border-primary font-semibold text-primary',
+          )}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}

@@ -24,6 +24,9 @@ import { apiFetch, type SessionView } from '@/lib/api';
 import { approvalKeys, formatAmount, type Colleague, type PolicySummary } from '@/lib/approvals';
 import { can } from '@/lib/permissions';
 
+/** Requests about one employee that go to their manager until the organisation sets a policy. */
+const MANAGER_BY_DEFAULT = new Set(['leave_request', 'attendance_regularization']);
+
 export function PoliciesAdmin({ session }: { session: SessionView }) {
   const [editing, setEditing] = useState<PolicySummary>();
   const [notice, setNotice] = useState<string>();
@@ -68,7 +71,9 @@ export function PoliciesAdmin({ session }: { session: SessionView }) {
                     </span>
                   ) : (
                     <span className="text-[13px] text-muted-foreground">
-                      Default — organisation owners approve
+                      {MANAGER_BY_DEFAULT.has(p.subjectType)
+                        ? 'Default — reporting manager approves'
+                        : 'Default — organisation owners approve'}
                     </span>
                   )}
                 </Td>
@@ -370,6 +375,7 @@ function RuleRow({
     if (type === 'ROLE') onChange({ type, roleId: '' });
     if (type === 'PERMISSION') onChange({ type, permission: '' });
     if (type === 'MEMBER') onChange({ type, membershipId: '' });
+    if (type === 'MANAGER') onChange({ type, levels: 1 });
   }
 
   return (
@@ -384,10 +390,28 @@ function RuleRow({
         onChange={(e) => changeType(e.target.value as ApproverRule['type'])}
       >
         <option value="OWNERS">Organisation owners</option>
+        <option value="MANAGER">Reporting manager</option>
         <option value="MEMBER">A named person</option>
         {canPickRoles && <option value="ROLE">Anyone with a role</option>}
         {canPickRoles && <option value="PERMISSION">Anyone with a permission</option>}
       </Select>
+      {rule.type === 'MANAGER' && (
+        <>
+          <label htmlFor={`${id}-levels`} className="sr-only">
+            Which manager
+          </label>
+          <Select
+            id={`${id}-levels`}
+            className="w-auto min-w-[180px] flex-1"
+            value={String(rule.levels)}
+            onChange={(e) => onChange({ type: 'MANAGER', levels: Number(e.target.value) })}
+          >
+            <option value="1">Their manager</option>
+            <option value="2">Their manager’s manager</option>
+            <option value="3">Three levels up</option>
+          </Select>
+        </>
+      )}
       {rule.type === 'ROLE' && (
         <>
           <label htmlFor={`${id}-role`} className="sr-only">

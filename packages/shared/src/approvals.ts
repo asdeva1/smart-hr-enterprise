@@ -3,8 +3,13 @@
  * subject type when it ships; policies can be configured for any of them ahead of time.
  */
 export const APPROVAL_SUBJECTS = {
-  leave_request: { label: 'Leave request', module: 'Leave', hasAmount: false },
-  attendance_regularization: { label: 'Attendance correction', module: 'Attendance', hasAmount: false },
+  leave_request: { label: 'Leave request', module: 'Leave', hasAmount: false, managerByDefault: true },
+  attendance_regularization: {
+    label: 'Attendance correction',
+    module: 'Attendance',
+    hasAmount: false,
+    managerByDefault: true,
+  },
   expense_claim: { label: 'Expense claim', module: 'Expenses', hasAmount: true },
   travel_request: { label: 'Travel request', module: 'Expenses', hasAmount: true },
   purchase_requisition: { label: 'Purchase request', module: 'Procurement', hasAmount: true },
@@ -15,12 +20,24 @@ export const APPROVAL_SUBJECTS = {
   job_offer: { label: 'Job offer', module: 'Recruitment', hasAmount: true },
   payroll_run: { label: 'Payroll run', module: 'Payroll', hasAmount: true },
   workspace_change: { label: 'Operations workspace change', module: 'Operations', hasAmount: false },
-} as const satisfies Record<string, { label: string; module: string; hasAmount: boolean }>;
+} as const satisfies Record<
+  string,
+  { label: string; module: string; hasAmount: boolean; managerByDefault?: boolean }
+>;
 
 export type ApprovalSubjectType = keyof typeof APPROVAL_SUBJECTS;
 
 export function isApprovalSubject(value: string): value is ApprovalSubjectType {
   return Object.prototype.hasOwnProperty.call(APPROVAL_SUBJECTS, value);
+}
+
+/**
+ * Requests about one employee (leave, attendance corrections) go to their reporting manager until the
+ * organisation sets its own policy; everything else goes to the owners. Owners are always the backstop
+ * when a rule finds nobody.
+ */
+export function defaultApproverIsManager(subjectType: string): boolean {
+  return isApprovalSubject(subjectType) && 'managerByDefault' in APPROVAL_SUBJECTS[subjectType];
 }
 
 /** Notification categories and whether email is on unless the person turns it off. */

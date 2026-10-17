@@ -90,6 +90,7 @@ describe('permissions', () => {
     expect([...(view.activeTenant.permissions as string[])].sort()).toEqual([
       'access.view',
       'approvals.view_all',
+      'attendance.view',
       'audit.view',
       'employees.view',
       'org.view',

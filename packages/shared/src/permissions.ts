@@ -18,6 +18,15 @@ export const PERMISSIONS = {
   'employees.lifecycle': { module: 'employees', label: 'Record transfers, promotions, notice and exits' },
   'employees.sensitive.view': { module: 'employees', label: 'See identity documents and bank details' },
   'employees.sensitive.manage': { module: 'employees', label: 'Change identity documents and bank details' },
+  'attendance.view': {
+    module: 'attendance',
+    label: 'See attendance for employees in their part of the organisation',
+  },
+  'attendance.manage': {
+    module: 'attendance',
+    label: 'Record clock-ins on someone’s behalf and assign shifts',
+  },
+  'attendance.configure': { module: 'attendance', label: 'Set up shifts and attendance rules' },
 } as const satisfies Record<string, { module: string; label: string }>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -31,6 +40,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   audit: 'Audit',
   approvals: 'Approvals',
   employees: 'Employees',
+  attendance: 'Attendance',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -61,7 +71,8 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
   {
     key: 'hr_admin',
     name: 'HR administrator',
-    description: 'Maintains employee records, their history and personal details, and HR reference lists.',
+    description:
+      'Maintains employee records, their history and personal details, attendance and shifts, and HR reference lists.',
     permissions: [
       'org.view',
       'master_data.manage',
@@ -70,13 +81,23 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'employees.lifecycle',
       'employees.sensitive.view',
       'employees.sensitive.manage',
+      'attendance.view',
+      'attendance.manage',
+      'attendance.configure',
     ],
   },
   {
     key: 'auditor',
     name: 'Auditor',
     description: 'Read-only access to structure, access and the audit log.',
-    permissions: ['org.view', 'access.view', 'audit.view', 'approvals.view_all', 'employees.view'],
+    permissions: [
+      'org.view',
+      'access.view',
+      'audit.view',
+      'approvals.view_all',
+      'employees.view',
+      'attendance.view',
+    ],
   },
   {
     key: 'member',

@@ -10,6 +10,8 @@ export const approverRuleSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('MEMBER'), membershipId: z.uuid('Choose a person') }),
   /** The organisation's owners. */
   z.object({ type: z.literal('OWNERS') }),
+  /** The reporting manager of the employee the request is about; 2 or 3 goes further up the line. */
+  z.object({ type: z.literal('MANAGER'), levels: z.number().int().min(1).max(3).default(1) }),
 ]);
 export type ApproverRule = z.infer<typeof approverRuleSchema>;
 

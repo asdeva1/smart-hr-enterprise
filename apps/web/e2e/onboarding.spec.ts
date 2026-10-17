@@ -62,6 +62,7 @@ test('the owner accepts the invitation, brands the organisation and exports its 
   await page.getByLabel('New password', { exact: true }).fill(ownerPassword);
   await page.getByLabel('Confirm new password').fill(ownerPassword);
   await page.getByRole('button', { name: 'Set new password' }).click();
+  await expect(page).toHaveURL(/reason=account-ready/);
 
   await signIn(page, ownerEmail, ownerPassword);
   await expect(page.getByRole('heading', { level: 1, name: /Welcome/ })).toBeVisible();
