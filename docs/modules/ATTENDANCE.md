@@ -33,6 +33,8 @@ sees the companies, branches or departments where they hold `attendance.view`.
 - **Late and early.** Late is measured from the shift start once arrival passes the grace period. Leaving
   early is measured from the shift end. Overtime is time worked beyond the shift length less the break.
 - **Assigning a shift from a past date** recalculates every day already worked out since then.
+- **Holidays and leave** (Phase 10) show as Holiday and On leave; see
+  [Leave and holidays](LEAVE_AND_HOLIDAYS.md) for half days and rest days inside leave.
 
 ## Corrections
 
@@ -56,7 +58,6 @@ nothing. A new approver rule, **Reporting manager** (one to three levels up), is
 ## Not yet
 
 - Biometric devices, geofencing and mobile clock-in.
-- Holidays (Phase 10) and leave (Phase 10) on the calendar; until then a holiday shows as absent.
 - Rosters, overtime approval and regularisation rules beyond corrections (`attendance.advanced`).
 
 ## Tests

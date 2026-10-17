@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { apiFetch } from './api';
 
-export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'WEEKLY_OFF';
+export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED' | 'CANCELLED';
 
 export interface DayView {
@@ -16,12 +16,16 @@ export interface DayView {
   corrected: boolean;
   open: boolean;
   shift: { code: string; name: string };
+  /** Public holiday on this date, if any. */
+  holiday: string | null;
 }
 
 export interface Today {
   employee: { id: string; name: string; employeeCode: string } | null;
   date: string;
   timeZone: string;
+  holiday: string | null;
+  leave: 'FULL' | 'FIRST_HALF' | 'SECOND_HALF' | null;
   shift: { code: string; name: string; startMinute: number; endMinute: number; graceMinutes: number };
   punches: { id: string; at: string; direction: 'IN' | 'OUT'; source: string; note: string | null }[];
   result: {
@@ -92,6 +96,8 @@ export interface TeamDay {
     late: number;
     notIn: number;
     weeklyOff: number;
+    holiday: number;
+    onLeave: number;
   };
   rows: TeamRow[];
 }
@@ -110,6 +116,8 @@ export interface Register {
       halfDay: number;
       absent: number;
       weeklyOff: number;
+      holiday: number;
+      onLeave: number;
       late: number;
       overtimeMinutes: number;
     };
@@ -159,6 +167,8 @@ export const DAY_LABEL: Record<DayStatus, string> = {
   HALF_DAY: 'Half day',
   ABSENT: 'Absent',
   WEEKLY_OFF: 'Weekly off',
+  HOLIDAY: 'Holiday',
+  ON_LEAVE: 'On leave',
 };
 /** Single letters for the register grid; the legend spells them out. */
 export const DAY_CODE: Record<DayStatus, string> = {
@@ -166,12 +176,16 @@ export const DAY_CODE: Record<DayStatus, string> = {
   HALF_DAY: 'H',
   ABSENT: 'A',
   WEEKLY_OFF: 'W',
+  HOLIDAY: 'HO',
+  ON_LEAVE: 'L',
 };
 export const DAY_TONE = {
   PRESENT: 'success',
   HALF_DAY: 'warning',
   ABSENT: 'danger',
   WEEKLY_OFF: 'neutral',
+  HOLIDAY: 'neutral',
+  ON_LEAVE: 'info',
 } as const;
 
 export const CORRECTION_LABEL: Record<CorrectionStatus, string> = {

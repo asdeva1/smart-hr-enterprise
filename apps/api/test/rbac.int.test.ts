@@ -93,6 +93,7 @@ describe('permissions', () => {
       'attendance.view',
       'audit.view',
       'employees.view',
+      'leave.view',
       'org.view',
     ]);
     const ownerView = (await org.owner.get('/v1/auth/session')).body;

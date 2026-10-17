@@ -35,12 +35,12 @@ export const RequirePermission = (...permissions: [Permission, ...Permission[]])
   applyDecorators(SetMetadata(AUTH_META.permissions, permissions), SetMetadata(AUTH_META.tenant, true));
 
 /**
- * Requires the organisation's plan to include a feature (checked on every request, in the backend).
+ * Requires the organisation’s plan to include a feature, or any one of several (checked on every request).
  * Safe methods (GET) only need the feature; changes also need an active subscription — an expired or
  * suspended organisation can still read and export. Implies @RequireTenant.
  */
-export const RequireFeature = (feature: Feature) =>
-  applyDecorators(SetMetadata(AUTH_META.feature, feature), SetMetadata(AUTH_META.tenant, true));
+export const RequireFeature = (...features: [Feature, ...Feature[]]) =>
+  applyDecorators(SetMetadata(AUTH_META.feature, features), SetMetadata(AUTH_META.tenant, true));
 
 export const RequirePlatformAdmin = () => SetMetadata(AUTH_META.platformAdmin, true);
 

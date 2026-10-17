@@ -126,6 +126,15 @@ function TodayCard({ today }: { today: Today }) {
           {shift.name} · {minutesToClock(shift.startMinute)}–{minutesToClock(shift.endMinute)}
           {timeZone !== 'Asia/Kolkata' ? ` (${timeZone})` : ''}
         </p>
+        {(today.holiday || today.leave) && (
+          <p className="text-[13px] font-medium text-info">
+            {today.leave === 'FULL'
+              ? 'You’re on leave today.'
+              : today.leave
+                ? `On leave for the ${today.leave === 'FIRST_HALF' ? 'morning' : 'afternoon'}.`
+                : `Holiday: ${today.holiday}.`}
+          </p>
+        )}
       </div>
       <dl className="flex flex-[1_1_260px] gap-6 text-sm">
         <div>
@@ -267,7 +276,8 @@ function DayCell({
   isToday: boolean;
   onCorrect: (date: string) => void;
 }) {
-  const past = !!day.status && day.status !== 'WEEKLY_OFF';
+  // Corrections are for working days that have happened; leave and holidays aren't corrected here.
+  const past = !!day.status && !['WEEKLY_OFF', 'HOLIDAY', 'ON_LEAVE'].includes(day.status);
   const tone = day.status ? DAY_TONE[day.status] : null;
   return (
     <div
@@ -284,6 +294,7 @@ function DayCell({
         {day.lateMinutes > 0 && <span className="text-warning">Late</span>}
       </span>
       {day.status && <Badge tone={DAY_TONE[day.status]}>{DAY_LABEL[day.status]}</Badge>}
+      {day.holiday && <span className="text-muted-foreground">{day.holiday}</span>}
       {day.firstIn && (
         <span className="text-muted-foreground tabular-nums">
           {clockTime(day.firstIn, timeZone)}–{day.lastOut ? clockTime(day.lastOut, timeZone) : '…'}

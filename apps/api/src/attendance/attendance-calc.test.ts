@@ -8,6 +8,7 @@ import {
   localMinute,
   shiftWindow,
   zonedInstant,
+  type DayMark,
   type Punch,
   type ShiftRule,
 } from './attendance-calc.js';
@@ -135,5 +136,81 @@ describe('days with no record', () => {
     expect(implicitDay({ ...base, date: '2026-10-16' })).toBeNull();
     expect(implicitDay({ ...base, date: '2026-09-30' })).toBeNull();
     expect(implicitDay({ ...base, leftOn: '2026-10-10', date: '2026-10-14' })).toBeNull();
+  });
+});
+
+describe('holidays and leave', () => {
+  const d = '2026-10-14';
+  const mark = (m: Partial<DayMark>): DayMark => ({ holiday: null, leave: null, ...m });
+  const day = (punches: Punch[], m: Partial<DayMark>) =>
+    computeDay({ date: d, shift: general, punches, timeZone: IST, now: later, mark: mark(m) });
+
+  it('shows a full day of leave as on leave, whatever was punched', () => {
+    expect(day([], { leave: 'FULL' }).status).toBe('ON_LEAVE');
+    expect(day([at(d, '09:00', 'IN'), at(d, '10:00', 'OUT')], { leave: 'FULL' })).toMatchObject({
+      status: 'ON_LEAVE',
+      lateMinutes: 0,
+      overtimeMinutes: 0,
+    });
+  });
+
+  it('treats a holiday like a weekly off: not absent, and work on it is overtime', () => {
+    expect(day([], { holiday: 'Diwali' }).status).toBe('HOLIDAY');
+    expect(day([at(d, '10:00', 'IN'), at(d, '15:00', 'OUT')], { holiday: 'Diwali' })).toMatchObject({
+      status: 'PRESENT',
+      overtimeMinutes: 300,
+    });
+  });
+
+  it('makes half a day of leave plus the other half worked a full day', () => {
+    // Afternoon off: in on time, out at 13:30.
+    const pm = day([at(d, '09:00', 'IN'), at(d, '13:30', 'OUT')], { leave: 'SECOND_HALF' });
+    expect(pm).toMatchObject({ status: 'PRESENT', earlyLeaveMinutes: 0, lateMinutes: 0 });
+    // Morning off: arriving at 13:30 isn't late.
+    const am = day([at(d, '13:30', 'IN'), at(d, '18:00', 'OUT')], { leave: 'FIRST_HALF' });
+    expect(am).toMatchObject({ status: 'PRESENT', lateMinutes: 0 });
+    // Morning off and leaving at 16:00: too little of the afternoon worked, and leaving early counts.
+    const early = day([at(d, '13:30', 'IN'), at(d, '16:00', 'OUT')], { leave: 'FIRST_HALF' });
+    expect(early).toMatchObject({ status: 'HALF_DAY', earlyLeaveMinutes: 120 });
+    // Nothing worked: only the leave half counts.
+    expect(day([], { leave: 'SECOND_HALF' }).status).toBe('HALF_DAY');
+  });
+
+  it('reads days with no record ahead of time', () => {
+    const base = { shift: general, today: '2026-10-16', joinedOn: '2026-10-01', leftOn: null };
+    expect(implicitDay({ ...base, date: '2026-10-20', mark: mark({ leave: 'FULL' }) })).toBe('ON_LEAVE');
+    expect(implicitDay({ ...base, date: '2026-10-20', mark: mark({ holiday: 'Diwali' }) })).toBe('HOLIDAY');
+    expect(implicitDay({ ...base, date: '2026-10-14', mark: mark({ leave: 'FIRST_HALF' }) })).toBe(
+      'HALF_DAY',
+    );
+    expect(implicitDay({ ...base, date: '2026-10-18', mark: mark({ holiday: 'Sunday holiday' }) })).toBe(
+      'WEEKLY_OFF',
+    );
+    // Leave never applies outside employment.
+    expect(implicitDay({ ...base, date: '2026-09-20', mark: mark({ leave: 'FULL' }) })).toBeNull();
+  });
+});
+
+describe('leave on rest days', () => {
+  const base = { shift: general, today: '2026-10-16', joinedOn: '2026-01-01', leftOn: null };
+  it('leaves weekly offs and holidays as they are, unless the leave type counts them', () => {
+    const sunday = '2026-10-18';
+    const leave = { holiday: null, leave: 'FULL' as const };
+    expect(implicitDay({ ...base, date: sunday, mark: leave })).toBe('WEEKLY_OFF');
+    expect(implicitDay({ ...base, date: sunday, mark: { ...leave, leaveOnRestDays: true } })).toBe(
+      'ON_LEAVE',
+    );
+    const holiday = { holiday: 'Diwali', leave: 'FULL' as const };
+    expect(implicitDay({ ...base, date: '2026-10-20', mark: holiday })).toBe('HOLIDAY');
+    expect(
+      computeDay({
+        date: '2026-10-20',
+        shift: general,
+        punches: [],
+        timeZone: IST,
+        now: later,
+        mark: holiday,
+      }).status,
+    ).toBe('HOLIDAY');
   });
 });

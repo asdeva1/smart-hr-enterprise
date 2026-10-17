@@ -2,7 +2,7 @@ import { Inject, Injectable, type CanActivate, type ExecutionContext } from '@ne
 import { Reflector } from '@nestjs/core';
 import { safeEqual } from '@smart-hr/auth';
 import { withContext, type DatabaseClient } from '@smart-hr/database';
-import type { Feature } from '@smart-hr/entitlements';
+import { hasFeature, type Feature } from '@smart-hr/entitlements';
 import { AppError, type Permission } from '@smart-hr/shared';
 import type { AppRequest } from '../common/request-context.js';
 import type { ApiEnv } from '../config/env.js';
@@ -95,10 +95,12 @@ export class AuthGuard implements CanActivate {
         ctx.getHandler(),
         ctx.getClass(),
       ]) ?? [];
-    const feature = this.reflector.getAllAndOverride<Feature | undefined>(AUTH_META.feature, [
+    // Any one of the listed features is enough (e.g. holidays serve both attendance and leave).
+    const features = this.reflector.getAllAndOverride<Feature[] | undefined>(AUTH_META.feature, [
       ctx.getHandler(),
       ctx.getClass(),
     ]);
+    const feature = features?.[0];
     if (needsAdmin || required.length > 0 || feature || this.flag(ctx, AUTH_META.tenant)) {
       const tenantId = auth.session.activeTenantId;
       if (!tenantId) throw new AppError('TENANT_REQUIRED', 'Choose an organisation first', 403);
@@ -150,7 +152,10 @@ export class AuthGuard implements CanActivate {
         throw new AppError('FORBIDDEN', 'You do not have permission to do this', 403);
       }
       // Plan check after access checks, so a member without permission learns nothing about the plan.
-      if (feature && entitlements) this.entitlements.assertFeature(entitlements, feature, unsafe);
+      if (features && entitlements) {
+        const granted = features.find((f) => hasFeature(entitlements, f)) ?? features[0]!;
+        this.entitlements.assertFeature(entitlements, granted, unsafe);
+      }
       auth.tenant = {
         id: tenantId,
         membershipId: membership.id,

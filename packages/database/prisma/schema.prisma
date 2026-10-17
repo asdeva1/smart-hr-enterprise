@@ -62,6 +62,11 @@ model Tenant {
   attendancePunches     AttendancePunch[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
+  holidayCalendars      HolidayCalendar[]
+  holidays              Holiday[]
+  leaveTypes            LeaveType[]
+  leaveLedger           LeaveLedgerEntry[]
+  leaveRequests         LeaveRequest[]
 
   @@map("tenant")
 }
@@ -194,7 +199,8 @@ model Company {
   branches     Branch[]
   departments  Department[]
 
-  employees Employee[]
+  holidayCalendars HolidayCalendar[]
+  employees        Employee[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -218,7 +224,8 @@ model Branch {
   updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   company   Company      @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
 
-  employees Employee[]
+  holidayCalendars HolidayCalendar[]
+  employees        Employee[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -964,6 +971,8 @@ model Employee {
   attendancePunches     AttendancePunch[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
+  leaveLedger           LeaveLedgerEntry[]
+  leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
 
   @@unique([tenantId, id])
@@ -1053,6 +1062,8 @@ enum AttendanceDayStatus {
   HALF_DAY
   ABSENT
   WEEKLY_OFF
+  HOLIDAY
+  ON_LEAVE
 
   @@map("attendance_day_status")
 }
@@ -1212,4 +1223,179 @@ model AttendanceCorrection {
   @@index([tenantId, employeeId, date])
   @@index([tenantId, status])
   @@map("attendance_correction")
+}
+
+// ---- Holidays and leave (Phase 10) ------------------------------------------------------------------
+
+enum LeaveAccrual {
+  /// The year's quota is credited at the start of the year (pro-rated for people who join during it).
+  YEARLY
+  /// One twelfth of the quota is credited each month.
+  MONTHLY
+  /// No balance is kept (for example unpaid leave); only requests and approvals.
+  NONE
+
+  @@map("leave_accrual")
+}
+
+enum LeaveLedgerKind {
+  GRANT
+  ACCRUAL
+  CARRY_FORWARD
+  LAPSE
+  ADJUSTMENT
+  TAKEN
+  REVERSAL
+
+  @@map("leave_ledger_kind")
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+
+  @@map("leave_request_status")
+}
+
+enum HalfDay {
+  FIRST_HALF
+  SECOND_HALF
+
+  @@map("half_day")
+}
+
+/// A set of public holidays. One calendar per place: the whole organisation, a company or a branch. An
+/// employee follows their branch's calendar, else their company's, else the organisation's.
+model HolidayCalendar {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  name      String
+  companyId String?      @map("company_id") @db.Uuid
+  branchId  String?      @map("branch_id") @db.Uuid
+  /// "TENANT", "COMPANY:<id>" or "BRANCH:<id>": makes "one calendar per place" a unique constraint.
+  scopeKey  String       @map("scope_key")
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company  Company?  @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  branch   Branch?   @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  holidays Holiday[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, scopeKey])
+  @@map("holiday_calendar")
+}
+
+model Holiday {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  calendarId String   @map("calendar_id") @db.Uuid
+  date       DateTime @db.Date
+  name       String
+  /// A restricted holiday: shown on the calendar, but a working day unless the employee takes leave.
+  optional   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  calendar HolidayCalendar @relation(fields: [tenantId, calendarId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, calendarId, date])
+  @@index([tenantId, date])
+  @@map("holiday")
+}
+
+model LeaveType {
+  id                    String       @id @default(uuid(7)) @db.Uuid
+  tenantId              String       @map("tenant_id") @db.Uuid
+  code                  String
+  name                  String
+  description           String?
+  paid                  Boolean      @default(true)
+  accrual               LeaveAccrual @default(YEARLY)
+  /// Days per year (YEARLY and MONTHLY).
+  quotaDays             Decimal      @default(0) @map("quota_days") @db.Decimal(5, 1)
+  /// Unused days that move into the next year; the rest lapse.
+  carryForwardMaxDays   Decimal      @default(0) @map("carry_forward_max_days") @db.Decimal(5, 1)
+  allowHalfDay          Boolean      @default(true) @map("allow_half_day")
+  /// Count weekly offs and holidays inside a request as leave days.
+  includeNonWorkingDays Boolean      @default(false) @map("include_non_working_days")
+  /// Requests for oneself must be made this many days ahead (0 = any time, including afterwards).
+  minNoticeDays         Int          @default(0) @map("min_notice_days")
+  /// Longest single request in days; null = no limit.
+  maxDaysPerRequest     Int?         @map("max_days_per_request")
+  status                RecordStatus @default(ACTIVE)
+  createdAt             DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ledger   LeaveLedgerEntry[]
+  requests LeaveRequest[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("leave_type")
+}
+
+/// Every change to a leave balance, append-only. A balance is the sum of its year's entries.
+model LeaveLedgerEntry {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  tenantId        String          @map("tenant_id") @db.Uuid
+  employeeId      String          @map("employee_id") @db.Uuid
+  leaveTypeId     String          @map("leave_type_id") @db.Uuid
+  year            Int
+  kind            LeaveLedgerKind
+  /// Positive credits, negative debits, in days (half days allowed).
+  days            Decimal         @db.Decimal(6, 1)
+  /// Makes automatic credits idempotent: "2026" for a yearly grant, "2026-03" for March's accrual.
+  periodKey       String?         @map("period_key")
+  requestId       String?         @map("request_id") @db.Uuid
+  note            String?
+  createdByUserId String?         @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee  Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  leaveType LeaveType     @relation(fields: [tenantId, leaveTypeId], references: [tenantId, id], onDelete: Restrict)
+  request   LeaveRequest? @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, leaveTypeId, kind, periodKey], map: "leave_ledger_entry_period_key_key")
+  @@index([tenantId, employeeId, leaveTypeId, year])
+  @@map("leave_ledger_entry")
+}
+
+model LeaveRequest {
+  id                String             @id @default(uuid(7)) @db.Uuid
+  tenantId          String             @map("tenant_id") @db.Uuid
+  employeeId        String             @map("employee_id") @db.Uuid
+  leaveTypeId       String             @map("leave_type_id") @db.Uuid
+  fromDate          DateTime           @map("from_date") @db.Date
+  toDate            DateTime           @map("to_date") @db.Date
+  /// Only for one-day requests: which half of the day is taken.
+  halfDay           HalfDay?           @map("half_day")
+  days              Decimal            @db.Decimal(5, 1)
+  reason            String
+  status            LeaveRequestStatus @default(PENDING)
+  approvalRequestId String?            @map("approval_request_id") @db.Uuid
+  requestedByUserId String             @map("requested_by_user_id") @db.Uuid
+  decisionNote      String?            @map("decision_note")
+  decidedAt         DateTime?          @map("decided_at") @db.Timestamptz(6)
+  cancelledByUserId String?            @map("cancelled_by_user_id") @db.Uuid
+  cancelledAt       DateTime?          @map("cancelled_at") @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee  Employee           @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  leaveType LeaveType          @relation(fields: [tenantId, leaveTypeId], references: [tenantId, id], onDelete: Restrict)
+  ledger    LeaveLedgerEntry[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, fromDate])
+  @@index([tenantId, status])
+  @@map("leave_request")
 }

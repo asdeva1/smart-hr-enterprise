@@ -34,7 +34,9 @@ const FILTERS = [
   { value: 'HALF_DAY', label: 'Half day' },
   { value: 'ABSENT', label: 'Absent' },
   { value: 'NOT_IN', label: 'Not in yet' },
+  { value: 'ON_LEAVE', label: 'On leave' },
   { value: 'WEEKLY_OFF', label: 'Weekly off' },
+  { value: 'HOLIDAY', label: 'Holiday' },
 ];
 
 export function TeamAttendance({ session }: { session: SessionView }) {
@@ -129,6 +131,7 @@ export function TeamAttendance({ session }: { session: SessionView }) {
                 <Count label="Late" value={team.data.counts.late} />
                 <Count label="Half day" value={team.data.counts.halfDay} />
                 <Count label="Absent" value={team.data.counts.absent} />
+                <Count label="On leave" value={team.data.counts.onLeave} />
                 <Count label="Not in yet" value={team.data.counts.notIn} />
               </ul>
               {team.data.rows.length === 0 ? (

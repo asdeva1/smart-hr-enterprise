@@ -29,6 +29,8 @@ const CELL: Record<DayStatus, string> = {
   HALF_DAY: 'bg-warning-soft text-warning',
   ABSENT: 'bg-danger-soft text-danger',
   WEEKLY_OFF: 'bg-muted text-muted-foreground',
+  HOLIDAY: 'bg-muted text-muted-foreground',
+  ON_LEAVE: 'bg-info-soft text-info',
 };
 
 /** The month as a muster roll: one row per person, one letter per day, totals at the end. */
@@ -143,6 +145,9 @@ export function AttendanceRegister({ session }: { session: SessionView }) {
                       A
                     </th>
                     <th scope="col" className="px-2 py-2 text-right">
+                      L
+                    </th>
+                    <th scope="col" className="px-2 py-2 text-right">
                       Late
                     </th>
                     <th scope="col" className="px-3 py-2 text-right">
@@ -178,6 +183,7 @@ export function AttendanceRegister({ session }: { session: SessionView }) {
                       <td className="px-2 text-right tabular-nums">{r.totals.present}</td>
                       <td className="px-2 text-right tabular-nums">{r.totals.halfDay}</td>
                       <td className="px-2 text-right tabular-nums">{r.totals.absent}</td>
+                      <td className="px-2 text-right tabular-nums">{r.totals.onLeave}</td>
                       <td className="px-2 text-right tabular-nums">{r.totals.late}</td>
                       <td className="px-3 text-right tabular-nums">
                         {hoursAndMinutes(r.totals.overtimeMinutes)}

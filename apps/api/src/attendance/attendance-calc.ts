@@ -19,7 +19,22 @@ export interface Punch {
   direction: 'IN' | 'OUT';
 }
 
-export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'WEEKLY_OFF';
+export type DayStatus = 'PRESENT' | 'HALF_DAY' | 'ABSENT' | 'WEEKLY_OFF' | 'HOLIDAY' | 'ON_LEAVE';
+
+/** What else is true of a date for one employee: a public holiday, or approved leave (all day or half). */
+export interface DayMark {
+  holiday: string | null;
+  leave: 'FULL' | 'FIRST_HALF' | 'SECOND_HALF' | null;
+  /** The leave type counts weekly offs and holidays as leave days ("sandwich" rule). */
+  leaveOnRestDays?: boolean;
+}
+
+export const NO_MARK: DayMark = { holiday: null, leave: null };
+
+/** Leave covers a rest day only when its type counts rest days; otherwise the rest day stands. */
+function effectiveLeave(mark: DayMark, restDay: boolean): DayMark['leave'] {
+  return restDay && !mark.leaveOnRestDays ? null : mark.leave;
+}
 
 export interface DayResult {
   status: DayStatus;
@@ -135,6 +150,10 @@ export function attendanceDateFor(at: Date, shift: ShiftRule | null, timeZone: s
  * Works out a day from its punches. Worked time is the sum of each clock-in to the next clock-out; a
  * clock-in with no clock-out counts only up to `now` and only on the current day. Lateness is measured from
  * the shift start once arrival is past the grace period; leaving early, from the shift end.
+ *
+ * Approved leave and holidays change the meaning: a full day of leave is ON_LEAVE; a weekly off or holiday
+ * is not a working day (time worked on it is overtime); with half a day of leave, working the other half is
+ * a full day, and lateness or leaving early is only measured for the half that was meant to be worked.
  */
 export function computeDay(input: {
   date: string;
@@ -142,11 +161,15 @@ export function computeDay(input: {
   punches: Punch[];
   timeZone: string;
   now: Date;
+  mark?: DayMark;
 }): DayResult {
   const { date, shift, timeZone, now } = input;
+  const mark = input.mark ?? NO_MARK;
   const punches = [...input.punches].sort((a, b) => a.at.getTime() - b.at.getTime());
   const isToday = attendanceDateFor(now, shift, timeZone) === date;
-  const offDay = shift.weeklyOffs.includes(weekday(date));
+  const weeklyOff = shift.weeklyOffs.includes(weekday(date));
+  const offDay = weeklyOff || !!mark.holiday;
+  const leave = effectiveLeave(mark, offDay);
 
   let worked = 0;
   let openSince: Date | null = null;
@@ -165,13 +188,23 @@ export function computeDay(input: {
   const lastOut = [...punches].reverse().find((p) => p.direction === 'OUT')?.at ?? null;
   const window = shiftWindow(shift, date, timeZone);
 
-  if (offDay) {
+  if (leave === 'FULL') {
     return {
-      status: punches.length
-        ? workedMinutes >= shift.halfDayMinutes
-          ? 'PRESENT'
-          : 'WEEKLY_OFF'
-        : 'WEEKLY_OFF',
+      status: 'ON_LEAVE',
+      firstIn,
+      lastOut,
+      workedMinutes,
+      lateMinutes: 0,
+      earlyLeaveMinutes: 0,
+      overtimeMinutes: 0,
+      openSince: isToday ? openSince : null,
+    };
+  }
+
+  if (offDay) {
+    const restDay = weeklyOff ? 'WEEKLY_OFF' : 'HOLIDAY';
+    return {
+      status: punches.length && workedMinutes >= shift.halfDayMinutes ? 'PRESENT' : restDay,
       firstIn,
       lastOut,
       workedMinutes,
@@ -184,15 +217,20 @@ export function computeDay(input: {
   }
 
   const lateBy = firstIn ? Math.floor((firstIn.getTime() - window.start.getTime()) / MINUTE_MS) : 0;
-  const lateMinutes = lateBy > shift.graceMinutes ? lateBy : 0;
+  // Morning off: arriving after lunch isn't late. Afternoon off: leaving at lunch isn't early.
+  const lateMinutes = leave !== 'FIRST_HALF' && lateBy > shift.graceMinutes ? lateBy : 0;
   const leftEarlyBy =
-    lastOut && !(isToday && openSince)
+    lastOut && !(isToday && openSince) && leave !== 'SECOND_HALF'
       ? Math.floor((window.end.getTime() - lastOut.getTime()) / MINUTE_MS)
       : 0;
-  const expected = shiftLengthMinutes(shift) - shift.breakMinutes;
+  const fullDay = shiftLengthMinutes(shift) - shift.breakMinutes;
+  const expected = leave ? Math.floor(fullDay / 2) : fullDay;
 
   let status: DayStatus;
-  if (workedMinutes >= shift.fullDayMinutes) status = 'PRESENT';
+  if (leave) {
+    // Half a day of leave: the other half worked makes a full day; otherwise only the leave half counts.
+    status = workedMinutes >= shift.halfDayMinutes || (isToday && openSince) ? 'PRESENT' : 'HALF_DAY';
+  } else if (workedMinutes >= shift.fullDayMinutes) status = 'PRESENT';
   else if (workedMinutes >= shift.halfDayMinutes) status = 'HALF_DAY';
   // Today isn't over: someone clocked in counts as present until the day is done.
   else if (isToday && openSince) status = 'PRESENT';
@@ -217,8 +255,9 @@ export function shiftLengthMinutes(shift: Pick<ShiftRule, 'startMinute' | 'endMi
 }
 
 /**
- * What a day with no stored result means: a weekly off, an absence (a past working day while employed),
- * or nothing yet (today, the future, before joining or after leaving).
+ * What a day with no stored result means: leave, a weekly off or holiday, an absence (a past working day
+ * while employed), or nothing yet (today, the future, before joining or after leaving). Leave, holidays and
+ * weekly offs show ahead of time too, so calendars can show them.
  */
 export function implicitDay(input: {
   date: string;
@@ -226,9 +265,16 @@ export function implicitDay(input: {
   today: string;
   joinedOn: string;
   leftOn: string | null;
-}): 'WEEKLY_OFF' | 'ABSENT' | null {
+  mark?: DayMark;
+}): DayStatus | null {
   const { date, shift, today, joinedOn, leftOn } = input;
+  const mark = input.mark ?? NO_MARK;
   if (date < joinedOn || (leftOn && date > leftOn)) return null;
-  if (shift.weeklyOffs.includes(weekday(date))) return 'WEEKLY_OFF';
+  const weeklyOff = shift.weeklyOffs.includes(weekday(date));
+  const leave = effectiveLeave(mark, weeklyOff || !!mark.holiday);
+  if (leave === 'FULL') return 'ON_LEAVE';
+  if (weeklyOff) return 'WEEKLY_OFF';
+  if (mark.holiday) return 'HOLIDAY';
+  if (leave) return date < today ? 'HALF_DAY' : 'ON_LEAVE';
   return date < today ? 'ABSENT' : null;
 }

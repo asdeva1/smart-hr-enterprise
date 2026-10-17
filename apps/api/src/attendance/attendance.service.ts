@@ -30,6 +30,7 @@ import {
   type DayResult,
   type ShiftRule,
 } from './attendance-calc.js';
+import { DayMarks } from './day-marks.js';
 
 /** Used when an organisation hasn't set up shifts yet: 09:00–18:00 with an hour's break, Sundays off. */
 export const FALLBACK_SHIFT: ShiftRule & { code: string; name: string } = {
@@ -143,6 +144,8 @@ export interface DayView {
   /** Clocked in, not yet out (today only). */
   open: boolean;
   shift: { code: string; name: string };
+  /** The public holiday on this date, if any. */
+  holiday: string | null;
 }
 
 function storedView(d: AttendanceDay, shift: ShiftRow, open: boolean): DayView {
@@ -158,6 +161,7 @@ function storedView(d: AttendanceDay, shift: ShiftRow, open: boolean): DayView {
     corrected: d.corrected,
     open,
     shift: { code: shift.code, name: shift.name },
+    holiday: null,
   };
 }
 
@@ -174,6 +178,7 @@ function emptyView(date: string, status: DayView['status'], shift: ShiftRow): Da
     corrected: false,
     open: false,
     shift: { code: shift.code, name: shift.name },
+    holiday: null,
   };
 }
 
@@ -231,15 +236,16 @@ export class AttendanceService {
   }
 
   /**
-   * A `where` for the employees whose attendance the member may see: their `attendance.view` scopes and
-   * their reporting line. `null` = no restriction.
+   * A `where` for the employees whose attendance (or, with `view` = leave.view, leave) the member may see:
+   * the scopes where they hold `view`, and their reporting line. `null` = no restriction.
    */
   async visibleWhere(
     tx: TenantTransaction,
     tenant: TenantContext,
     org: OrgIndex,
+    view: Permission = 'attendance.view',
   ): Promise<{ where: Prisma.EmployeeWhereInput | null; any: boolean }> {
-    const scoped = org.visibilityFilter(tenant.permissions, 'attendance.view');
+    const scoped = org.visibilityFilter(tenant.permissions, view);
     if (scoped === null) return { where: null, any: true };
     const me = await this.self(tx, tenant);
     const reports = me ? [...(await this.reportsOf(tx, me.id))] : [];
@@ -252,7 +258,8 @@ export class AttendanceService {
 
   /**
    * Loads an employee the member may act on: themself, someone below them in the reporting line (for
-   * viewing), or anyone in a scope where they hold `code`.
+   * viewing), or anyone in a scope where they hold `code`. `view` is the module's viewing permission: someone
+   * who may see the employee but not do this gets 403; anyone else gets 404, so nothing leaks.
    */
   async loadFor(
     tx: TenantTransaction,
@@ -260,15 +267,16 @@ export class AttendanceService {
     org: OrgIndex,
     employeeId: string,
     code: Permission,
+    view: Permission = 'attendance.view',
   ): Promise<AttendanceEmployee> {
     const e = await tx.employee.findUnique({ where: { id: employeeId }, select: ATTENDANCE_EMPLOYEE_SELECT });
     if (!e) throw new NotFoundError('Employee');
     if (tenant.permissions.allows(code, org.scopesOf(e))) return e;
-    if (code === 'attendance.view') {
+    if (code === view) {
       if (e.membershipId === tenant.membershipId) return e;
       const me = await this.self(tx, tenant);
       if (me && (await this.reportsOf(tx, me.id)).has(e.id)) return e;
-    } else if (tenant.permissions.allows('attendance.view', org.scopesOf(e))) {
+    } else if (tenant.permissions.allows(view, org.scopesOf(e))) {
       throw new ForbiddenError();
     }
     throw new NotFoundError('Employee');
@@ -300,7 +308,8 @@ export class AttendanceService {
         select: { at: true, direction: true, source: true },
       })
     ).filter((p) => attendanceDateFor(p.at, shift, tz) === date);
-    const result = computeDay({ date, shift, punches, timeZone: tz, now });
+    const marks = await DayMarks.load(tx, [e], date, date);
+    const result = computeDay({ date, shift, punches, timeZone: tz, now, mark: marks.on(e.id, date) });
     const data = {
       shiftId: shift.id || null,
       status: result.status,
@@ -334,6 +343,7 @@ export class AttendanceService {
       where: { employeeId: e.id, date: { gte: toDate(from), lte: toDate(to) } },
     });
     const byDate = new Map(stored.map((d) => [iso(d.date)!, d]));
+    const marks = await DayMarks.load(tx, [e], from, to);
     const tz = timeZoneOf(e);
     const today = localDate(now, tz);
     const views: DayView[] = [];
@@ -351,9 +361,11 @@ export class AttendanceService {
           today,
           joinedOn: iso(e.dateOfJoining)!,
           leftOn: leftOn(e),
+          mark: marks.on(e.id, date),
         });
         views.push(emptyView(date, status, shift));
       }
+      views[views.length - 1]!.holiday = marks.holiday(e.id, date);
     }
     return views;
   }
@@ -401,12 +413,16 @@ export class AttendanceService {
           select: { id: true, at: true, direction: true, source: true, note: true },
         })
       ).filter((p) => attendanceDateFor(p.at, shift, tz) === date);
-      const result = computeDay({ date, shift, punches, timeZone: tz, now });
+      const marks = await DayMarks.load(tx, [me], date, date);
+      const mark = marks.on(me.id, date);
+      const result = computeDay({ date, shift, punches, timeZone: tz, now, mark });
       const last = punches.at(-1);
       return {
         employee: { id: me.id, name: displayName(me), employeeCode: me.employeeCode },
         date,
         timeZone: tz,
+        holiday: mark.holiday,
+        leave: mark.leave,
         shift: {
           code: shift.code,
           name: shift.name,
@@ -569,6 +585,7 @@ export class AttendanceService {
         where: { employeeId: { in: ids }, date: toDate(q.date) },
       });
       const byEmployee = new Map(stored.map((d) => [d.employeeId, d]));
+      const marks = await DayMarks.load(tx, employees, q.date, q.date);
       const rows = employees.map((e) => {
         const shift = book.on(e.id, q.date);
         const tz = timeZoneOf(e);
@@ -583,9 +600,11 @@ export class AttendanceService {
                 today: localDate(now, tz),
                 joinedOn: iso(e.dateOfJoining)!,
                 leftOn: leftOn(e),
+                mark: marks.on(e.id, q.date),
               }),
               shift,
             );
+        view.holiday = marks.holiday(e.id, q.date);
         return {
           employee: {
             id: e.id,
@@ -606,6 +625,8 @@ export class AttendanceService {
         late: rows.filter((r) => r.day.lateMinutes > 0).length,
         notIn: rows.filter((r) => r.day.status === null).length,
         weeklyOff: rows.filter((r) => r.day.status === 'WEEKLY_OFF').length,
+        holiday: rows.filter((r) => r.day.status === 'HOLIDAY').length,
+        onLeave: rows.filter((r) => r.day.status === 'ON_LEAVE').length,
       };
       const filtered = q.status
         ? rows.filter((r) =>
@@ -647,12 +668,22 @@ export class AttendanceService {
       });
       const key = (employeeId: string, date: string) => `${employeeId}:${date}`;
       const byKey = new Map(stored.map((d) => [key(d.employeeId, iso(d.date)!), d]));
+      const marks = await DayMarks.load(tx, employees, from, to);
       const dates: string[] = [];
       for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
       const rows = employees.map((e) => {
         const tz = timeZoneOf(e);
         const today = localDate(now, tz);
-        const totals = { present: 0, halfDay: 0, absent: 0, weeklyOff: 0, late: 0, overtimeMinutes: 0 };
+        const totals = {
+          present: 0,
+          halfDay: 0,
+          absent: 0,
+          weeklyOff: 0,
+          holiday: 0,
+          onLeave: 0,
+          late: 0,
+          overtimeMinutes: 0,
+        };
         const days = dates.map((date) => {
           const d = byKey.get(key(e.id, date));
           const status = d
@@ -663,11 +694,14 @@ export class AttendanceService {
                 today,
                 joinedOn: iso(e.dateOfJoining)!,
                 leftOn: leftOn(e),
+                mark: marks.on(e.id, date),
               });
           if (status === 'PRESENT') totals.present++;
           else if (status === 'HALF_DAY') totals.halfDay++;
           else if (status === 'ABSENT') totals.absent++;
           else if (status === 'WEEKLY_OFF') totals.weeklyOff++;
+          else if (status === 'HOLIDAY') totals.holiday++;
+          else if (status === 'ON_LEAVE') totals.onLeave++;
           if (d && d.lateMinutes > 0) totals.late++;
           totals.overtimeMinutes += d?.overtimeMinutes ?? 0;
           return { date, status, late: !!d && d.lateMinutes > 0 };

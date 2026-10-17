@@ -70,7 +70,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         feature: 'hr.core',
       },
       { label: 'Attendance', icon: Clock, href: '/attendance', feature: 'attendance.basic' },
-      { label: 'Leave', icon: CalendarDays, phase: 10 },
+      { label: 'Leave', icon: CalendarDays, href: '/leave', feature: 'leave.basic' },
       { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
       { label: 'Payroll', icon: Wallet, phase: 14 },
     ],

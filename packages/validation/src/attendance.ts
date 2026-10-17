@@ -121,7 +121,9 @@ export const teamDayQuerySchema = z.object({
   companyId: z.uuid().optional(),
   branchId: z.uuid().optional(),
   departmentId: z.uuid().optional(),
-  status: z.enum(['PRESENT', 'HALF_DAY', 'ABSENT', 'WEEKLY_OFF', 'NOT_IN', 'LATE']).optional(),
+  status: z
+    .enum(['PRESENT', 'HALF_DAY', 'ABSENT', 'WEEKLY_OFF', 'HOLIDAY', 'ON_LEAVE', 'NOT_IN', 'LATE'])
+    .optional(),
 });
 
 export const registerQuerySchema = z.object({

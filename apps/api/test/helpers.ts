@@ -203,6 +203,11 @@ export class Fixtures {
     // Approval requests can point at employees, so they go first.
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
+    await this.db.leaveLedgerEntry.deleteMany({ where: inTenants });
+    await this.db.leaveRequest.deleteMany({ where: inTenants });
+    await this.db.leaveType.deleteMany({ where: inTenants });
+    await this.db.holiday.deleteMany({ where: inTenants });
+    await this.db.holidayCalendar.deleteMany({ where: inTenants });
     await this.db.attendancePunch.deleteMany({ where: inTenants });
     await this.db.attendanceDay.deleteMany({ where: inTenants });
     await this.db.attendanceCorrection.deleteMany({ where: inTenants });

@@ -10,6 +10,7 @@ const TABS = [
   { href: '/attendance/team', label: 'Team' },
   { href: '/attendance/register', label: 'Monthly register' },
   { href: '/attendance/shifts', label: 'Shifts', needs: ['attendance.configure', 'attendance.manage'] },
+  { href: '/leave/holidays', label: 'Holidays', needs: ['leave.configure'] },
 ];
 
 /** Section navigation. Team and register show for everyone: managers see their reporting line there. */

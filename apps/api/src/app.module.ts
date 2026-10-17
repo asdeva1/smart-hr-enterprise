@@ -8,6 +8,7 @@ import { ApprovalsModule } from './approvals/approvals.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AttendanceModule } from './attendance/attendance.module.js';
+import { LeaveModule } from './leave/leave.module.js';
 import { EmployeesModule } from './employees/employees.module.js';
 import { EntitlementsModule } from './entitlements/entitlements.module.js';
 import type { ApiEnv } from './config/env.js';
@@ -59,6 +60,7 @@ export class AppModule {
         MasterDataModule,
         EmployeesModule,
         AttendanceModule,
+        LeaveModule,
         PlatformModule,
         SignupModule,
         ...extraModules,
