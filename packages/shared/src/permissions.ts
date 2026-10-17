@@ -36,6 +36,15 @@ export const PERMISSIONS = {
     label: 'Apply or cancel leave on someone’s behalf and adjust their balances',
   },
   'leave.configure': { module: 'leave', label: 'Set up leave types and holiday calendars' },
+  'documents.view': {
+    module: 'documents',
+    label: 'See documents on employee records in their part of the organisation',
+  },
+  'documents.manage': {
+    module: 'documents',
+    label: 'Add, change and archive employee documents, make letters and send them for signature',
+  },
+  'documents.configure': { module: 'documents', label: 'Maintain letter templates' },
 } as const satisfies Record<string, { module: string; label: string }>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -51,6 +60,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   employees: 'Employees',
   attendance: 'Attendance',
   leave: 'Leave and holidays',
+  documents: 'Documents',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -82,7 +92,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: 'hr_admin',
     name: 'HR administrator',
     description:
-      'Maintains employee records, their history and personal details, attendance and shifts, leave and holidays, and HR reference lists.',
+      'Maintains employee records, their history and personal details, attendance and shifts, leave and holidays, documents and letters, and HR reference lists.',
     permissions: [
       'org.view',
       'master_data.manage',
@@ -97,6 +107,9 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'leave.view',
       'leave.manage',
       'leave.configure',
+      'documents.view',
+      'documents.manage',
+      'documents.configure',
     ],
   },
   {
@@ -111,6 +124,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'employees.view',
       'attendance.view',
       'leave.view',
+      'documents.view',
     ],
   },
   {

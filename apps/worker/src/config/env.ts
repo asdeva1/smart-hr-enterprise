@@ -20,6 +20,10 @@ export const workerEnvSchema = baseServerEnvSchema.extend({
   APPROVAL_ESCALATION_INTERVAL_MS: z.coerce.number().int().min(0).default(300_000),
   /** How often to record expired subscriptions. 0 turns the sweep off. */
   SUBSCRIPTION_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(3_600_000),
+  /** How often to send document expiry reminders and close overdue signature requests. 0 turns it off. */
+  DOCUMENT_SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(3_600_000),
+  /** Days before a document's expiry date that the reminder goes out. */
+  DOCUMENT_REMINDER_DAYS: z.coerce.number().int().min(0).max(365).default(30),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

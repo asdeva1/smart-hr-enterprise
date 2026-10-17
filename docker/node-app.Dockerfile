@@ -35,6 +35,8 @@ ARG APP
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
+# Where the API keeps uploaded documents when STORAGE_DRIVER=local (mount a volume here).
+RUN mkdir -p /var/lib/smart-hr/documents && chown node:node /var/lib/smart-hr/documents
 USER node
 # The API listens on API_PORT (default 4000); the worker has no port.
 EXPOSE 4000

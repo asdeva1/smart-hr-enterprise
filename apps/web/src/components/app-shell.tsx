@@ -80,7 +80,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     items: [
       { label: 'Finance', icon: BookOpen, phase: 15 },
       { label: 'Operations', icon: Layers, phase: 17 },
-      { label: 'Documents', icon: FileText, phase: 12 },
+      { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
       { label: 'Reports', icon: ChartColumn, phase: 18 },
     ],
   },

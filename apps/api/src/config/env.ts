@@ -91,6 +91,12 @@ export const apiEnvSchema = baseServerEnvSchema
     // and protected on its own.
     DATA_ENCRYPTION_KEYS: keyRing,
     DATA_ENCRYPTION_KEY_ID: z.string().min(1),
+
+    // Document storage. Files are encrypted with DATA_ENCRYPTION_KEYS before they are written. `local` keeps
+    // them on disk (development and in-house, on a mounted volume); object storage arrives with the AWS phase.
+    STORAGE_DRIVER: z.enum(['local']).default('local'),
+    STORAGE_LOCAL_DIR: z.string().min(1).default('.data/storage'),
+    DOCUMENT_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
   })
   .transform((env) => ({
     ...env,

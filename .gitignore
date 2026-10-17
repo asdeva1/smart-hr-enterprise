@@ -41,3 +41,6 @@ infra/**/*.tfvars
 
 # local redis snapshots
 dump.rdb
+
+# local document storage
+.data/

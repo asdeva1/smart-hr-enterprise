@@ -108,6 +108,22 @@ describe('SecretBox', () => {
     expect(rotated.encrypt('secret', 'u')).toMatch(/^v1\.k2\./);
   });
 
+  it('seals files: round trip, bound to their owner, tamper-evident, readable after rotation', () => {
+    const file = Buffer.from('%PDF-1.7 a small file');
+    const sealed = box.sealBytes(file, 't1:f1');
+    expect(sealed.includes(file)).toBe(false);
+    expect(SecretBox.keyIdOf(sealed)).toBe('k1');
+    expect(box.openBytes(sealed, 't1:f1').equals(file)).toBe(true);
+    expect(() => box.openBytes(sealed, 't1:f2')).toThrow();
+    const tampered = Buffer.from(sealed);
+    tampered[tampered.length - 1] = tampered[tampered.length - 1]! ^ 1;
+    expect(() => box.openBytes(tampered, 't1:f1')).toThrow();
+    const rotated = new SecretBox({ k1: key, k2: randomBytes(32).toString('base64') }, 'k2');
+    expect(rotated.openBytes(sealed, 't1:f1').equals(file)).toBe(true);
+    expect(SecretBox.keyIdOf(rotated.sealBytes(file, 'x'))).toBe('k2');
+    expect(() => box.openBytes(Buffer.from('nonsense'), 'x')).toThrow();
+  });
+
   it('rejects keys of the wrong size', () => {
     expect(() => new SecretBox({ k1: randomBytes(16).toString('base64') }, 'k1')).toThrow(/32 bytes/);
   });

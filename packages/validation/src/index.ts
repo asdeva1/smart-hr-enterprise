@@ -10,3 +10,4 @@ export * from './licence.js';
 export * from './employees.js';
 export * from './attendance.js';
 export * from './leave.js';
+export * from './documents.js';

@@ -95,6 +95,10 @@ services:
       DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:?}
       DATA_ENCRYPTION_KEY_ID: ${DATA_ENCRYPTION_KEY_ID:?}
       AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /var/lib/smart-hr/documents
+    volumes:
+      - documents:/var/lib/smart-hr/documents
     ports:
       - '${API_BIND:-127.0.0.1:4000}:4000'
     healthcheck:
@@ -129,3 +133,4 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  documents:

@@ -69,6 +69,8 @@ export interface Employee {
   costCentre: Named | null;
   exitReason: Named | null;
   manager: { id: string; employeeCode: string; name: string } | null;
+  /** The employee's sign-in to this organisation, when they have one. */
+  membershipId: string | null;
   signIn: { status: 'ACTIVE' | 'SUSPENDED'; email: string } | null;
   directReports: number;
   can: {

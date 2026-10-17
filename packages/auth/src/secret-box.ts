@@ -54,4 +54,41 @@ export class SecretBox {
       'utf8',
     );
   }
+
+  /**
+   * Binary form for files: `SHB1 | keyId length | keyId | iv | tag | ciphertext`. Same key ring and the same
+   * binding to `associatedData`; the key id is stored inside so rotated keys still open older files.
+   */
+  sealBytes(plaintext: Uint8Array, associatedData: string): Buffer {
+    const key = this.keys.get(this.currentKeyId)!;
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(Buffer.from(associatedData, 'utf8'));
+    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+    const id = Buffer.from(this.currentKeyId, 'utf8');
+    return Buffer.concat([BYTES_MAGIC, Buffer.from([id.length]), id, iv, cipher.getAuthTag(), ciphertext]);
+  }
+
+  /** The key id a sealed file was encrypted with (for re-encryption after a key rotation). */
+  static keyIdOf(sealed: Uint8Array): string {
+    const buf = Buffer.from(sealed);
+    if (buf.length < 5 || !buf.subarray(0, 4).equals(BYTES_MAGIC)) throw new Error('Malformed sealed file');
+    return buf.subarray(5, 5 + buf[4]!).toString('utf8');
+  }
+
+  /** Throws if the file was tampered with, belongs to different associated data, or uses an unknown key. */
+  openBytes(sealed: Uint8Array, associatedData: string): Buffer {
+    const buf = Buffer.from(sealed);
+    const keyId = SecretBox.keyIdOf(buf);
+    const start = 5 + buf[4]!;
+    if (buf.length < start + 28) throw new Error('Malformed sealed file');
+    const key = this.keys.get(keyId);
+    if (!key) throw new Error('Unknown encryption key');
+    const decipher = createDecipheriv('aes-256-gcm', key, buf.subarray(start, start + 12));
+    decipher.setAAD(Buffer.from(associatedData, 'utf8'));
+    decipher.setAuthTag(buf.subarray(start + 12, start + 28));
+    return Buffer.concat([decipher.update(buf.subarray(start + 28)), decipher.final()]);
+  }
 }
+
+const BYTES_MAGIC = Buffer.from('SHB1', 'ascii');

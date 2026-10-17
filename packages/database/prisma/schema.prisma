@@ -68,6 +68,11 @@ model Tenant {
   leaveLedger           LeaveLedgerEntry[]
   leaveRequests         LeaveRequest[]
   employeeChanges       EmployeeChangeRequest[]
+  storedFiles           StoredFile[]
+  employeeDocuments     EmployeeDocument[]
+  letterTemplates       LetterTemplate[]
+  signatureRequests     SignatureRequest[]
+  signatureSigners      SignatureSigner[]
 
   @@map("tenant")
 }
@@ -974,6 +979,7 @@ model Employee {
   attendanceCorrections AttendanceCorrection[]
   leaveLedger           LeaveLedgerEntry[]
   changeRequests        EmployeeChangeRequest[]
+  documents             EmployeeDocument[]
   leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
 
@@ -1442,4 +1448,173 @@ model EmployeeChangeRequest {
   @@unique([tenantId, id])
   @@index([tenantId, employeeId, status])
   @@map("employee_change_request")
+}
+
+// ---- Documents and e-signatures (Phase 12) ---------------------------------------------------------
+
+enum DocumentCategory {
+  IDENTITY
+  EDUCATION
+  EMPLOYMENT
+  CONTRACT
+  LETTER
+  POLICY
+  MEDICAL
+  OTHER
+
+  @@map("document_category")
+}
+
+enum DocumentStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("document_status")
+}
+
+enum SignatureRequestStatus {
+  PENDING
+  COMPLETED
+  DECLINED
+  CANCELLED
+  EXPIRED
+
+  @@map("signature_request_status")
+}
+
+enum SignerStatus {
+  /// Signing in order, and someone before them hasn't signed yet.
+  WAITING
+  PENDING
+  SIGNED
+  DECLINED
+
+  @@map("signer_status")
+}
+
+/// A stored file: encrypted at rest, never changed. The bytes live in object storage under `storageKey`.
+model StoredFile {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  storageKey       String   @unique @map("storage_key")
+  fileName         String   @map("file_name")
+  mimeType         String   @map("mime_type")
+  sizeBytes        Int      @map("size_bytes")
+  /// SHA-256 of the plaintext, hex.
+  sha256           String
+  encryptionKeyId  String   @map("encryption_key_id")
+  uploadedByUserId String?  @map("uploaded_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  documents EmployeeDocument[]
+
+  @@unique([tenantId, id])
+  @@map("stored_file")
+}
+
+/// A document on an employee's record. Replacing a file means archiving the old document and adding a new one.
+model EmployeeDocument {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  employeeId        String           @map("employee_id") @db.Uuid
+  fileId            String           @map("file_id") @db.Uuid
+  title             String
+  category          DocumentCategory
+  notes             String?
+  visibleToEmployee Boolean          @default(true) @map("visible_to_employee")
+  expiresOn         DateTime?        @map("expires_on") @db.Date
+  /// When the expiry reminder went out (once per expiry date).
+  expiryNotifiedAt  DateTime?        @map("expiry_notified_at") @db.Timestamptz(6)
+  status            DocumentStatus   @default(ACTIVE)
+  uploadedByUserId  String           @map("uploaded_by_user_id") @db.Uuid
+  archivedAt        DateTime?        @map("archived_at") @db.Timestamptz(6)
+  archivedByUserId  String?          @map("archived_by_user_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee   Employee           @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  file       StoredFile         @relation(fields: [tenantId, fileId], references: [tenantId, id], onDelete: Restrict)
+  signatures SignatureRequest[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, status])
+  @@index([status, expiresOn])
+  @@map("employee_document")
+}
+
+/// A letter template: text with {{placeholders}} filled in from an employee's record to make a PDF.
+model LetterTemplate {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  name      String
+  category  DocumentCategory @default(LETTER)
+  body      String
+  status    DocumentStatus   @default(ACTIVE)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, name])
+  @@map("letter_template")
+}
+
+/// A request for people to sign a PDF document, in order or in any order.
+model SignatureRequest {
+  id                String                 @id @default(uuid(7)) @db.Uuid
+  tenantId          String                 @map("tenant_id") @db.Uuid
+  documentId        String                 @map("document_id") @db.Uuid
+  title             String
+  message           String?
+  sequential        Boolean                @default(true)
+  status            SignatureRequestStatus @default(PENDING)
+  /// SHA-256 of the document when it was sent; checked again at every signature.
+  documentSha256    String                 @map("document_sha256")
+  /// The signed copy (the document with its signature certificate), once everyone has signed.
+  signedFileId      String?                @map("signed_file_id") @db.Uuid
+  requestedByUserId String                 @map("requested_by_user_id") @db.Uuid
+  expiresAt         DateTime?              @map("expires_at") @db.Timestamptz(6)
+  completedAt       DateTime?              @map("completed_at") @db.Timestamptz(6)
+  closedAt          DateTime?              @map("closed_at") @db.Timestamptz(6)
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document EmployeeDocument  @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+  signers  SignatureSigner[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, documentId])
+  @@index([status, expiresAt])
+  @@map("signature_request")
+}
+
+/// One person asked to sign, with the evidence of their signature.
+model SignatureSigner {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  requestId     String       @map("request_id") @db.Uuid
+  position      Int
+  membershipId  String       @map("membership_id") @db.Uuid
+  userId        String       @map("user_id") @db.Uuid
+  name          String
+  email         String
+  status        SignerStatus
+  signedName    String?      @map("signed_name")
+  signedAt      DateTime?    @map("signed_at") @db.Timestamptz(6)
+  declinedAt    DateTime?    @map("declined_at") @db.Timestamptz(6)
+  declineReason String?      @map("decline_reason")
+  ipAddress     String?      @map("ip_address")
+  userAgent     String?      @map("user_agent")
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  request SignatureRequest @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([requestId, position])
+  @@index([tenantId, userId, status])
+  @@map("signature_signer")
 }

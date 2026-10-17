@@ -27,14 +27,16 @@ import { HistoryPanel } from './history-panel';
 import { LifecycleDialog, type LifecycleAction } from './lifecycle-dialog';
 import { PendingChanges } from './pending-changes';
 import { SensitivePanel } from './sensitive-panel';
+import { DocumentsPanel } from '@/components/documents/documents-panel';
+import { can, hasFeature } from '@/lib/permissions';
 
-type Tab = 'overview' | 'identity' | 'contacts' | 'history';
+type Tab = 'overview' | 'identity' | 'contacts' | 'documents' | 'history';
 
 export function EmployeeProfile({ id, session }: { id: string; session: SessionView }) {
   const employee = useEmployee(id);
   const params = useSearchParams();
   const client = useQueryClient();
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(params.get('tab') === 'documents' ? 'documents' : 'overview');
   const [editing, setEditing] = useState(false);
   const [action, setAction] = useState<LifecycleAction | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | undefined>(
@@ -53,6 +55,8 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
   if (employee.isError) return <Alert tone="error">{errorMessage(employee.error)}</Alert>;
   const e = employee.data;
   const current = e.status !== 'EXITED';
+  const showDocuments =
+    hasFeature(session, 'documents') && (can(session, 'documents.view') || can(session, 'documents.manage'));
   const done = (text: string) => {
     setNotice({ tone: 'success', text });
     setEditing(false);
@@ -132,12 +136,24 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
           { value: 'overview', label: 'Overview' },
           ...(e.can.viewSensitive ? [{ value: 'identity' as const, label: 'Identity and bank' }] : []),
           { value: 'contacts', label: 'Emergency contacts' },
+          ...(showDocuments ? [{ value: 'documents' as const, label: 'Documents' }] : []),
           { value: 'history', label: 'History' },
         ]}
       />
       {tab === 'overview' && <Overview e={e} />}
       {tab === 'identity' && <SensitivePanel employee={e} session={session} />}
       {tab === 'contacts' && <ContactsPanel employee={e} />}
+      {tab === 'documents' && showDocuments && (
+        <DocumentsPanel
+          session={session}
+          employeeId={e.id}
+          signer={
+            e.membershipId && e.signIn?.status === 'ACTIVE'
+              ? { membershipId: e.membershipId, name: e.name, email: e.signIn.email }
+              : null
+          }
+        />
+      )}
       {tab === 'history' && <HistoryPanel id={e.id} />}
       {editing && (
         <EditDetailsDialog

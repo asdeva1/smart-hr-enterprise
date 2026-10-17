@@ -70,6 +70,14 @@ export const NOTIFICATION_CATEGORIES = {
     label: 'Someone else asked for leave or a correction for me, or it was decided',
     emailDefault: true,
   },
+  'document.signature': {
+    label: 'Someone asked me to sign a document, or a signature request I sent was finished or declined',
+    emailDefault: true,
+  },
+  'document.expiring': {
+    label: 'A document on my record, or one I added, is about to expire',
+    emailDefault: true,
+  },
   'subscription.changed': {
     label: 'My organisation’s subscription ended or changed (owners)',
     emailDefault: true,

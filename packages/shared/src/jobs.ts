@@ -13,6 +13,7 @@ export const NotificationJob = {
   EscalationSweep: 'approvals.escalation-sweep',
   /** Repeating: records subscriptions whose trial or period (plus grace) has run out, and tells owners. */
   SubscriptionExpirySweep: 'subscriptions.expiry-sweep',
+  DocumentSweep: 'documents.sweep',
 } as const;
 
 export interface EmailJobData {

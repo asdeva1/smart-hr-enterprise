@@ -41,13 +41,27 @@ Method: STRIDE per asset, with the control in place, its evidence, and what rema
 | Removed member keeps access                         | E      | Membership and tenant status re-checked every request            | `tenancy.int.test.ts`                    |
 | Audit tampering                                     | T, R   | Runtime role has no UPDATE/DELETE; trigger blocks even the owner | `auth-rls.int.test.ts`                   |
 
+## Documents and uploads (Phase 12)
+
+| Threat                                                | Control                                                                                                                       |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| A disk, backup or storage bucket leaks documents      | Files encrypted with AES-256-GCM before they are written, bound to organisation and file id; keys held outside the database   |
+| A stored file is swapped or corrupted                 | SHA-256 of the plaintext stored on insert (insert-only table) and checked on every read; a mismatch is refused                |
+| Malicious upload (HTML or script renamed, executable) | Content sniffing with matching extensions; size and plan storage limits; downloads only as attachments with `nosniff` and CSP |
+| Path traversal through file names or storage keys     | Keys are generated (`tenant/uuid`) and validated; user file names are cleaned and only used for the download header           |
+| Someone signs a different document than the one sent  | The document's SHA-256 is fixed when sent, re-checked before each signature and printed on the certificate                    |
+| A signature or refusal is rewritten afterwards        | Triggers make signatures, refusals and closed requests final; column grants protect who was asked and what was sent           |
+| Signing from an unattended session                    | Signing needs a recent password entry (and the code, with two-step verification on)                                           |
+| Managers or colleagues browse others' documents       | Scope-checked `documents.view/manage`; employees see only what is shared with them; 404 otherwise; downloads audited          |
+
 ## Open risks
 
-| Risk                                                                                                           | Plan                                                                                                      |
-| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `app_user`, `user_session` and the other identity tables carry no RLS (they are read before a tenant is known) | Access confined to the auth module; review in Phase 3 whether a dedicated `app_auth` role should own them |
-| Redis outage blocks sign-in (the limiter fails closed)                                                         | Deliberate; monitor Redis availability (Phase 23 alarms)                                                  |
-| Email is the reset channel                                                                                     | Phase 3 adds tenant MFA enforcement; reset does not bypass MFA at next sign-in                            |
-| Platform-operator cross-tenant access path not yet designed                                                    | Phase 6: separate role, audited, time-boxed                                                               |
-| Repository is public                                                                                           | Owner decision; make private before customer-specific code lands                                          |
-| No Content-Security-Policy on the web app (XSS could still act as the user, though not steal the session)      | Nonce-based CSP via the Next.js proxy, tested in Playwright                                               |
+| Risk                                                                                                           | Plan                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `app_user`, `user_session` and the other identity tables carry no RLS (they are read before a tenant is known) | Access confined to the auth module; review in Phase 3 whether a dedicated `app_auth` role should own them               |
+| Redis outage blocks sign-in (the limiter fails closed)                                                         | Deliberate; monitor Redis availability (Phase 23 alarms)                                                                |
+| Email is the reset channel                                                                                     | Phase 3 adds tenant MFA enforcement; reset does not bypass MFA at next sign-in                                          |
+| Platform-operator cross-tenant access path not yet designed                                                    | Phase 6: separate role, audited, time-boxed                                                                             |
+| Repository is public                                                                                           | Owner decision; make private before customer-specific code lands                                                        |
+| Uploaded files are not virus-scanned                                                                           | A scanner service with the AWS phase; until then only the listed types are accepted and files are never rendered inline |
+| No Content-Security-Policy on the web app (XSS could still act as the user, though not steal the session)      | Nonce-based CSP via the Next.js proxy, tested in Playwright                                                             |
