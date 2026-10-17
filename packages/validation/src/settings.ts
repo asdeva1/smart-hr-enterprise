@@ -102,7 +102,8 @@ export const ORGANISATION_SETTINGS = {
   financial_year_start_month: def({
     group: 'Finance',
     label: 'Financial year starts in',
-    description: 'For leave years, budgets and reports. Accounting periods are set up in Finance.',
+    description:
+      'For budgets and reports. Leave years run January to December. Accounting periods are set up in Finance.',
     schema: z.coerce.number().int().min(1).max(12),
     default: 4,
     input: { type: 'select', options: MONTHS.map((label, i) => ({ value: i + 1, label })) },
@@ -118,6 +119,21 @@ export const ORGANISATION_SETTINGS = {
       .regex(/^[A-Z][A-Z0-9]{0,9}$/, 'Use 1–10 letters or digits, starting with a letter'),
     default: 'EMP',
     input: { type: 'text', placeholder: 'EMP' },
+  }),
+  employment_changes: def({
+    group: 'People',
+    label: 'Employment changes',
+    description:
+      'Whether promotions, transfers, manager changes, notice and exits take effect straight away or go for approval first. Who approves is set under Approval policies, “Employment change”.',
+    schema: z.enum(['DIRECT', 'APPROVAL']),
+    default: 'DIRECT',
+    input: {
+      type: 'select',
+      options: [
+        { value: 'DIRECT', label: 'Take effect straight away' },
+        { value: 'APPROVAL', label: 'Go for approval first' },
+      ],
+    },
   }),
 } as const;
 

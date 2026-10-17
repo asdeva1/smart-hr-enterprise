@@ -34,6 +34,25 @@ employee is invited to sign in.
   matching reference list; a database trigger refuses a value from the wrong list.
 - **Plan.** The module needs the `hr.core` feature, and adding employees stops at the plan's `employees.max`.
 
+## Employment changes through approval
+
+Phase 11. The organisation setting **Employment changes** decides whether promotions, transfers, manager
+changes, notice, withdrawing notice and exits take effect straight away (the default) or go for approval
+first. With approval on:
+
+- The change is checked as usual when asked for (permissions, placement, reporting lines, nothing-changes)
+  and stored as a change request; the record and its history don't change yet. The employee page shows it
+  as waiting, with a link to the change and its approval.
+- Only one change per employee can be open at a time, so approvers never decide on contradicting changes.
+- It goes through the approval engine as “Employment change”. By default the owners approve; set a policy
+  under Approval policies to name someone else (an HR head, say) or add stages.
+- On approval the change is checked again against the record as it is then and applied with its original
+  effective date, note and requester. If it can no longer be made (the employee has left, say), the approval
+  is refused with the reason and nothing changes; the approver can reject it instead.
+- Rejected and withdrawn changes change nothing. Whoever asked can withdraw while it is open. Decided
+  changes are final in the database.
+- The employee isn't notified about employment changes.
+
 ## Identity and bank details
 
 Stored encrypted with AES-256-GCM under a dedicated key ring (`DATA_ENCRYPTION_KEYS`, separate from the MFA
@@ -55,17 +74,20 @@ file. Rows are imported in one transaction: all or nothing.
 
 All under `/v1/employees`, all requiring the `hr.core` plan feature.
 
-| Method and path                        | Permission                                        |
-| -------------------------------------- | ------------------------------------------------- |
-| `GET /`, `GET /:id`, `GET /org-chart`  | `employees.view`                                  |
-| `POST /`, `PATCH /:id`, `POST /import` | `employees.manage`                                |
-| `POST /:id/lifecycle`                  | `employees.lifecycle`                             |
-| `GET /:id/history`                     | `employees.view`                                  |
-| `POST /:id/sign-in`                    | `employees.manage` and `access.manage`            |
-| `GET /:id/sensitive`                   | `employees.sensitive.view` (masked)               |
-| `POST /:id/sensitive/reveal`           | `employees.sensitive.view` + recent auth, audited |
-| `PUT /:id/sensitive`                   | `employees.sensitive.manage` + recent auth        |
-| `GET/POST/PUT/DELETE /:id/contacts…`   | `employees.view` / `employees.manage`             |
+| Method and path                        | Permission                                            |
+| -------------------------------------- | ----------------------------------------------------- |
+| `GET /`, `GET /:id`, `GET /org-chart`  | `employees.view`                                      |
+| `POST /`, `PATCH /:id`, `POST /import` | `employees.manage`                                    |
+| `POST /:id/lifecycle`                  | `employees.lifecycle` (applied, or sent for approval) |
+| `GET /:id/changes`                     | `employees.view`                                      |
+| `GET /v1/employee-changes/:id`         | `employees.view`, or an assigned approver             |
+| `POST /v1/employee-changes/:id/cancel` | Whoever asked for it                                  |
+| `GET /:id/history`                     | `employees.view`                                      |
+| `POST /:id/sign-in`                    | `employees.manage` and `access.manage`                |
+| `GET /:id/sensitive`                   | `employees.sensitive.view` (masked)                   |
+| `POST /:id/sensitive/reveal`           | `employees.sensitive.view` + recent auth, audited     |
+| `PUT /:id/sensitive`                   | `employees.sensitive.manage` + recent auth            |
+| `GET/POST/PUT/DELETE /:id/contacts…`   | `employees.view` / `employees.manage`                 |
 
 A new built-in role, **HR administrator**, holds every employee permission plus reference lists. Auditors
 can view employees.

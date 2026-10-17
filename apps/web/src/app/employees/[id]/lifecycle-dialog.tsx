@@ -156,10 +156,15 @@ export function LifecycleDialog({
     }
   };
   const submit = useMutation({
-    mutationFn: () => apiFetch<Employee>(`/v1/employees/${e.id}/lifecycle`, { method: 'POST', body: body() }),
-    onSuccess: async () => {
+    mutationFn: () =>
+      apiFetch<Employee & { pendingChange?: { id: string } }>(`/v1/employees/${e.id}/lifecycle`, {
+        method: 'POST',
+        body: body(),
+      }),
+    onSuccess: async (result) => {
       await client.invalidateQueries({ queryKey: employeeKeys.all });
-      onDone(text.done);
+      // Organisations can require approval for employment changes; then nothing changes until it's approved.
+      onDone(result.pendingChange ? 'Sent for approval. It takes effect once approved.' : text.done);
     },
     onError: (err) => {
       if (err instanceof ApiError && err.fieldErrors.length > 0) {

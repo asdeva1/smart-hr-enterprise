@@ -4,13 +4,20 @@ import { TenantExportService } from '../tenant/export.service.js';
 import { EmployeeAccountService } from './employee-account.service.js';
 import { EmployeeImportService } from './employee-import.service.js';
 import { EmployeeSensitiveService } from './employee-sensitive.service.js';
-import { EmployeesController } from './employees.controller.js';
+import { EmployeeChangesService } from './employee-changes.service.js';
+import { EmployeeChangesController, EmployeesController } from './employees.controller.js';
 import { EmployeesService } from './employees.service.js';
 
 @Module({
   imports: [AccessModule],
-  controllers: [EmployeesController],
-  providers: [EmployeesService, EmployeeSensitiveService, EmployeeImportService, EmployeeAccountService],
+  controllers: [EmployeesController, EmployeeChangesController],
+  providers: [
+    EmployeesService,
+    EmployeeSensitiveService,
+    EmployeeImportService,
+    EmployeeAccountService,
+    EmployeeChangesService,
+  ],
   exports: [EmployeesService],
 })
 export class EmployeesModule implements OnModuleInit {
@@ -24,6 +31,9 @@ export class EmployeesModule implements OnModuleInit {
     this.exporter.register('employees', (tx) => tx.employee.findMany({ orderBy: { employeeCode: 'asc' } }));
     this.exporter.register('employeeHistory', (tx) =>
       tx.employeeEvent.findMany({ orderBy: [{ employeeId: 'asc' }, { effectiveDate: 'asc' }] }),
+    );
+    this.exporter.register('employmentChangeRequests', (tx) =>
+      tx.employeeChangeRequest.findMany({ orderBy: [{ employeeId: 'asc' }, { createdAt: 'asc' }] }),
     );
     this.exporter.register('emergencyContacts', (tx) =>
       tx.emergencyContact.findMany({ orderBy: { employeeId: 'asc' } }),

@@ -12,7 +12,7 @@ import {
   type EmployeeStatus,
 } from '@/lib/employees';
 
-function show(field: string, value: unknown): string {
+export function show(field: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return 'none';
   if (field === 'status' && typeof value === 'string' && value in STATUS_LABEL)
     return STATUS_LABEL[value as EmployeeStatus];

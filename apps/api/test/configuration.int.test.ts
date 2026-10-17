@@ -52,10 +52,12 @@ describe('organisation settings', () => {
     const settings = byKey(res.body);
     expect(settings.timezone).toMatchObject({ value: 'Asia/Kolkata', isDefault: true, group: 'Locale' });
     expect(settings.financial_year_start_month).toMatchObject({ value: 4, isDefault: true });
+    expect(settings.employment_changes).toMatchObject({ value: 'DIRECT', isDefault: true, group: 'People' });
     expect(Object.keys(settings).sort()).toEqual([
       'date_format',
       'default_currency',
       'employee_code_prefix',
+      'employment_changes',
       'financial_year_start_month',
       'timezone',
       'week_start',

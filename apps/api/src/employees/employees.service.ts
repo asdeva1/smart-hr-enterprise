@@ -8,7 +8,13 @@ import {
   type Prisma,
   type TenantTransaction,
 } from '@smart-hr/database';
-import { AppError, ForbiddenError, NotFoundError, type Permission } from '@smart-hr/shared';
+import {
+  AppError,
+  ForbiddenError,
+  NotFoundError,
+  type Permission,
+  type PermissionSet,
+} from '@smart-hr/shared';
 import type {
   createEmployeeSchema,
   emergencyContactSchema,
@@ -26,7 +32,17 @@ import { OrgIndex } from './org-index.js';
 
 type CreateEmployee = z.output<typeof createEmployeeSchema>;
 type UpdateEmployee = z.output<typeof updateEmployeeSchema>;
-type Lifecycle = z.output<typeof employeeLifecycleSchema>;
+export type Lifecycle = z.output<typeof employeeLifecycleSchema>;
+
+/** A lifecycle change worked out and checked, ready to write. */
+export interface PreparedChange {
+  kind: EmployeeEventKind;
+  effective: Date;
+  data: Prisma.EmployeeUncheckedUpdateManyInput;
+  changes: Record<string, { from: unknown; to: unknown }>;
+  /** An exit ends the leaver's sign-in to this organisation. */
+  suspendMembershipId: string | null;
+}
 type ListQuery = z.output<typeof employeeListQuerySchema>;
 type ContactInput = z.output<typeof emergencyContactSchema>;
 
@@ -625,166 +641,212 @@ export class EmployeesService {
 
   // ---- Lifecycle ---------------------------------------------------------------------------------
 
+  /**
+   * Works out a lifecycle change and checks it, without writing anything. `permissions` is the requester's,
+   * for checks that depend on the destination (a transfer); it is null when an approved change is applied,
+   * because the approval is then the authority.
+   */
+  async prepareLifecycle(
+    tx: TenantTransaction,
+    permissions: PermissionSet | null,
+    org: OrgIndex,
+    e: EmployeeRecord,
+    input: Lifecycle,
+  ): Promise<PreparedChange> {
+    const lookupName = async (column: LookupColumn, value: string | null | undefined) =>
+      value ? ((await this.checkLookups(tx, { [column]: value })).get(value)?.name ?? null) : null;
+    let kind: EmployeeEventKind;
+    let effective: Date;
+    let data: Prisma.EmployeeUncheckedUpdateManyInput = {};
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    let suspendMembershipId: string | null = null;
+
+    const requireStatus = (...allowed: string[]) => {
+      if (!allowed.includes(e.status)) {
+        throw new AppError(
+          'INVALID_STATUS',
+          `Not possible while the employee is ${e.status.toLowerCase().replace('_', ' ')}`,
+          409,
+        );
+      }
+    };
+
+    switch (input.action) {
+      case 'transfer': {
+        requireStatus('ACTIVE', 'ON_NOTICE');
+        kind = 'TRANSFER';
+        effective = toDate(input.effectiveDate);
+        const companyId = input.companyId ?? e.companyId;
+        const companyChanged = companyId !== e.companyId;
+        // Moving company clears branch and department unless new ones are given.
+        const branchId = input.branchId !== undefined ? input.branchId : companyChanged ? null : e.branchId;
+        const departmentId =
+          input.departmentId !== undefined ? input.departmentId : companyChanged ? null : e.departmentId;
+        const target = { companyId, branchId, departmentId };
+        org.assertPlacement(target);
+        if (permissions && !permissions.allows('employees.lifecycle', org.scopesOf(target)))
+          throw new ForbiddenError();
+        if (input.costCentreId !== undefined)
+          await this.checkLookups(tx, { costCentreId: input.costCentreId });
+        data = {
+          ...target,
+          ...(input.costCentreId !== undefined ? { costCentreId: input.costCentreId } : {}),
+        };
+        if (companyChanged)
+          changes.company = { from: e.company.name, to: org.companies.get(companyId)?.name };
+        if (branchId !== e.branchId)
+          changes.branch = {
+            from: e.branch?.name ?? null,
+            to: branchId ? org.branches.get(branchId)?.name : null,
+          };
+        if (departmentId !== e.departmentId) {
+          changes.department = {
+            from: e.department?.name ?? null,
+            to: departmentId ? org.departments.get(departmentId)?.name : null,
+          };
+        }
+        if (input.costCentreId !== undefined && input.costCentreId !== e.costCentreId) {
+          changes.costCentre = {
+            from: e.costCentre?.name ?? null,
+            to: await lookupName('costCentreId', input.costCentreId),
+          };
+        }
+        break;
+      }
+      case 'promotion': {
+        requireStatus('ACTIVE', 'ON_NOTICE');
+        kind = 'PROMOTION';
+        effective = toDate(input.effectiveDate);
+        if (input.designationId !== undefined && input.designationId !== e.designationId) {
+          data.designationId = input.designationId;
+          changes.designation = {
+            from: e.designation?.name ?? null,
+            to: await lookupName('designationId', input.designationId),
+          };
+        }
+        if (input.gradeId !== undefined && input.gradeId !== e.gradeId) {
+          data.gradeId = input.gradeId;
+          changes.grade = { from: e.grade?.name ?? null, to: await lookupName('gradeId', input.gradeId) };
+        }
+        break;
+      }
+      case 'change_manager': {
+        requireStatus('ACTIVE', 'ON_NOTICE');
+        kind = 'MANAGER_CHANGE';
+        effective = toDate(input.effectiveDate);
+        const manager = await this.checkManager(tx, e.id, input.managerId);
+        if (input.managerId !== e.managerId) {
+          data.managerId = input.managerId;
+          changes.manager = {
+            from: e.manager ? displayName(e.manager) : null,
+            to: manager ? displayName(manager) : null,
+          };
+        }
+        break;
+      }
+      case 'notice': {
+        requireStatus('ACTIVE');
+        kind = 'NOTICE';
+        effective = toDate(input.noticeGivenOn);
+        if (input.lastWorkingDay < input.noticeGivenOn)
+          throw fieldError('lastWorkingDay', 'Must be on or after the notice date');
+        await this.checkLookups(tx, { exitReasonId: input.exitReasonId });
+        data = {
+          status: 'ON_NOTICE',
+          noticeGivenOn: toDate(input.noticeGivenOn),
+          lastWorkingDay: toDate(input.lastWorkingDay),
+          exitReasonId: input.exitReasonId ?? null,
+        };
+        changes.status = { from: 'ACTIVE', to: 'ON_NOTICE' };
+        changes.lastWorkingDay = { from: null, to: input.lastWorkingDay };
+        break;
+      }
+      case 'withdraw_notice': {
+        requireStatus('ON_NOTICE');
+        kind = 'NOTICE_WITHDRAWN';
+        effective = toDate(input.effectiveDate);
+        data = { status: 'ACTIVE', noticeGivenOn: null, lastWorkingDay: null, exitReasonId: null };
+        changes.status = { from: 'ON_NOTICE', to: 'ACTIVE' };
+        break;
+      }
+      case 'exit': {
+        requireStatus('ACTIVE', 'ON_NOTICE');
+        kind = 'EXIT';
+        effective = toDate(input.exitedOn);
+        if (input.exitedOn < iso(e.dateOfJoining)!)
+          throw fieldError('exitedOn', 'Must be on or after the joining date');
+        const reason = await lookupName('exitReasonId', input.exitReasonId);
+        const reports = await tx.employee.count({ where: { managerId: e.id, status: { not: 'EXITED' } } });
+        if (reports > 0) {
+          throw new AppError(
+            'HAS_REPORTS',
+            `${reports} ${reports === 1 ? 'person reports' : 'people report'} to this employee. Give them a new manager first.`,
+            409,
+          );
+        }
+        data = {
+          status: 'EXITED',
+          exitedOn: toDate(input.exitedOn),
+          exitReasonId: input.exitReasonId,
+          lastWorkingDay: e.lastWorkingDay ?? toDate(input.exitedOn),
+        };
+        changes.status = { from: e.status, to: 'EXITED' };
+        changes.exitReason = { from: null, to: reason };
+        // Leavers can't sign in to this organisation any more; their account and history stay.
+        if (e.membershipId) {
+          suspendMembershipId = e.membershipId;
+          changes.signIn = { from: 'ACTIVE', to: 'SUSPENDED' };
+        }
+        break;
+      }
+    }
+
+    if (Object.keys(changes).length === 0) {
+      throw new AppError('NOTHING_CHANGED', 'Nothing would change. Choose a different value.', 400);
+    }
+    return { kind, effective, data, changes, suspendMembershipId };
+  }
+
+  /** Writes a prepared change: the record (checked against `version` when given), the history event, sign-in. */
+  async applyLifecycle(
+    tx: TenantTransaction,
+    tenantId: string,
+    id: string,
+    prepared: PreparedChange,
+    version: number | null,
+    note: string | null | undefined,
+    actorUserId: string,
+  ) {
+    if (version === null) {
+      await tx.employee.updateMany({ where: { id }, data: { ...prepared.data, version: { increment: 1 } } });
+    } else {
+      await this.applyVersioned(tx, id, version, prepared.data);
+    }
+    if (prepared.suspendMembershipId) {
+      await tx.tenantMembership.update({
+        where: { id: prepared.suspendMembershipId },
+        data: { status: 'SUSPENDED' },
+      });
+    }
+    await this.event(
+      tx,
+      tenantId,
+      id,
+      prepared.kind,
+      prepared.effective,
+      prepared.changes,
+      note,
+      actorUserId,
+    );
+  }
+
+  /** Applies a lifecycle change straight away (organisations that don't require approval for them). */
   async lifecycle(tenant: TenantContext, auth: AuthContext, id: string, input: Lifecycle, meta: RequestMeta) {
     return this.run(tenant, auth, async (tx) => {
       const org = await OrgIndex.load(tx, tenant.id);
       const e = await this.load(tx, tenant, org, id, 'employees.lifecycle');
-      const lookupName = async (column: LookupColumn, value: string | null | undefined) =>
-        value ? ((await this.checkLookups(tx, { [column]: value })).get(value)?.name ?? null) : null;
-      let kind: EmployeeEventKind;
-      let effective: Date;
-      let data: Prisma.EmployeeUncheckedUpdateManyInput = {};
-      const changes: Record<string, { from: unknown; to: unknown }> = {};
-      const note = input.note;
-
-      const requireStatus = (...allowed: string[]) => {
-        if (!allowed.includes(e.status)) {
-          throw new AppError(
-            'INVALID_STATUS',
-            `Not possible while the employee is ${e.status.toLowerCase().replace('_', ' ')}`,
-            409,
-          );
-        }
-      };
-
-      switch (input.action) {
-        case 'transfer': {
-          requireStatus('ACTIVE', 'ON_NOTICE');
-          kind = 'TRANSFER';
-          effective = toDate(input.effectiveDate);
-          const companyId = input.companyId ?? e.companyId;
-          const companyChanged = companyId !== e.companyId;
-          // Moving company clears branch and department unless new ones are given.
-          const branchId = input.branchId !== undefined ? input.branchId : companyChanged ? null : e.branchId;
-          const departmentId =
-            input.departmentId !== undefined ? input.departmentId : companyChanged ? null : e.departmentId;
-          const target = { companyId, branchId, departmentId };
-          org.assertPlacement(target);
-          if (!tenant.permissions.allows('employees.lifecycle', org.scopesOf(target)))
-            throw new ForbiddenError();
-          if (input.costCentreId !== undefined)
-            await this.checkLookups(tx, { costCentreId: input.costCentreId });
-          data = {
-            ...target,
-            ...(input.costCentreId !== undefined ? { costCentreId: input.costCentreId } : {}),
-          };
-          if (companyChanged)
-            changes.company = { from: e.company.name, to: org.companies.get(companyId)?.name };
-          if (branchId !== e.branchId)
-            changes.branch = {
-              from: e.branch?.name ?? null,
-              to: branchId ? org.branches.get(branchId)?.name : null,
-            };
-          if (departmentId !== e.departmentId) {
-            changes.department = {
-              from: e.department?.name ?? null,
-              to: departmentId ? org.departments.get(departmentId)?.name : null,
-            };
-          }
-          if (input.costCentreId !== undefined && input.costCentreId !== e.costCentreId) {
-            changes.costCentre = {
-              from: e.costCentre?.name ?? null,
-              to: await lookupName('costCentreId', input.costCentreId),
-            };
-          }
-          break;
-        }
-        case 'promotion': {
-          requireStatus('ACTIVE', 'ON_NOTICE');
-          kind = 'PROMOTION';
-          effective = toDate(input.effectiveDate);
-          if (input.designationId !== undefined && input.designationId !== e.designationId) {
-            data.designationId = input.designationId;
-            changes.designation = {
-              from: e.designation?.name ?? null,
-              to: await lookupName('designationId', input.designationId),
-            };
-          }
-          if (input.gradeId !== undefined && input.gradeId !== e.gradeId) {
-            data.gradeId = input.gradeId;
-            changes.grade = { from: e.grade?.name ?? null, to: await lookupName('gradeId', input.gradeId) };
-          }
-          break;
-        }
-        case 'change_manager': {
-          requireStatus('ACTIVE', 'ON_NOTICE');
-          kind = 'MANAGER_CHANGE';
-          effective = toDate(input.effectiveDate);
-          const manager = await this.checkManager(tx, e.id, input.managerId);
-          if (input.managerId !== e.managerId) {
-            data.managerId = input.managerId;
-            changes.manager = {
-              from: e.manager ? displayName(e.manager) : null,
-              to: manager ? displayName(manager) : null,
-            };
-          }
-          break;
-        }
-        case 'notice': {
-          requireStatus('ACTIVE');
-          kind = 'NOTICE';
-          effective = toDate(input.noticeGivenOn);
-          if (input.lastWorkingDay < input.noticeGivenOn)
-            throw fieldError('lastWorkingDay', 'Must be on or after the notice date');
-          await this.checkLookups(tx, { exitReasonId: input.exitReasonId });
-          data = {
-            status: 'ON_NOTICE',
-            noticeGivenOn: toDate(input.noticeGivenOn),
-            lastWorkingDay: toDate(input.lastWorkingDay),
-            exitReasonId: input.exitReasonId ?? null,
-          };
-          changes.status = { from: 'ACTIVE', to: 'ON_NOTICE' };
-          changes.lastWorkingDay = { from: null, to: input.lastWorkingDay };
-          break;
-        }
-        case 'withdraw_notice': {
-          requireStatus('ON_NOTICE');
-          kind = 'NOTICE_WITHDRAWN';
-          effective = toDate(input.effectiveDate);
-          data = { status: 'ACTIVE', noticeGivenOn: null, lastWorkingDay: null, exitReasonId: null };
-          changes.status = { from: 'ON_NOTICE', to: 'ACTIVE' };
-          break;
-        }
-        case 'exit': {
-          requireStatus('ACTIVE', 'ON_NOTICE');
-          kind = 'EXIT';
-          effective = toDate(input.exitedOn);
-          if (input.exitedOn < iso(e.dateOfJoining)!)
-            throw fieldError('exitedOn', 'Must be on or after the joining date');
-          const reason = await lookupName('exitReasonId', input.exitReasonId);
-          const reports = await tx.employee.count({ where: { managerId: e.id, status: { not: 'EXITED' } } });
-          if (reports > 0) {
-            throw new AppError(
-              'HAS_REPORTS',
-              `${reports} ${reports === 1 ? 'person reports' : 'people report'} to this employee. Give them a new manager first.`,
-              409,
-            );
-          }
-          data = {
-            status: 'EXITED',
-            exitedOn: toDate(input.exitedOn),
-            exitReasonId: input.exitReasonId,
-            lastWorkingDay: e.lastWorkingDay ?? toDate(input.exitedOn),
-          };
-          changes.status = { from: e.status, to: 'EXITED' };
-          changes.exitReason = { from: null, to: reason };
-          // Leavers can't sign in to this organisation any more; their account and history stay.
-          if (e.membershipId) {
-            await tx.tenantMembership.update({
-              where: { id: e.membershipId },
-              data: { status: 'SUSPENDED' },
-            });
-            changes.signIn = { from: 'ACTIVE', to: 'SUSPENDED' };
-          }
-          break;
-        }
-      }
-
-      if (Object.keys(changes).length === 0) {
-        throw new AppError('NOTHING_CHANGED', 'Nothing would change. Choose a different value.', 400);
-      }
-      await this.applyVersioned(tx, id, input.version, data);
-      await this.event(tx, tenant.id, id, kind, effective, changes, note, auth.user.id);
+      const prepared = await this.prepareLifecycle(tx, tenant.permissions, org, e, input);
+      await this.applyLifecycle(tx, tenant.id, id, prepared, input.version, input.note, auth.user.id);
       await this.audit.recordInTransaction(
         tx,
         {
@@ -794,7 +856,7 @@ export class EmployeesService {
           actorUserId: auth.user.id,
           targetType: 'employee',
           targetId: id,
-          metadata: { fields: Object.keys(changes), effectiveDate: iso(effective) },
+          metadata: { fields: Object.keys(prepared.changes), effectiveDate: iso(prepared.effective) },
         },
         meta,
       );

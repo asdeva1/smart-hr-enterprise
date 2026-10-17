@@ -4,7 +4,7 @@
  */
 import { generateTotpForTesting } from '@smart-hr/auth';
 import { expect, test } from '@playwright/test';
-import { account, latestEmailTo, signIn } from './support';
+import { account, clearEmailsTo, signIn, waitForEmail } from './support';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -59,12 +59,14 @@ test('signing out ends the session, and protected pages need sign-in again', asy
 
 test('password reset by email, single-use link, then sign-in with the new password', async ({ page }) => {
   const user = account('RESET');
+  // This account also gets approval emails from other tests; start from an empty inbox, then wait for the link.
+  await clearEmailsTo(user.email);
   await page.goto('/forgot-password');
   await page.getByLabel('Work email').fill(user.email);
   await page.getByRole('button', { name: 'Send reset link' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'If an account exists' })).toBeVisible();
 
-  const body = await latestEmailTo(user.email);
+  const body = await waitForEmail(user.email, '/reset-password?token=');
   const link = /https?:\/\/\S+\/reset-password\?token=[A-Za-z0-9_-]+/.exec(body)?.[0];
   expect(link).toBeTruthy();
 

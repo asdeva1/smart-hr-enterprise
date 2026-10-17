@@ -37,6 +37,7 @@ import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { EmployeeAccountService } from './employee-account.service.js';
 import { EmployeeImportService } from './employee-import.service.js';
 import { EmployeeSensitiveService } from './employee-sensitive.service.js';
+import { EmployeeChangesService } from './employee-changes.service.js';
 import { EmployeesService } from './employees.service.js';
 
 /**
@@ -52,6 +53,7 @@ export class EmployeesController {
     private readonly sensitive: EmployeeSensitiveService,
     private readonly imports: EmployeeImportService,
     private readonly accounts: EmployeeAccountService,
+    private readonly changes: EmployeeChangesService,
   ) {}
 
   @Get()
@@ -134,7 +136,18 @@ export class EmployeesController {
     @CurrentAuth() auth: AuthContext,
     @Req() req: AppRequest,
   ) {
-    return this.employees.lifecycle(tenant, auth, id, body, requestMeta(req));
+    return this.changes.submit(tenant, auth, id, body, requestMeta(req));
+  }
+
+  @Get(':id/changes')
+  @RequirePermission('employees.view')
+  @ApiOperation({ summary: 'Employment changes asked for this employee, with their approval status' })
+  changeRequests(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentAuth() auth: AuthContext,
+  ) {
+    return this.changes.forEmployee(tenant, auth, id);
   }
 
   @Get(':id/history')
@@ -250,5 +263,35 @@ export class EmployeesController {
     @Req() req: AppRequest,
   ) {
     await this.employees.deleteContact(tenant, auth, id, contactId, requestMeta(req));
+  }
+}
+
+/** One employment change and withdrawing it. Separate from /v1/employees so its paths can't clash with ids. */
+@ApiTags('employees')
+@RequireFeature('hr.core')
+@Controller('v1/employee-changes')
+export class EmployeeChangesController {
+  constructor(private readonly changes: EmployeeChangesService) {}
+
+  @Get(':id')
+  @ApiOperation({ summary: 'One employment change and its approval' })
+  get(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentAuth() auth: AuthContext,
+  ) {
+    return this.changes.get(tenant, auth, id);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Withdraw an employment change I asked for, while it is open' })
+  cancel(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: AppRequest,
+  ) {
+    return this.changes.cancel(tenant, auth, id, requestMeta(req));
   }
 }

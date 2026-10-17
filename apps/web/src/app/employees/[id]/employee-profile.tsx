@@ -25,6 +25,7 @@ import { ContactsPanel } from './contacts-panel';
 import { EditDetailsDialog } from './edit-details-dialog';
 import { HistoryPanel } from './history-panel';
 import { LifecycleDialog, type LifecycleAction } from './lifecycle-dialog';
+import { PendingChanges } from './pending-changes';
 import { SensitivePanel } from './sensitive-panel';
 
 type Tab = 'overview' | 'identity' | 'contacts' | 'history';
@@ -110,6 +111,7 @@ export function EmployeeProfile({ id, session }: { id: string; session: SessionV
         </div>
       </header>
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+      <PendingChanges id={e.id} />
       {e.status === 'ON_NOTICE' && (
         <Alert tone="warning">
           On notice since {formatDay(e.noticeGivenOn)}. Last working day {formatDay(e.lastWorkingDay)}

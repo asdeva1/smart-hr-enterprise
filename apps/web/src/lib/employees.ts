@@ -137,7 +137,34 @@ export const employeeKeys = {
   sensitive: (id: string) => ['employees', 'sensitive', id] as const,
   contacts: (id: string) => ['employees', 'contacts', id] as const,
   chart: ['employees', 'chart'] as const,
+  changes: (id: string) => ['employees', 'changes', id] as const,
+  change: (id: string) => ['employees', 'change', id] as const,
 };
+
+export type ChangeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED' | 'CANCELLED';
+
+/** An employment change waiting for approval (or decided). */
+export interface EmploymentChange {
+  id: string;
+  employee: { id: string; name: string; employeeCode: string };
+  action: string;
+  actionLabel: string;
+  changes: Record<string, { from: unknown; to: unknown }>;
+  effectiveDate: string;
+  note: string | null;
+  status: ChangeStatus;
+  decisionNote: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  requestedByUserId: string;
+  approvalRequest: { id: string; status: string } | null;
+}
+
+export const useEmploymentChanges = (employeeId: string) =>
+  useQuery({
+    queryKey: employeeKeys.changes(employeeId),
+    queryFn: () => apiFetch<EmploymentChange[]>(`/v1/employees/${employeeId}/changes`),
+  });
 
 export const useEmployees = (f: EmployeeFilters) =>
   useQuery({

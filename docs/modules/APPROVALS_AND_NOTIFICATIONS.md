@@ -73,6 +73,13 @@ Code: `packages/database/src/notifications.ts` (writer), `apps/api/src/notificat
 - Row-level security: a person reads and marks read **only their own** notifications; the app role can't change delivery columns directly.
 - Categories and email defaults live in `NOTIFICATION_CATEGORIES` (`@smart-hr/shared`). People change email per category on their account page; in-app notifications are always on.
 
+### The employee a request is about
+
+For request types about one person's own time (leave, attendance corrections), the employee is told with
+`request.about_me` (emailed by default) when someone else asks on their behalf, and when such a request is
+decided. They aren't told twice when they asked themselves, and employment changes never notify the
+employee.
+
 ### Escalation
 
 The worker's escalation sweep claims overdue tasks (`claim_overdue_approval_tasks`, which stamps `escalated_at` so each task escalates once) and, in the same transaction and under the task's own tenant context, notifies the approver (`approval.overdue`, emailed by default) and the other owners (`approval.escalated`, in-app by default).

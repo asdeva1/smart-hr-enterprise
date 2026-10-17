@@ -17,6 +17,13 @@ export async function signIn(page: Page, email: string, password: string) {
 
 const MAILPIT = process.env.MAILPIT_URL ?? 'http://localhost:8025';
 
+/** Deletes every email to an address in Mailpit, so the next one found is the one a test just caused. */
+export async function clearEmailsTo(address: string): Promise<void> {
+  await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`, {
+    method: 'DELETE',
+  });
+}
+
 /** Waits for the newest email to an address in Mailpit and returns its plain-text body. */
 export async function latestEmailTo(address: string): Promise<string> {
   let text = '';

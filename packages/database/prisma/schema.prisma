@@ -67,6 +67,7 @@ model Tenant {
   leaveTypes            LeaveType[]
   leaveLedger           LeaveLedgerEntry[]
   leaveRequests         LeaveRequest[]
+  employeeChanges       EmployeeChangeRequest[]
 
   @@map("tenant")
 }
@@ -952,18 +953,18 @@ model Employee {
   createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  membership            TenantMembership?      @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict)
-  company               Company                @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
-  branch                Branch?                @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
-  department            Department?            @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: Restrict)
-  designation           LookupValue?           @relation("EmployeeDesignation", fields: [tenantId, designationId], references: [tenantId, id], onDelete: Restrict)
-  grade                 LookupValue?           @relation("EmployeeGrade", fields: [tenantId, gradeId], references: [tenantId, id], onDelete: Restrict)
-  employmentType        LookupValue?           @relation("EmployeeEmploymentType", fields: [tenantId, employmentTypeId], references: [tenantId, id], onDelete: Restrict)
-  costCentre            LookupValue?           @relation("EmployeeCostCentre", fields: [tenantId, costCentreId], references: [tenantId, id], onDelete: Restrict)
-  exitReason            LookupValue?           @relation("EmployeeExitReason", fields: [tenantId, exitReasonId], references: [tenantId, id], onDelete: Restrict)
-  manager               Employee?              @relation("EmployeeManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
-  reports               Employee[]             @relation("EmployeeManager")
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership            TenantMembership?       @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Restrict)
+  company               Company                 @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  branch                Branch?                 @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Restrict)
+  department            Department?             @relation(fields: [tenantId, departmentId], references: [tenantId, id], onDelete: Restrict)
+  designation           LookupValue?            @relation("EmployeeDesignation", fields: [tenantId, designationId], references: [tenantId, id], onDelete: Restrict)
+  grade                 LookupValue?            @relation("EmployeeGrade", fields: [tenantId, gradeId], references: [tenantId, id], onDelete: Restrict)
+  employmentType        LookupValue?            @relation("EmployeeEmploymentType", fields: [tenantId, employmentTypeId], references: [tenantId, id], onDelete: Restrict)
+  costCentre            LookupValue?            @relation("EmployeeCostCentre", fields: [tenantId, costCentreId], references: [tenantId, id], onDelete: Restrict)
+  exitReason            LookupValue?            @relation("EmployeeExitReason", fields: [tenantId, exitReasonId], references: [tenantId, id], onDelete: Restrict)
+  manager               Employee?               @relation("EmployeeManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
+  reports               Employee[]              @relation("EmployeeManager")
   sensitive             EmployeeSensitive?
   events                EmployeeEvent[]
   emergencyContacts     EmergencyContact[]
@@ -972,6 +973,7 @@ model Employee {
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
   leaveLedger           LeaveLedgerEntry[]
+  changeRequests        EmployeeChangeRequest[]
   leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
 
@@ -1398,4 +1400,46 @@ model LeaveRequest {
   @@index([tenantId, employeeId, fromDate])
   @@index([tenantId, status])
   @@map("leave_request")
+}
+
+// ---- Employment changes for approval (Phase 11) -----------------------------------------------------
+
+enum EmployeeChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+
+  @@map("employee_change_status")
+}
+
+/// A promotion, transfer, manager change, notice or exit waiting for approval. Applied (and written to the
+/// employee's history) only when approved; checked again at that moment.
+model EmployeeChangeRequest {
+  id                String               @id @default(uuid(7)) @db.Uuid
+  tenantId          String               @map("tenant_id") @db.Uuid
+  employeeId        String               @map("employee_id") @db.Uuid
+  /// transfer, promotion, change_manager, notice, withdraw_notice or exit.
+  action            String
+  /// The change as requested (validated input).
+  payload           Json
+  /// What would change, worked out when requested: { field: { from, to } }.
+  changes           Json
+  effectiveDate     DateTime             @map("effective_date") @db.Date
+  note              String?
+  status            EmployeeChangeStatus @default(PENDING)
+  approvalRequestId String?              @map("approval_request_id") @db.Uuid
+  requestedByUserId String               @map("requested_by_user_id") @db.Uuid
+  decisionNote      String?              @map("decision_note")
+  decidedAt         DateTime?            @map("decided_at") @db.Timestamptz(6)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, employeeId, status])
+  @@map("employee_change_request")
 }

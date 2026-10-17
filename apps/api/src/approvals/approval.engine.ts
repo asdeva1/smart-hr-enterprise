@@ -12,6 +12,7 @@ import {
   defaultApproverIsManager,
   isApprovalSubject,
   NOTIFICATION_CATEGORIES,
+  notifiesSubject,
   NotFoundError,
   type ScopeRef,
 } from '@smart-hr/shared';
@@ -139,7 +140,40 @@ export class ApprovalEngine {
       },
       meta,
     );
+    await this.notifySubject(tx, request, `${actor.displayName} asked for this for you`, null);
     return this.advance(tx, request, 0, new Set());
+  }
+
+  /**
+   * Tells the employee a request is about, when someone else asked for it (HR recording leave for them, say)
+   * and when it is decided. Only for request types about one person's own time (leave, corrections).
+   */
+  private async notifySubject(
+    tx: TenantTransaction,
+    request: ApprovalRequest,
+    headline: string,
+    outcome: string | null,
+  ) {
+    if (!request.subjectEmployeeId || !notifiesSubject(request.subjectType)) return;
+    const subject = await tx.employee.findUnique({
+      where: { id: request.subjectEmployeeId },
+      select: { membership: { select: { id: true, userId: true, status: true } } },
+    });
+    const m = subject?.membership;
+    // Nobody to tell, or they asked for it themselves (they hear as the requester).
+    if (!m || m.status !== 'ACTIVE' || m.id === request.requestedByMembershipId) return;
+    await createNotifications(tx, request.tenantId, {
+      recipientUserIds: [m.userId],
+      category: 'request.about_me',
+      emailDefault: NOTIFICATION_CATEGORIES['request.about_me'].emailDefault,
+      title: outcome ? `A request for you was ${outcome}` : headline,
+      body: request.title,
+      link: this.link(request),
+      email: {
+        subject: outcome ? `${request.title}: ${outcome}` : `${headline}: ${request.title}`,
+        text: `${outcome ? `${request.title} was ${outcome}.` : `${headline}:\n\n  ${request.title}`}\n\nDetails: ${this.emailLink(request)}`,
+      },
+    });
   }
 
   /** Records one approver's decision and moves the request on. */
@@ -554,5 +588,6 @@ export class ApprovalEngine {
         text: `${request.title} was ${outcome}${by}.${reason}\n\nDetails: ${this.emailLink(request)}`,
       },
     });
+    await this.notifySubject(tx, request, '', outcome);
   }
 }
