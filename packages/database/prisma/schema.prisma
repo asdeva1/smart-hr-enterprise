@@ -61,6 +61,10 @@ model Tenant {
   shiftAssignments        ShiftAssignment[]
   attendancePunches       AttendancePunch[]
   biometricDevices        BiometricDevice[]
+  vendors                 Vendor[]
+  expenseCategories       ExpenseCategory[]
+  expenseClaims           ExpenseClaim[]
+  expenseLines            ExpenseLine[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -1007,6 +1011,7 @@ model Employee {
   shiftAssignments      ShiftAssignment[]
   attendancePunches     AttendancePunch[]
   biometricEnrollment   BiometricEnrollment?
+  expenseClaims         ExpenseClaim[]
   biometricLogs         BiometricLog[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
@@ -2389,4 +2394,119 @@ model BookLock {
 
   @@unique([tenantId, companyId])
   @@map("book_lock")
+}
+
+// ---- Vendors and expenses (Phase 16) ----------------------------------------------------------------
+
+enum ExpenseClaimStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+
+  @@map("expense_claim_status")
+}
+
+/// Someone the organisation buys from. Shared by every company in the organisation.
+model Vendor {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  code             String
+  name             String
+  /// 15-character GST number, when registered.
+  gstin            String?
+  pan              String?
+  contactName      String?      @map("contact_name")
+  email            String?
+  phone            String?
+  address          String?
+  paymentTermsDays Int          @default(30) @map("payment_terms_days")
+  notes            String?
+  status           RecordStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("vendor")
+}
+
+/// A kind of expense (Travel, Meals, …) with the rules claims in it must meet.
+model ExpenseCategory {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  code            String
+  name            String
+  /// Every line in this category must carry a receipt or bill number.
+  requiresReceipt Boolean      @default(false) @map("requires_receipt")
+  /// Largest amount for one line; null = no limit.
+  maxAmount       Decimal?     @map("max_amount") @db.Decimal(16, 2)
+  status          RecordStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  lines  ExpenseLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("expense_category")
+}
+
+/// An employee's request to be paid back for money they spent. Edited only while a draft.
+model ExpenseClaim {
+  id                String             @id @default(uuid(7)) @db.Uuid
+  tenantId          String             @map("tenant_id") @db.Uuid
+  employeeId        String             @map("employee_id") @db.Uuid
+  /// EXP-000001, given when first sent for approval.
+  number            String?
+  title             String
+  status            ExpenseClaimStatus @default(DRAFT)
+  total             Decimal            @default(0) @db.Decimal(16, 2)
+  currency          String             @db.Char(3)
+  approvalRequestId String?            @map("approval_request_id") @db.Uuid
+  submittedAt       DateTime?          @map("submitted_at") @db.Timestamptz(6)
+  decidedAt         DateTime?          @map("decided_at") @db.Timestamptz(6)
+  decisionNote      String?            @map("decision_note")
+  paidAt            DateTime?          @map("paid_at") @db.Timestamptz(6)
+  paymentReference  String?            @map("payment_reference")
+  paidByUserId      String?            @map("paid_by_user_id") @db.Uuid
+  createdByUserId   String             @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee       @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  lines    ExpenseLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@index([tenantId, employeeId, status])
+  @@index([tenantId, status])
+  @@map("expense_claim")
+}
+
+model ExpenseLine {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  claimId       String   @map("claim_id") @db.Uuid
+  position      Int
+  date          DateTime @db.Date
+  categoryId    String   @map("category_id") @db.Uuid
+  description   String
+  amount        Decimal  @db.Decimal(16, 2)
+  /// Receipt or bill number, when there is one.
+  receiptNumber String?  @map("receipt_number")
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  claim    ExpenseClaim    @relation(fields: [tenantId, claimId], references: [tenantId, id], onDelete: Cascade)
+  category ExpenseCategory @relation(fields: [tenantId, categoryId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([claimId, position])
+  @@index([tenantId, categoryId])
+  @@map("expense_line")
 }

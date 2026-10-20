@@ -73,6 +73,13 @@ export const PERMISSIONS = {
     label: 'Write journals and send them for approval, and reverse posted ones',
   },
   'finance.configure': { module: 'finance', label: 'Maintain the chart of accounts and close the books' },
+  'expenses.view': { module: 'expenses', label: 'See expense claims in their part of the organisation' },
+  'expenses.manage': {
+    module: 'expenses',
+    label: 'Maintain expense categories and mark approved claims as paid',
+  },
+  'vendors.view': { module: 'procurement', label: 'See vendors' },
+  'vendors.manage': { module: 'procurement', label: 'Add and change vendors' },
   'onboarding.manage': {
     module: 'recruitment',
     label: 'Maintain onboarding checklists and start onboarding for new joiners',
@@ -96,6 +103,8 @@ export const PERMISSION_MODULES: Record<string, string> = {
   recruitment: 'Recruitment and onboarding',
   payroll: 'Payroll',
   finance: 'Finance and accounting',
+  expenses: 'Expenses',
+  procurement: 'Vendors and procurement',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -168,7 +177,16 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     key: 'accountant',
     name: 'Accountant',
     description: 'Keeps the books: chart of accounts, journals, closing the books and financial reports.',
-    permissions: ['org.view', 'finance.view', 'finance.manage', 'finance.configure'],
+    permissions: [
+      'org.view',
+      'finance.view',
+      'finance.manage',
+      'finance.configure',
+      'expenses.view',
+      'expenses.manage',
+      'vendors.view',
+      'vendors.manage',
+    ],
   },
   {
     key: 'auditor',
@@ -185,6 +203,8 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'documents.view',
       'recruitment.view',
       'finance.view',
+      'expenses.view',
+      'vendors.view',
     ],
   },
   {

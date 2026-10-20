@@ -204,6 +204,10 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.expenseLine.deleteMany({ where: inTenants });
+    await this.db.expenseClaim.deleteMany({ where: inTenants });
+    await this.db.expenseCategory.deleteMany({ where: inTenants });
+    await this.db.vendor.deleteMany({ where: inTenants });
     await this.db.$executeRaw`ALTER TABLE "journal_line" DISABLE TRIGGER journal_line_check`;
     try {
       await this.db.journalLine.deleteMany({ where: inTenants });

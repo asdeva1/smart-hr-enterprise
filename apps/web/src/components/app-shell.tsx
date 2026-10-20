@@ -19,6 +19,8 @@ import {
   ListChecks,
   ListTodo,
   PackageCheck,
+  Receipt,
+  Store,
   Palette,
   ScrollText,
   Settings,
@@ -77,12 +79,14 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Recruitment', icon: Briefcase, href: '/recruitment', feature: 'recruitment' },
       { label: 'Onboarding', icon: ListTodo, href: '/onboarding', feature: 'onboarding' },
       { label: 'Payroll', icon: Wallet, href: '/payroll', feature: 'payroll' },
+      { label: 'Expenses', icon: Receipt, href: '/expenses', feature: 'expenses' },
     ],
   },
   {
     section: 'Business',
     items: [
       { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
+      { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
       { label: 'Operations', icon: Layers, phase: 17 },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
       { label: 'Reports', icon: ChartColumn, phase: 18 },

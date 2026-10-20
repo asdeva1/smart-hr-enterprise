@@ -94,10 +94,12 @@ describe('permissions', () => {
       'audit.view',
       'documents.view',
       'employees.view',
+      'expenses.view',
       'finance.view',
       'leave.view',
       'org.view',
       'recruitment.view',
+      'vendors.view',
     ]);
     const ownerView = (await org.owner.get('/v1/auth/session')).body;
     expect(ownerView.activeTenant.permissions).toContain('access.manage');

@@ -14,3 +14,4 @@ export * from './documents.js';
 export * from './recruitment.js';
 export * from './payroll.js';
 export * from './finance.js';
+export * from './expenses.js';
