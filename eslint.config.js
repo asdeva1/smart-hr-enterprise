@@ -20,6 +20,7 @@ export default tseslint.config(
       'apps/api/bootstrap-db-roles.mjs',
       'apps/api/api/index.js',
       'apps/api/api/ping.js',
+      'apps/api/api/cron.js',
       'apps/api/vercel-prepare.mjs',
     ],
   },

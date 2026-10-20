@@ -1,0 +1,31 @@
+# Runs the background sweeps (email outbox, approval escalation, subscription expiry, document reminders) on
+# hosts with no always-on worker. Vercel's free plan only allows a daily cron, so this calls the same endpoint
+# every five minutes. Needs the repository secret CRON_SECRET (same value as on the API project) and,
+# optionally, the repository variable SWEEP_BASE_URL (defaults to the production API).
+name: Background sweeps
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: sweeps
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run the sweeps
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: ${{ vars.SWEEP_BASE_URL || 'https://smart-hr-api-kappa.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET is not set; skipping."; exit 0; fi
+          code=$(curl -sS -m 90 -o /tmp/out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron")
+          cat /tmp/out.json; echo
+          test "$code" = "200"

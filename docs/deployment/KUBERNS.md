@@ -76,3 +76,11 @@ BOOTSTRAP_ADMIN_NAME="Your Name" BOOTSTRAP_ADMIN_PASSWORD='…' node dist/cli/bo
 ## Pushing to `main` deploys
 
 Kuberns deploys every push to `main`. Use a branch for work that shouldn't go live yet.
+
+## Hosts without a worker (Vercel)
+
+When no always-on worker runs, the four sweeps (email outbox, approval escalation, subscription expiry,
+document reminders) are triggered over HTTP instead: `GET /api/cron` on the API, with
+`Authorization: Bearer $CRON_SECRET`. `?jobs=outbox,documents` limits the run. `apps/api/vercel.json` schedules
+one daily run through Vercel Cron (the free plan's limit), and `.github/workflows/sweeps.yml` calls it every five
+minutes; give that workflow the repository secret `CRON_SECRET`.

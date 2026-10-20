@@ -78,6 +78,9 @@ importers:
       '@smart-hr/validation':
         specifier: workspace:*
         version: link:../../packages/validation
+      '@smart-hr/worker':
+        specifier: workspace:*
+        version: link:../worker
       bullmq:
         specifier: 6.3.13
         version: 6.3.13(ioredis@6.0.0)(pg@8.23.1)

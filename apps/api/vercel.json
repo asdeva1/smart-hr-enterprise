@@ -16,7 +16,17 @@
     "api/index.js": {
       "maxDuration": 60,
       "includeFiles": "dist/**"
+    },
+    "api/cron.js": {
+      "maxDuration": 60,
+      "includeFiles": "dist/**"
     }
   },
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
