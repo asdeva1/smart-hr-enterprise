@@ -1,6 +1,4 @@
 import 'reflect-metadata';
-// Vercel's NestJS detection looks for the framework import in the entrypoint file itself.
-import '@nestjs/core';
 import { assertRestrictedRuntimeRole } from '@smart-hr/database';
 import { createApp } from './app.factory.js';
 import { loadApiEnv } from './config/env.js';
