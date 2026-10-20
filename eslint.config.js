@@ -16,6 +16,8 @@ export default tseslint.config(
       '**/next-env.d.ts',
       '**/*.config.{js,mjs,cjs,ts}',
       'infra/**',
+      // One-line entry shim for the Kuberns build; the code it runs is the type-checked CLI.
+      'apps/api/bootstrap-db-roles.mjs',
     ],
   },
   js.configs.recommended,

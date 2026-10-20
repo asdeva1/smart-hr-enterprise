@@ -110,3 +110,4 @@ export async function pingDatabase(db: DatabaseClient): Promise<void> {
   await db.$queryRaw`SELECT 1`;
 }
 export * from './notifications.js';
+export * from './runtime-role.js';
