@@ -40,7 +40,7 @@ async function upload(body: string, serial = SERIAL) {
 }
 
 async function day(): Promise<{ status: string; workedMinutes: number; firstIn: string | null; lastOut: string | null } | undefined> {
-  const res = await owner.send('get', `/v1/attendance/employees/${employeeId}/days?from=${wednesday}&to=${wednesday}`);
+  const res = await owner.get(`/v1/attendance/employees/${employeeId}/days?from=${wednesday}&to=${wednesday}`);
   expect(res.status, JSON.stringify(res.body)).toBe(200);
   return (res.body.days as { date: string }[]).find((d) => d.date === wednesday) as never;
 }
@@ -104,7 +104,7 @@ describe('setting up machines', () => {
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const again = await owner.send('post', '/v1/attendance/biometric/devices', { name: 'Other', serialNumber: SERIAL });
     expect(again.status).toBe(409);
-    const list = await owner.send('get', '/v1/attendance/biometric/devices');
+    const list = await owner.get('/v1/attendance/biometric/devices');
     expect(list.body.devices).toHaveLength(1);
     expect(list.body.devices[0]).toMatchObject({ serialNumber: SERIAL, timeZone: 'Asia/Kolkata', status: 'ACTIVE' });
   });
@@ -130,7 +130,7 @@ describe('the machine’s side', () => {
     const res = await upload(scan('42', '09:02:00') + scan('42', '18:10:00'));
     expect(res.status).toBe(200);
     expect(res.text).toBe('OK: 2');
-    const links = await owner.send('get', '/v1/attendance/biometric/links');
+    const links = await owner.get('/v1/attendance/biometric/links');
     expect(links.body.unlinked).toMatchObject([{ deviceCode: '42', scans: 2 }]);
 
     const link = await owner.send('post', '/v1/attendance/biometric/links', { employeeId, deviceCode: '42' });
@@ -141,7 +141,7 @@ describe('the machine’s side', () => {
     expect(d?.status).toBe('PRESENT');
     expect(d?.firstIn).toBe(new Date(`${wednesday}T09:02:00+05:30`).toISOString());
     expect(d?.lastOut).toBe(new Date(`${wednesday}T18:10:00+05:30`).toISOString());
-    const after = await owner.send('get', '/v1/attendance/biometric/links');
+    const after = await owner.get('/v1/attendance/biometric/links');
     expect(after.body.unlinked).toEqual([]);
     expect(after.body.links[0]).toMatchObject({ deviceCode: '42', employee: { id: employeeId } });
   });
@@ -176,25 +176,25 @@ describe('the machine’s side', () => {
   });
 
   it('shows what the machines sent, and can filter it', async () => {
-    const all = await owner.send('get', '/v1/attendance/biometric/logs');
+    const all = await owner.get('/v1/attendance/biometric/logs');
     expect(all.status).toBe(200);
     expect(all.body.logs.length).toBeGreaterThanOrEqual(7);
     expect(all.body.logs[0]).toMatchObject({ device: 'Front gate', deviceCode: '42', employee: 'Bio Tester' });
-    const dupes = await owner.send('get', '/v1/attendance/biometric/logs?outcome=DUPLICATE');
+    const dupes = await owner.get('/v1/attendance/biometric/logs?outcome=DUPLICATE');
     expect(dupes.body.logs).toHaveLength(1);
   });
 
   it('stops listening to an archived machine', async () => {
-    const list = await owner.send('get', '/v1/attendance/biometric/devices');
+    const list = await owner.get('/v1/attendance/biometric/devices');
     const id = list.body.devices[0].id as string;
     expect((await owner.send('patch', `/v1/attendance/biometric/devices/${id}`, { status: 'ARCHIVED' })).status).toBe(200);
     expect((await upload(scan('42', '10:00:00'))).status).toBe(404);
   });
 
   it('removes a link', async () => {
-    const links = await owner.send('get', '/v1/attendance/biometric/links');
+    const links = await owner.get('/v1/attendance/biometric/links');
     const id = links.body.links[0].id as string;
     expect((await owner.send('delete', `/v1/attendance/biometric/links/${id}`)).status).toBe(200);
-    expect((await owner.send('get', '/v1/attendance/biometric/links')).body.links).toEqual([]);
+    expect((await owner.get('/v1/attendance/biometric/links')).body.links).toEqual([]);
   });
 });

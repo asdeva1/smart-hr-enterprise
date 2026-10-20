@@ -127,6 +127,39 @@ describe('startup tasks', () => {
     expect(await db.tenant.findUnique({ where: { slug: slugFromName(`Weak Org ${run}`) } })).toBeNull();
   });
 
+  it('can make the owners of the oldest organisation platform administrators, only when asked', async () => {
+    const email = `owner-${run}-p@startup.test`;
+    emails.push(email);
+    const slug = `plat-${run}`;
+    slugs.push(slug);
+    await bootstrapTenant(db, { slug, name: `Plat ${run}`, adminEmail: email, adminName: 'P', adminPassword: password });
+    expect((await db.user.findUniqueOrThrow({ where: { email } })).isPlatformAdmin).toBe(false);
+
+    await runStartupTasks({ STARTUP_TASKS: 'true', DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL') }, { db });
+    expect((await db.user.findUniqueOrThrow({ where: { email } })).isPlatformAdmin).toBe(false);
+
+    // The oldest organisation in a shared test database isn't this one, so act on a database that has only it.
+    const only = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop === 'tenant') {
+          return new Proxy(target.tenant, {
+            get: (t, p, r): unknown =>
+              p === 'findFirst'
+                ? () => target.tenant.findUnique({ where: { slug }, select: { id: true, name: true } })
+                : Reflect.get(t, p, r),
+          });
+        }
+        return Reflect.get(target, prop, receiver) as unknown;
+      },
+    });
+    const result = await runStartupTasks(
+      { STARTUP_TASKS: 'true', PLATFORM_ADMIN_FIRST_OWNER: 'true', DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL') },
+      { db: only },
+    );
+    expect(result.messages.join('\n')).toMatch(/granted to 1 owner/);
+    expect((await db.user.findUniqueOrThrow({ where: { email } })).isPlatformAdmin).toBe(true);
+  });
+
   it('bootstrapTenant refuses a password that breaks the policy', async () => {
     await expect(
       bootstrapTenant(db, {

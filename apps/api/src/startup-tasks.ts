@@ -8,6 +8,8 @@
  *  - First run: if the database has no organisation yet and BOOTSTRAP_TENANT_NAME, BOOTSTRAP_ADMIN_EMAIL,
  *    BOOTSTRAP_ADMIN_NAME and BOOTSTRAP_ADMIN_PASSWORD are set, creates the organisation and its owner
  *    account. Once an organisation exists it does nothing more, so the four settings can be deleted.
+ *  - PLATFORM_ADMIN_FIRST_OWNER=true makes the owners of the oldest organisation platform administrators, who
+ *    can create and manage client organisations and their subscriptions. Turn it off again afterwards.
  *
  * A failure is reported and the API still starts, so a typo here never takes the app down.
  */
@@ -28,6 +30,7 @@ const startupSchema = z.object({
   BOOTSTRAP_ADMIN_EMAIL: z.email().optional(),
   BOOTSTRAP_ADMIN_NAME: z.string().trim().min(1).max(200).optional(),
   BOOTSTRAP_ADMIN_PASSWORD: z.string().min(1).optional(),
+  PLATFORM_ADMIN_FIRST_OWNER: z.stringbool().default(false),
 });
 
 export type StartupTaskResult = { ran: boolean; created?: string; messages: string[] };
@@ -74,6 +77,21 @@ export async function runStartupTasks(
       env.BOOTSTRAP_ADMIN_NAME,
       env.BOOTSTRAP_ADMIN_PASSWORD,
     ];
+    if (env.PLATFORM_ADMIN_FIRST_OWNER) {
+      const first = await db.tenant.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true, name: true } });
+      if (first) {
+        const owners = await db.tenantMembership.findMany({
+          where: { tenantId: first.id, isTenantAdmin: true, status: 'ACTIVE' },
+          select: { userId: true },
+        });
+        const { count } = await db.user.updateMany({
+          where: { id: { in: owners.map((o) => o.userId) }, isPlatformAdmin: false },
+          data: { isPlatformAdmin: true },
+        });
+        messages.push(`Platform administrator access granted to ${count} owner(s) of "${first.name}".`);
+      }
+    }
+
     if (tenants.length === 0 && wanted.every(Boolean)) {
       const result = await bootstrapTenant(db, {
         slug: env.BOOTSTRAP_TENANT_SLUG ?? slugFromName(env.BOOTSTRAP_TENANT_NAME!),
