@@ -249,3 +249,66 @@ export function monthLabel(month: string): string {
     timeZone: 'UTC',
   });
 }
+
+export interface BiometricDevice {
+  id: string;
+  name: string;
+  vendor: 'ESSL' | 'ZKTECO';
+  serialNumber: string;
+  location: string | null;
+  timeZone: string;
+  status: 'ACTIVE' | 'ARCHIVED';
+  lastSeenAt: string | null;
+  lastPunchAt: string | null;
+  unmapped: number;
+}
+
+export interface BiometricLinks {
+  links: { id: string; deviceCode: string; employee: { id: string; code: string; name: string } }[];
+  unlinked: { deviceCode: string; scans: number; lastScanAt: string | null }[];
+}
+
+export type BiometricOutcome = 'IMPORTED' | 'UNMAPPED' | 'DUPLICATE' | 'REJECTED';
+
+export interface BiometricLogRow {
+  id: string;
+  device: string;
+  deviceCode: string;
+  punchedAt: string;
+  outcome: BiometricOutcome;
+  employee: string | null;
+}
+
+export const biometricKeys = {
+  devices: ['attendance', 'biometric', 'devices'] as const,
+  links: ['attendance', 'biometric', 'links'] as const,
+  logs: (outcome: string) => ['attendance', 'biometric', 'logs', outcome] as const,
+};
+
+export const useBiometricDevices = () =>
+  useQuery({
+    queryKey: biometricKeys.devices,
+    queryFn: () => apiFetch<{ devices: BiometricDevice[] }>('/v1/attendance/biometric/devices'),
+  });
+
+export const useBiometricLinks = () =>
+  useQuery({
+    queryKey: biometricKeys.links,
+    queryFn: () => apiFetch<BiometricLinks>('/v1/attendance/biometric/links'),
+  });
+
+export const useBiometricLogs = (outcome: string) =>
+  useQuery({
+    queryKey: biometricKeys.logs(outcome),
+    queryFn: () =>
+      apiFetch<{ logs: BiometricLogRow[] }>(
+        `/v1/attendance/biometric/logs?limit=50${outcome ? `&outcome=${outcome}` : ''}`,
+      ),
+  });
+
+export const OUTCOME_LABEL: Record<BiometricOutcome, string> = {
+  IMPORTED: 'Counted',
+  UNMAPPED: 'Waiting for a link',
+  DUPLICATE: 'Repeat scan',
+  REJECTED: 'Not counted',
+};

@@ -1,3 +1,4 @@
+import type { IncomingMessage } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import type { DynamicModule, Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -32,6 +33,8 @@ export async function createApp(
   app.use(helmet());
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '100kb' });
+  // Biometric machines upload scan lines as plain text, with whatever content type their firmware picks.
+  app.useBodyParser('text', { limit: '1mb', type: (req: IncomingMessage) => req.url?.startsWith('/iclock/') === true });
   app.enableCors({
     origin: env.CORS_ORIGINS,
     credentials: true,

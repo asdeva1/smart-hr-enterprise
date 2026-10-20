@@ -139,3 +139,57 @@ export const correctionListQuerySchema = z.object({
   scope: z.enum(['mine', 'team']).default('mine'),
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'RETURNED', 'CANCELLED']).optional(),
 });
+
+// ---- Biometric machines ------------------------------------------------------------------------
+
+function isTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const deviceTimeZone = z.string().trim().refine(isTimeZone, 'Choose a valid time zone, e.g. Asia/Kolkata');
+
+export const biometricDeviceSchema = z.object({
+  name: z.string().trim().min(2, 'Give the machine a name').max(80),
+  vendor: z.enum(['ESSL', 'ZKTECO']).default('ESSL'),
+  /** Printed on the machine and shown under its System Info. Machines identify themselves by it. */
+  serialNumber: z
+    .string()
+    .trim()
+    .min(4, 'Enter the serial number shown on the machine')
+    .max(40)
+    .regex(/^[A-Za-z0-9_-]+$/, 'Letters, numbers, - and _ only'),
+  location: z.preprocess((v) => (v === '' ? undefined : v), z.string().trim().max(120).optional()),
+  timeZone: deviceTimeZone.default('Asia/Kolkata'),
+});
+export type BiometricDeviceInput = z.input<typeof biometricDeviceSchema>;
+
+export const biometricDeviceUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80),
+    location: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(120).nullable()),
+    timeZone: deviceTimeZone,
+    status: z.enum(['ACTIVE', 'ARCHIVED']),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, 'Nothing to change');
+
+/** The user number the machine knows the person by (its "User ID"), linked to an employee. */
+export const biometricLinkSchema = z.object({
+  employeeId: z.uuid('Choose an employee'),
+  deviceCode: z
+    .string()
+    .trim()
+    .min(1, 'Enter the user ID enrolled on the machine')
+    .max(20)
+    .regex(/^[A-Za-z0-9]+$/, 'Letters and numbers only'),
+});
+
+export const biometricLogQuerySchema = z.object({
+  outcome: z.enum(['IMPORTED', 'UNMAPPED', 'DUPLICATE', 'REJECTED']).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});

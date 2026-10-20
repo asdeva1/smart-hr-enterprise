@@ -246,6 +246,9 @@ export class Fixtures {
     await this.db.leaveType.deleteMany({ where: inTenants });
     await this.db.holiday.deleteMany({ where: inTenants });
     await this.db.holidayCalendar.deleteMany({ where: inTenants });
+    await this.db.biometricLog.deleteMany({ where: inTenants });
+    await this.db.biometricEnrollment.deleteMany({ where: inTenants });
+    await this.db.biometricDevice.deleteMany({ where: inTenants });
     await this.db.attendancePunch.deleteMany({ where: inTenants });
     await this.db.attendanceDay.deleteMany({ where: inTenants });
     await this.db.attendanceCorrection.deleteMany({ where: inTenants });

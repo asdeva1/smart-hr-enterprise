@@ -60,6 +60,9 @@ model Tenant {
   shifts                  Shift[]
   shiftAssignments        ShiftAssignment[]
   attendancePunches       AttendancePunch[]
+  biometricDevices        BiometricDevice[]
+  biometricEnrollments    BiometricEnrollment[]
+  biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
   attendanceCorrections   AttendanceCorrection[]
   holidayCalendars        HolidayCalendar[]
@@ -1003,6 +1006,8 @@ model Employee {
   emergencyContacts     EmergencyContact[]
   shiftAssignments      ShiftAssignment[]
   attendancePunches     AttendancePunch[]
+  biometricEnrollment   BiometricEnrollment?
+  biometricLogs         BiometricLog[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
   leaveLedger           LeaveLedgerEntry[]
@@ -1125,6 +1130,8 @@ enum PunchSource {
   CORRECTION
   /// Uploaded from a file or a device export.
   IMPORT
+  /// Pushed by a biometric attendance machine.
+  DEVICE
 
   @@map("punch_source")
 }
@@ -1237,6 +1244,90 @@ model AttendanceDay {
   @@unique([tenantId, employeeId, date])
   @@index([tenantId, date])
   @@map("attendance_day")
+}
+
+enum BiometricVendor {
+  ESSL
+  ZKTECO
+
+  @@map("biometric_vendor")
+}
+
+enum BiometricLogOutcome {
+  /// Became a clock-in or clock-out.
+  IMPORTED
+  /// The device's user number isn't linked to an employee yet; applied once it is.
+  UNMAPPED
+  /// A second scan within a minute of the last one.
+  DUPLICATE
+  /// The employee has left, or the punch could not be placed.
+  REJECTED
+
+  @@map("biometric_log_outcome")
+}
+
+/// A fingerprint, face or card machine that pushes its scans to us. It is recognised by its serial number.
+model BiometricDevice {
+  id           String          @id @default(uuid(7)) @db.Uuid
+  tenantId     String          @map("tenant_id") @db.Uuid
+  name         String
+  vendor       BiometricVendor @default(ESSL)
+  serialNumber String          @unique @map("serial_number")
+  location     String?
+  /// The machine's clock is local time; this says which time zone it is in.
+  timeZone     String          @default("Asia/Kolkata") @map("time_zone")
+  status       RecordStatus    @default(ACTIVE)
+  lastSeenAt   DateTime?       @map("last_seen_at") @db.Timestamptz(6)
+  lastPunchAt  DateTime?       @map("last_punch_at") @db.Timestamptz(6)
+  /// The last upload marker the machine sent, handed back so it doesn't resend old scans.
+  attlogStamp  String?         @map("attlog_stamp")
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  logs   BiometricLog[]
+
+  @@unique([tenantId, id])
+  @@map("biometric_device")
+}
+
+/// Links the user number enrolled on the machines to an employee. One number per employee, organisation-wide.
+model BiometricEnrollment {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  deviceCode String   @map("device_code")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, deviceCode])
+  @@unique([tenantId, employeeId])
+  @@map("biometric_enrollment")
+}
+
+/// Every scan a machine sent, kept as received. Uploading the same scan twice is harmless.
+model BiometricLog {
+  id         String              @id @default(uuid(7)) @db.Uuid
+  tenantId   String              @map("tenant_id") @db.Uuid
+  deviceId   String              @map("device_id") @db.Uuid
+  deviceCode String              @map("device_code")
+  punchedAt  DateTime            @map("punched_at") @db.Timestamptz(6)
+  rawStatus  Int?                @map("raw_status")
+  verifyMode Int?                @map("verify_mode")
+  outcome    BiometricLogOutcome
+  employeeId String?             @map("employee_id") @db.Uuid
+  receivedAt DateTime            @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  device   BiometricDevice @relation(fields: [tenantId, deviceId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee?       @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([deviceId, deviceCode, punchedAt])
+  @@index([tenantId, outcome])
+  @@index([tenantId, receivedAt])
+  @@map("biometric_log")
 }
 
 /// A request to fix a day's times (a forgotten clock-out, a device failure). Applied only once approved.

@@ -10,6 +10,7 @@ const TABS = [
   { href: '/attendance/team', label: 'Team' },
   { href: '/attendance/register', label: 'Monthly register' },
   { href: '/attendance/shifts', label: 'Shifts', needs: ['attendance.configure', 'attendance.manage'] },
+  { href: '/attendance/biometric', label: 'Biometric', needs: ['attendance.configure'] },
   { href: '/leave/holidays', label: 'Holidays', needs: ['leave.configure'] },
 ];
 

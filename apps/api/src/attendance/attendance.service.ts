@@ -330,6 +330,20 @@ export class AttendanceService {
     return result;
   }
 
+  /**
+   * A scan from a biometric machine. Machines rarely tell in from out reliably, so the direction follows the
+   * employee's day: the first scan is a clock-in, the next a clock-out, and so on. Scans must arrive oldest
+   * first for this to hold, which the caller does.
+   */
+  async addDevicePunch(tx: TenantTransaction, e: AttendanceEmployee, at: Date, now = new Date()) {
+    const book = await ShiftBook.load(tx, [e.id]);
+    const tz = timeZoneOf(e);
+    const date = attendanceDateFor(at, book.on(e.id, localDate(at, tz)), tz);
+    const last = await this.lastPunchOn(tx, e.id, date, book.on(e.id, date), tz);
+    const direction = last && last.at <= at && last.direction === 'IN' ? 'OUT' : 'IN';
+    return this.addPunch(tx, e, { at, direction, source: 'DEVICE', recordedByUserId: null }, now);
+  }
+
   /** Days for one employee over a range: stored results, else absent / weekly off / nothing. */
   async daysFor(
     tx: TenantTransaction,
@@ -463,7 +477,7 @@ export class AttendanceService {
     p: {
       at: Date;
       direction: 'IN' | 'OUT';
-      source: 'WEB' | 'ADMIN' | 'CORRECTION' | 'IMPORT';
+      source: 'WEB' | 'ADMIN' | 'CORRECTION' | 'IMPORT' | 'DEVICE';
       note?: string;
       recordedByUserId: string | null;
       correctionId?: string;

@@ -23,6 +23,8 @@ const config: NextConfig = {
       ? [
           { source: '/v1/:path*', destination: `${target}/v1/:path*` },
           { source: '/health/:path*', destination: `${target}/health/:path*` },
+          // Biometric machines push their scans here.
+          { source: '/iclock/:path*', destination: `${target}/iclock/:path*` },
         ]
       : [];
   },
