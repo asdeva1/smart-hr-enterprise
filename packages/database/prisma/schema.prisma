@@ -71,6 +71,8 @@ model Tenant {
   purchaseOrderLines      PurchaseOrderLine[]
   goodsReceipts           GoodsReceipt[]
   goodsReceiptLines       GoodsReceiptLine[]
+  assets                  Asset[]
+  assetAssignments        AssetAssignment[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -249,6 +251,7 @@ model Company {
   journalEntries   JournalEntry[]
   bookLock         BookLock[]
   purchaseOrders   PurchaseOrder[]
+  assets           Asset[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -1020,6 +1023,7 @@ model Employee {
   biometricEnrollment   BiometricEnrollment?
   expenseClaims         ExpenseClaim[]
   purchaseRequests      PurchaseRequest[]
+  assetAssignments      AssetAssignment[]
   biometricLogs         BiometricLog[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
@@ -2438,6 +2442,7 @@ model Vendor {
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseOrders PurchaseOrder[]
+  assets         Asset[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -2686,4 +2691,73 @@ model GoodsReceiptLine {
 
   @@unique([receiptId, orderLineId])
   @@map("goods_receipt_line")
+}
+
+// ---- Assets (Phase 16C) -----------------------------------------------------------------------------
+
+enum AssetStatus {
+  IN_STOCK
+  ASSIGNED
+  UNDER_REPAIR
+  RETIRED
+
+  @@map("asset_status")
+}
+
+/// Something the company owns and tracks: a laptop, a chair, a vehicle. Depreciation is worked out on read.
+model Asset {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  tenantId         String      @map("tenant_id") @db.Uuid
+  companyId        String      @map("company_id") @db.Uuid
+  /// The asset tag stuck on the item, e.g. LAP-0042.
+  tag              String
+  name             String
+  category         String
+  serialNumber     String?     @map("serial_number")
+  vendorId         String?     @map("vendor_id") @db.Uuid
+  purchaseDate     DateTime    @map("purchase_date") @db.Date
+  purchaseCost     Decimal     @map("purchase_cost") @db.Decimal(16, 2)
+  salvageValue     Decimal     @default(0) @map("salvage_value") @db.Decimal(16, 2)
+  usefulLifeMonths Int         @map("useful_life_months")
+  currency         String      @db.Char(3)
+  status           AssetStatus @default(IN_STOCK)
+  notes            String?
+  retiredOn        DateTime?   @map("retired_on") @db.Date
+  retireReason     String?     @map("retire_reason")
+  createdByUserId  String      @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company           @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  vendor      Vendor?           @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
+  assignments AssetAssignment[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, tag])
+  @@index([tenantId, companyId, status])
+  @@map("asset")
+}
+
+/// Who had an asset and when. Open while returnedOn is empty; at most one open assignment per asset.
+model AssetAssignment {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  assetId          String    @map("asset_id") @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  assignedOn       DateTime  @map("assigned_on") @db.Date
+  returnedOn       DateTime? @map("returned_on") @db.Date
+  conditionOut     String?   @map("condition_out")
+  conditionIn      String?   @map("condition_in")
+  assignedByUserId String    @map("assigned_by_user_id") @db.Uuid
+  returnedByUserId String?   @map("returned_by_user_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  asset    Asset    @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, assetId])
+  @@index([tenantId, employeeId])
+  @@map("asset_assignment")
 }

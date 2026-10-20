@@ -13,6 +13,7 @@ import {
   FileKey,
   FileText,
   KeyRound,
+  Laptop,
   Layers,
   LayoutGrid,
   Menu,
@@ -88,6 +89,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     items: [
       { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
       { label: 'Procurement', icon: ShoppingCart, href: '/procurement', feature: 'procurement' },
+      { label: 'Assets', icon: Laptop, href: '/assets', feature: 'assets' },
       { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
       { label: 'Operations', icon: Layers, phase: 17 },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
