@@ -9,7 +9,7 @@ import { LeaveService } from './leave.service.js';
   imports: [AttendanceModule],
   controllers: [LeaveController, HolidaysController],
   providers: [LeaveService, HolidaysService],
-  exports: [LeaveService],
+  exports: [LeaveService, HolidaysService],
 })
 export class LeaveModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}

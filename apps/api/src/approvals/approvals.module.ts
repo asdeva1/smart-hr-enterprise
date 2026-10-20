@@ -9,6 +9,6 @@ import { ApprovalsService } from './approvals.service.js';
 @Module({
   controllers: [ApprovalsController],
   providers: [ApprovalEngine, ApprovalSubjectRegistry, ApprovalsService],
-  exports: [ApprovalEngine, ApprovalSubjectRegistry],
+  exports: [ApprovalEngine, ApprovalSubjectRegistry, ApprovalsService],
 })
 export class ApprovalsModule {}

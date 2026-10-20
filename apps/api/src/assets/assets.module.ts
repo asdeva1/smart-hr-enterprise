@@ -8,6 +8,7 @@ import { AssetsService } from './assets.service.js';
   imports: [AttendanceModule],
   controllers: [AssetsController],
   providers: [AssetsService],
+  exports: [AssetsService],
 })
 export class AssetsModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}
