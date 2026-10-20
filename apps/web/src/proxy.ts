@@ -20,6 +20,6 @@ export default function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Skip Next internals and static files.
-  matcher: ['/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)'],
+  // Skip Next internals, API calls forwarded to the API (/v1, see next.config.ts) and static files.
+  matcher: ['/((?!_next/|v1/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)'],
 };
