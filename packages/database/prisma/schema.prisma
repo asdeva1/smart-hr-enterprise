@@ -79,6 +79,11 @@ model Tenant {
   projects                Project[]
   projectMembers          ProjectMember[]
   timeEntries             TimeEntry[]
+  opsWorkspaces           OpsWorkspace[]
+  opsStages               OpsStage[]
+  opsFields               OpsField[]
+  opsItems                OpsItem[]
+  opsItemEvents           OpsItemEvent[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -260,6 +265,7 @@ model Company {
   assets           Asset[]
   warehouses       Warehouse[]
   projects         Project[]
+  opsWorkspaces    OpsWorkspace[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -1045,6 +1051,10 @@ model Employee {
   payslips              Payslip[]
   leaveRequests         LeaveRequest[]
   approvalRequests      ApprovalRequest[]
+  managedProjects       Project[]               @relation("ProjectManager")
+  projectMemberships    ProjectMember[]
+  timeEntries           TimeEntry[]
+  opsItems              OpsItem[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, employeeCode])
@@ -1056,9 +1066,6 @@ model Employee {
   @@index([tenantId, departmentId])
   @@index([tenantId, managerId])
   @@map("employee")
-  managedProjects    Project[]       @relation("ProjectManager")
-  projectMemberships ProjectMember[]
-  timeEntries        TimeEntry[]
 }
 
 /// Identity and bank details. Numbers are encrypted (AES-256-GCM, bound to the employee and field); only
@@ -1312,7 +1319,7 @@ model BiometricDevice {
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   logs   BiometricLog[]
 
   @@unique([tenantId, id])
@@ -2474,7 +2481,7 @@ model ExpenseCategory {
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   lines  ExpenseLine[]
 
   @@unique([tenantId, id])
@@ -2504,8 +2511,8 @@ model ExpenseClaim {
   createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  employee Employee       @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee      @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
   lines    ExpenseLine[]
 
   @@unique([tenantId, id])
@@ -2581,8 +2588,8 @@ model PurchaseRequest {
   createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  employee Employee               @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee              @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
   lines    PurchaseRequestLine[]
   orders   PurchaseOrder[]
 
@@ -2633,10 +2640,10 @@ model PurchaseOrder {
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  company  Company            @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
-  vendor   Vendor             @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
-  request  PurchaseRequest?   @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company  Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  vendor   Vendor              @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
+  request  PurchaseRequest?    @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
   lines    PurchaseOrderLine[]
   receipts GoodsReceipt[]
 
@@ -2659,8 +2666,8 @@ model PurchaseOrderLine {
   taxRate          Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
   receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(14, 3)
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  order        PurchaseOrder       @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  order        PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
   receiptLines GoodsReceiptLine[]
 
   @@unique([tenantId, id])
@@ -2950,4 +2957,156 @@ model TimeEntry {
   @@index([tenantId, employeeId, workDate])
   @@index([tenantId, projectId, workDate])
   @@map("time_entry")
+}
+
+enum OpsStageKind {
+  OPEN
+  DONE
+  CANCELLED
+
+  @@map("ops_stage_kind")
+}
+
+enum OpsFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  BOOLEAN
+
+  @@map("ops_field_type")
+}
+
+enum OpsPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+
+  @@map("ops_priority")
+}
+
+enum OpsEventKind {
+  CREATED
+  EDITED
+  STAGE
+  ASSIGNED
+  COMMENT
+
+  @@map("ops_event_kind")
+}
+
+/// A configurable place to track work: service requests, quality checks, batches. Has its own stages and fields.
+model OpsWorkspace {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  companyId   String       @map("company_id") @db.Uuid
+  code        String
+  name        String
+  description String?
+  /// The built-in template it started from, if any.
+  template    String?
+  prefix      String
+  nextNumber  Int          @default(1) @map("next_number")
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company    @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  stages  OpsStage[]
+  fields  OpsField[]
+  items   OpsItem[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("ops_workspace")
+}
+
+/// A step an item moves through. Kind says whether work is still open, finished or dropped.
+model OpsStage {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  key         String
+  label       String
+  kind        OpsStageKind @default(OPEN)
+  position    Int
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace OpsWorkspace @relation(fields: [tenantId, workspaceId], references: [tenantId, id], onDelete: Cascade)
+  items     OpsItem[]
+
+  @@unique([tenantId, id])
+  @@unique([workspaceId, key])
+  @@map("ops_stage")
+}
+
+/// An extra question every item in a workspace answers.
+model OpsField {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  key         String
+  label       String
+  type        OpsFieldType
+  required    Boolean      @default(false)
+  options     Json?
+  position    Int
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace OpsWorkspace @relation(fields: [tenantId, workspaceId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@map("ops_field")
+}
+
+/// One piece of work in a workspace.
+model OpsItem {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  workspaceId     String      @map("workspace_id") @db.Uuid
+  number          Int
+  title           String
+  description     String?
+  stageId         String      @map("stage_id") @db.Uuid
+  priority        OpsPriority @default(NORMAL)
+  assigneeId      String?     @map("assignee_id") @db.Uuid
+  dueDate         DateTime?   @map("due_date") @db.Date
+  values          Json        @default("{}")
+  createdByUserId String      @map("created_by_user_id") @db.Uuid
+  completedAt     DateTime?   @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  workspace OpsWorkspace   @relation(fields: [tenantId, workspaceId], references: [tenantId, id], onDelete: Restrict)
+  stage     OpsStage       @relation(fields: [tenantId, stageId], references: [tenantId, id], onDelete: Restrict)
+  assignee  Employee?      @relation(fields: [tenantId, assigneeId], references: [tenantId, id], onDelete: Restrict)
+  events    OpsItemEvent[]
+
+  @@unique([tenantId, id])
+  @@unique([workspaceId, number])
+  @@index([tenantId, assigneeId])
+  @@index([workspaceId, stageId])
+  @@map("ops_item")
+}
+
+/// What happened to an item, oldest first. Never edited or removed.
+model OpsItemEvent {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  itemId      String       @map("item_id") @db.Uuid
+  kind        OpsEventKind
+  actorUserId String       @map("actor_user_id") @db.Uuid
+  actorName   String       @map("actor_name")
+  body        String?
+  data        Json?
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  item   OpsItem @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, itemId, createdAt])
+  @@map("ops_item_event")
 }

@@ -12,6 +12,7 @@ import { ExpensesModule } from './expenses/expenses.module.js';
 import { AssetsModule } from './assets/assets.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { OperationsModule } from './operations/operations.module.js';
 import { LeaveModule } from './leave/leave.module.js';
 import { ProcurementModule } from './procurement/procurement.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
@@ -75,6 +76,7 @@ export class AppModule {
         AssetsModule,
         InventoryModule,
         ProjectsModule,
+        OperationsModule,
         DocumentsModule,
         RecruitmentModule,
         PayrollModule,

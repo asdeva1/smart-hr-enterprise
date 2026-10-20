@@ -101,7 +101,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       },
       { label: 'Projects', icon: FolderKanban, href: '/projects', feature: 'projects' },
       { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
-      { label: 'Operations', icon: Layers, phase: 17 },
+      { label: 'Operations', icon: Layers, href: '/operations', feature: 'operations.templates' },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
       { label: 'Reports', icon: ChartColumn, phase: 18 },
     ],
