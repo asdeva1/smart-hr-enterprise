@@ -10,7 +10,7 @@
     "build": {
       "dependsOn": ["^build", "db:generate"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["NEXT_PUBLIC_*"]
+      "env": ["NEXT_PUBLIC_*", "API_PROXY_TARGET", "NEXT_OUTPUT"]
     },
     "typecheck": {
       "dependsOn": ["^build", "db:generate"]
