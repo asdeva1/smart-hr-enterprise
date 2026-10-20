@@ -65,6 +65,12 @@ model Tenant {
   expenseCategories       ExpenseCategory[]
   expenseClaims           ExpenseClaim[]
   expenseLines            ExpenseLine[]
+  purchaseRequests        PurchaseRequest[]
+  purchaseRequestLines    PurchaseRequestLine[]
+  purchaseOrders          PurchaseOrder[]
+  purchaseOrderLines      PurchaseOrderLine[]
+  goodsReceipts           GoodsReceipt[]
+  goodsReceiptLines       GoodsReceiptLine[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -242,6 +248,7 @@ model Company {
   ledgerAccounts   LedgerAccount[]
   journalEntries   JournalEntry[]
   bookLock         BookLock[]
+  purchaseOrders   PurchaseOrder[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -1012,6 +1019,7 @@ model Employee {
   attendancePunches     AttendancePunch[]
   biometricEnrollment   BiometricEnrollment?
   expenseClaims         ExpenseClaim[]
+  purchaseRequests      PurchaseRequest[]
   biometricLogs         BiometricLog[]
   attendanceDays        AttendanceDay[]
   attendanceCorrections AttendanceCorrection[]
@@ -2428,7 +2436,8 @@ model Vendor {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseOrders PurchaseOrder[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -2509,4 +2518,172 @@ model ExpenseLine {
   @@unique([claimId, position])
   @@index([tenantId, categoryId])
   @@map("expense_line")
+}
+
+// ---- Procurement (Phase 16B) ------------------------------------------------------------------------
+
+enum PurchaseRequestStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+  /// A purchase order has been raised from it.
+  ORDERED
+
+  @@map("purchase_request_status")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  REJECTED
+  CANCELLED
+
+  @@map("purchase_order_status")
+}
+
+/// An employee asking for something to be bought. Approved requests can be turned into purchase orders.
+model PurchaseRequest {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  tenantId          String                @map("tenant_id") @db.Uuid
+  employeeId        String                @map("employee_id") @db.Uuid
+  number            String?
+  title             String
+  justification     String?
+  status            PurchaseRequestStatus @default(DRAFT)
+  estimatedTotal    Decimal               @default(0) @map("estimated_total") @db.Decimal(16, 2)
+  currency          String                @db.Char(3)
+  approvalRequestId String?               @map("approval_request_id") @db.Uuid
+  submittedAt       DateTime?             @map("submitted_at") @db.Timestamptz(6)
+  decidedAt         DateTime?             @map("decided_at") @db.Timestamptz(6)
+  decisionNote      String?               @map("decision_note")
+  createdByUserId   String                @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee               @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  lines    PurchaseRequestLine[]
+  orders   PurchaseOrder[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId])
+  @@map("purchase_request")
+}
+
+model PurchaseRequestLine {
+  id                 String  @id @default(uuid(7)) @db.Uuid
+  tenantId           String  @map("tenant_id") @db.Uuid
+  requestId          String  @map("request_id") @db.Uuid
+  position           Int
+  description        String
+  quantity           Decimal @db.Decimal(14, 3)
+  estimatedUnitPrice Decimal @map("estimated_unit_price") @db.Decimal(16, 2)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  request PurchaseRequest @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([requestId, position])
+  @@map("purchase_request_line")
+}
+
+/// An order placed with a vendor. Approved before it is sent; goods received against it are recorded.
+model PurchaseOrder {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  tenantId          String              @map("tenant_id") @db.Uuid
+  companyId         String              @map("company_id") @db.Uuid
+  vendorId          String              @map("vendor_id") @db.Uuid
+  requestId         String?             @map("request_id") @db.Uuid
+  number            String?
+  status            PurchaseOrderStatus @default(DRAFT)
+  orderDate         DateTime            @map("order_date") @db.Date
+  expectedDate      DateTime?           @map("expected_date") @db.Date
+  terms             String?
+  subtotal          Decimal             @default(0) @db.Decimal(16, 2)
+  taxTotal          Decimal             @default(0) @map("tax_total") @db.Decimal(16, 2)
+  total             Decimal             @default(0) @db.Decimal(16, 2)
+  currency          String              @db.Char(3)
+  approvalRequestId String?             @map("approval_request_id") @db.Uuid
+  submittedAt       DateTime?           @map("submitted_at") @db.Timestamptz(6)
+  decidedAt         DateTime?           @map("decided_at") @db.Timestamptz(6)
+  decisionNote      String?             @map("decision_note")
+  createdByUserId   String              @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company  Company            @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  vendor   Vendor             @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
+  request  PurchaseRequest?   @relation(fields: [tenantId, requestId], references: [tenantId, id], onDelete: Restrict)
+  lines    PurchaseOrderLine[]
+  receipts GoodsReceipt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@index([tenantId, companyId, status])
+  @@index([tenantId, vendorId])
+  @@map("purchase_order")
+}
+
+model PurchaseOrderLine {
+  id               String  @id @default(uuid(7)) @db.Uuid
+  tenantId         String  @map("tenant_id") @db.Uuid
+  orderId          String  @map("order_id") @db.Uuid
+  position         Int
+  description      String
+  quantity         Decimal @db.Decimal(14, 3)
+  unitPrice        Decimal @map("unit_price") @db.Decimal(16, 2)
+  /// GST or other tax, as a percentage.
+  taxRate          Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(14, 3)
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  order        PurchaseOrder       @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Cascade)
+  receiptLines GoodsReceiptLine[]
+
+  @@unique([tenantId, id])
+  @@unique([orderId, position])
+  @@map("purchase_order_line")
+}
+
+/// Goods that arrived against an order. Kept as received; never edited.
+model GoodsReceipt {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  orderId          String   @map("order_id") @db.Uuid
+  number           String
+  receivedOn       DateTime @map("received_on") @db.Date
+  note             String?
+  receivedByUserId String   @map("received_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  order  PurchaseOrder      @relation(fields: [tenantId, orderId], references: [tenantId, id], onDelete: Restrict)
+  lines  GoodsReceiptLine[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, number])
+  @@index([tenantId, orderId])
+  @@map("goods_receipt")
+}
+
+model GoodsReceiptLine {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  receiptId   String  @map("receipt_id") @db.Uuid
+  orderLineId String  @map("order_line_id") @db.Uuid
+  quantity    Decimal @db.Decimal(14, 3)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipt   GoodsReceipt      @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Cascade)
+  orderLine PurchaseOrderLine @relation(fields: [tenantId, orderLineId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([receiptId, orderLineId])
+  @@map("goods_receipt_line")
 }

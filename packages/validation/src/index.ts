@@ -15,3 +15,4 @@ export * from './recruitment.js';
 export * from './payroll.js';
 export * from './finance.js';
 export * from './expenses.js';
+export * from './procurement.js';

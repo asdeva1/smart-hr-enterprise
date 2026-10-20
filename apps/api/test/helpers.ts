@@ -204,6 +204,12 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.goodsReceiptLine.deleteMany({ where: inTenants });
+    await this.db.goodsReceipt.deleteMany({ where: inTenants });
+    await this.db.purchaseOrderLine.deleteMany({ where: inTenants });
+    await this.db.purchaseOrder.deleteMany({ where: inTenants });
+    await this.db.purchaseRequestLine.deleteMany({ where: inTenants });
+    await this.db.purchaseRequest.deleteMany({ where: inTenants });
     await this.db.expenseLine.deleteMany({ where: inTenants });
     await this.db.expenseClaim.deleteMany({ where: inTenants });
     await this.db.expenseCategory.deleteMany({ where: inTenants });

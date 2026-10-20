@@ -78,6 +78,14 @@ export const PERMISSIONS = {
     module: 'expenses',
     label: 'Maintain expense categories and mark approved claims as paid',
   },
+  'procurement.view': {
+    module: 'procurement',
+    label: 'See purchase requests and purchase orders in their part of the organisation',
+  },
+  'procurement.manage': {
+    module: 'procurement',
+    label: 'Raise purchase orders, send them for approval and record goods received',
+  },
   'vendors.view': { module: 'procurement', label: 'See vendors' },
   'vendors.manage': { module: 'procurement', label: 'Add and change vendors' },
   'onboarding.manage': {
@@ -186,6 +194,8 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'expenses.manage',
       'vendors.view',
       'vendors.manage',
+      'procurement.view',
+      'procurement.manage',
     ],
   },
   {
@@ -205,6 +215,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'finance.view',
       'expenses.view',
       'vendors.view',
+      'procurement.view',
     ],
   },
   {

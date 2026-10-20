@@ -15,18 +15,18 @@
 
 ## Rules
 
-| Rule | Where it is enforced |
-| --- | --- |
-| Lines are checked against the category (active, per-expense cap, receipt number, no future dates) | API |
-| Only a draft can be edited; sent claims are locked | API |
-| A claim is visible to its owner, people with `expenses.view` where the employee sits, and its approvers | API |
-| Only an approved claim can be marked paid, and only once | API |
-| Tenant isolation | Row-level security on all four tables |
+| Rule                                                                                                    | Where it is enforced                  |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Lines are checked against the category (active, per-expense cap, receipt number, no future dates)       | API                                   |
+| Only a draft can be edited; sent claims are locked                                                      | API                                   |
+| A claim is visible to its owner, people with `expenses.view` where the employee sits, and its approvers | API                                   |
+| Only an approved claim can be marked paid, and only once                                                | API                                   |
+| Tenant isolation                                                                                        | Row-level security on all four tables |
 
 ## Permissions
 
 `expenses.view`, `expenses.manage` (categories, mark paid), `vendors.view`, `vendors.manage`. The built-in
-*Accountant* role has all four; *Auditor* has the two view permissions. Everyone with an employee record can file
+_Accountant_ role has all four; _Auditor_ has the two view permissions. Everyone with an employee record can file
 their own claims.
 
 ## API

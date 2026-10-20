@@ -98,6 +98,7 @@ describe('permissions', () => {
       'finance.view',
       'leave.view',
       'org.view',
+      'procurement.view',
       'recruitment.view',
       'vendors.view',
     ]);

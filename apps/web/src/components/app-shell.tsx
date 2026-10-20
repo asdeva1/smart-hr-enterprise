@@ -20,6 +20,7 @@ import {
   ListTodo,
   PackageCheck,
   Receipt,
+  ShoppingCart,
   Store,
   Palette,
   ScrollText,
@@ -86,6 +87,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     section: 'Business',
     items: [
       { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
+      { label: 'Procurement', icon: ShoppingCart, href: '/procurement', feature: 'procurement' },
       { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
       { label: 'Operations', icon: Layers, phase: 17 },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
