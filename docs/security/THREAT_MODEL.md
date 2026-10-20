@@ -72,6 +72,16 @@ Method: STRIDE per asset, with the control in place, its evidence, and what rema
 | Bank account numbers leaked through exports       | Bank file needs `payroll.manage`, recent password entry, approved pay; audited; payslip emails carry no amounts          |
 | Formula injection through exported CSVs           | Cells starting with `=`, `+`, `-`, `@` (other than numbers) are neutralised                                              |
 
+## Finance (Phase 15)
+
+| Threat                                                | Control                                                                                                         |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| A journal posted without sign-off, or by its preparer | Manual journals go through the approval engine; requesters never approve their own; no automatic approval       |
+| Posted entries altered or deleted to hide fraud       | Database triggers keep posted and cancelled journals and their lines final; corrections only by linked reversal |
+| Unbalanced books                                      | DB requires balanced, one-sided lines and a matching total to post; reports computed in integer paise           |
+| Closed periods changed after the fact                 | Posting on or before the closing date refused in the database; closing and reopening audited                    |
+| Books seen outside one's company                      | Scope-checked `finance.*` permissions; approvers can open only journals sent to them                            |
+
 ## Open risks
 
 | Risk                                                                                                           | Plan                                                                                                                    |

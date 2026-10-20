@@ -2,13 +2,15 @@ import { Module, type OnModuleInit } from '@nestjs/common';
 import { EmployeesModule } from '../employees/employees.module.js';
 import { TenantExportService } from '../tenant/export.service.js';
 import { PayrollController } from './payroll.controller.js';
+import { PayrollEvents } from './payroll-events.js';
 import { PayrollRunsService } from './payroll-runs.service.js';
 import { PayrollSetupService } from './payroll-setup.service.js';
 
 @Module({
   imports: [EmployeesModule],
   controllers: [PayrollController],
-  providers: [PayrollSetupService, PayrollRunsService],
+  providers: [PayrollSetupService, PayrollRunsService, PayrollEvents],
+  exports: [PayrollEvents],
 })
 export class PayrollModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}

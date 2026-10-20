@@ -91,6 +91,10 @@ model Tenant {
   professionalTaxTables   ProfessionalTaxTable[]
   payrollRuns             PayrollRun[]
   payslips                Payslip[]
+  ledgerAccounts          LedgerAccount[]
+  journalEntries          JournalEntry[]
+  journalLines            JournalLine[]
+  bookLocks               BookLock[]
 
   @@map("tenant")
 }
@@ -228,6 +232,9 @@ model Company {
   jobOpenings      JobOpening[]
   payrollSetting   PayrollSetting[]
   payrollRuns      PayrollRun[]
+  ledgerAccounts   LedgerAccount[]
+  journalEntries   JournalEntry[]
+  bookLock         BookLock[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -2166,4 +2173,129 @@ model Payslip {
   @@unique([runId, employeeId])
   @@index([tenantId, employeeId])
   @@map("payslip")
+}
+
+// ---- Finance and accounting (Phase 15) -------------------------------------------------------------
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+
+  @@map("account_type")
+}
+
+enum JournalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  POSTED
+  CANCELLED
+
+  @@map("journal_status")
+}
+
+enum JournalSource {
+  MANUAL
+  REVERSAL
+  PAYROLL
+  PAYROLL_PAYMENT
+
+  @@map("journal_source")
+}
+
+/// An account in a company's chart of accounts.
+model LedgerAccount {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  tenantId    String       @map("tenant_id") @db.Uuid
+  companyId   String       @map("company_id") @db.Uuid
+  code        String
+  name        String
+  type        AccountType
+  /// What the system posts here (salaries, PF payable, bank, …), at most one account each per company.
+  systemKey   String?      @map("system_key")
+  description String?
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company       @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  lines   JournalLine[]
+
+  @@unique([tenantId, id])
+  @@unique([companyId, code])
+  @@unique([companyId, systemKey])
+  @@map("ledger_account")
+}
+
+/// A double-entry journal. Posted journals are never changed; mistakes are reversed.
+model JournalEntry {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  tenantId          String        @map("tenant_id") @db.Uuid
+  companyId         String        @map("company_id") @db.Uuid
+  /// JV/2026-27/0001, given when posted.
+  number            String?
+  date              DateTime      @db.Date
+  narration         String
+  source            JournalSource @default(MANUAL)
+  /// The payroll run (or other record) it came from.
+  sourceId          String?       @map("source_id") @db.Uuid
+  status            JournalStatus @default(DRAFT)
+  total             Decimal       @default(0) @db.Decimal(16, 2)
+  approvalRequestId String?       @map("approval_request_id") @db.Uuid
+  reversesId        String?       @map("reverses_id") @db.Uuid
+  reversedById      String?       @map("reversed_by_id") @db.Uuid
+  createdByUserId   String        @map("created_by_user_id") @db.Uuid
+  postedAt          DateTime?     @map("posted_at") @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company       @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  lines   JournalLine[]
+
+  @@unique([tenantId, id])
+  @@unique([companyId, number])
+  @@index([tenantId, companyId, status, date])
+  @@index([tenantId, source, sourceId])
+  @@map("journal_entry")
+}
+
+model JournalLine {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  entryId    String   @map("entry_id") @db.Uuid
+  position   Int
+  accountId  String   @map("account_id") @db.Uuid
+  debit      Decimal  @default(0) @db.Decimal(16, 2)
+  credit     Decimal  @default(0) @db.Decimal(16, 2)
+  narration  String?
+  employeeId String?  @map("employee_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  entry   JournalEntry  @relation(fields: [tenantId, entryId], references: [tenantId, id], onDelete: Restrict)
+  account LedgerAccount @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([entryId, position])
+  @@index([tenantId, accountId])
+  @@map("journal_line")
+}
+
+/// Books closed up to a date: nothing can be posted on or before it.
+model BookLock {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  lockedUntil     DateTime @map("locked_until") @db.Date
+  updatedByUserId String   @map("updated_by_user_id") @db.Uuid
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, companyId])
+  @@map("book_lock")
 }

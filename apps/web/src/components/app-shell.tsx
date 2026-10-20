@@ -82,7 +82,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
   {
     section: 'Business',
     items: [
-      { label: 'Finance', icon: BookOpen, phase: 15 },
+      { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
       { label: 'Operations', icon: Layers, phase: 17 },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
       { label: 'Reports', icon: ChartColumn, phase: 18 },

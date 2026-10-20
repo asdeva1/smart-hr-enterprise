@@ -34,6 +34,7 @@ import {
   type ComponentInput,
   type Line,
 } from './payroll-calc.js';
+import { PayrollEvents } from './payroll-events.js';
 import { PayrollSetupService, type SalaryLine } from './payroll-setup.service.js';
 import { renderPayslipPdf } from './payslip-pdf.js';
 import { ESI_RULES, esiPeriodOf, financialYearOf, taxRulesFor } from './statutory-in.js';
@@ -78,6 +79,7 @@ export class PayrollRunsService implements OnModuleInit {
     private readonly subjects: ApprovalSubjectRegistry,
     private readonly entitlements: EntitlementsService,
     private readonly sensitive: EmployeeSensitiveService,
+    private readonly events: PayrollEvents,
   ) {}
 
   onModuleInit(): void {
@@ -595,6 +597,7 @@ export class PayrollRunsService implements OnModuleInit {
       where: { id: request.subjectId },
       data: { status: 'APPROVED', approvedAt: new Date() },
     });
+    await this.events.emitApproved(tx, run, null);
     const people = await tx.payslip.findMany({
       where: { runId: run.id },
       select: { id: true, employee: { select: { membership: { select: { userId: true, status: true } } } } },
@@ -626,6 +629,7 @@ export class PayrollRunsService implements OnModuleInit {
         where: { id },
         data: { status: 'PAID', paidAt: new Date() },
       });
+      await this.events.emitPaid(tx, done, auth.user.id);
       await this.setup.record(tx, tenant, auth, 'payroll.run.paid', 'payroll_run', id, meta);
       return this.presentRun(tx, tenant, done, true);
     });

@@ -67,6 +67,12 @@ export const PERMISSIONS = {
     module: 'payroll',
     label: 'Set up pay components, statutory registrations and professional tax',
   },
+  'finance.view': { module: 'finance', label: 'See the chart of accounts, journals and financial reports' },
+  'finance.manage': {
+    module: 'finance',
+    label: 'Write journals and send them for approval, and reverse posted ones',
+  },
+  'finance.configure': { module: 'finance', label: 'Maintain the chart of accounts and close the books' },
   'onboarding.manage': {
     module: 'recruitment',
     label: 'Maintain onboarding checklists and start onboarding for new joiners',
@@ -89,6 +95,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   documents: 'Documents',
   recruitment: 'Recruitment and onboarding',
   payroll: 'Payroll',
+  finance: 'Finance and accounting',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -158,6 +165,12 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
     ],
   },
   {
+    key: 'accountant',
+    name: 'Accountant',
+    description: 'Keeps the books: chart of accounts, journals, closing the books and financial reports.',
+    permissions: ['org.view', 'finance.view', 'finance.manage', 'finance.configure'],
+  },
+  {
     key: 'auditor',
     name: 'Auditor',
     description: 'Read-only access to structure, access and the audit log.',
@@ -171,6 +184,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'leave.view',
       'documents.view',
       'recruitment.view',
+      'finance.view',
     ],
   },
   {
