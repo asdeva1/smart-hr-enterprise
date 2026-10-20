@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Loading, PageHeader } from '@/components/ui/page-header';
 import { Select } from '@/components/ui/select';
 import { errorMessage } from '@/lib/admin';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, type SessionView } from '@/lib/api';
+import { hasFeature } from '@/lib/permissions';
 import {
   opsKeys,
   PRIORITY_LABEL,
@@ -31,7 +32,7 @@ export default function ItemPage() {
     <RequireSession>
       {(session) => (
         <AppShell active="Operations" session={session}>
-          <ItemView id={id} />
+          <ItemView id={id} session={session} />
         </AppShell>
       )}
     </RequireSession>
@@ -53,7 +54,7 @@ function describe(e: ItemEvent): string {
   }
 }
 
-function ItemView({ id }: { id: string }) {
+function ItemView({ id, session }: { id: string; session: SessionView }) {
   const client = useQueryClient();
   const [comment, setComment] = useState('');
   const [stageNote, setStageNote] = useState('');
@@ -88,6 +89,10 @@ function ItemView({ id }: { id: string }) {
       await refresh();
     },
   });
+  const summarise = useMutation({
+    mutationFn: () =>
+      apiFetch<{ summary: string }>(`/v1/ai/summaries/operations-items/${id}`, { method: 'POST' }),
+  });
   const saveValues = useMutation({
     mutationFn: () => apiFetch(`/v1/operations/items/${id}`, { method: 'PATCH', body: { values } }),
     onSuccess: async () => {
@@ -115,6 +120,24 @@ function ItemView({ id }: { id: string }) {
         <span>Due {i.dueDate ?? '—'}</span>
       </div>
       {i.description && <p className="whitespace-pre-wrap text-sm">{i.description}</p>}
+      {hasFeature(session, 'ai.assistant') && (
+        <section className="flex flex-col gap-2 rounded-lg border p-4 text-sm">
+          <div>
+            <Button variant="outline" disabled={summarise.isPending} onClick={() => summarise.mutate()}>
+              {summarise.isPending ? 'Summarising…' : 'Summarise with AI'}
+            </Button>
+          </div>
+          {summarise.isError && <Alert tone="error">{errorMessage(summarise.error)}</Alert>}
+          {summarise.data && (
+            <>
+              <p className="whitespace-pre-wrap">{summarise.data.summary}</p>
+              <p className="text-xs text-muted-foreground">
+                Written by AI from this item’s history. Check it against the history below.
+              </p>
+            </>
+          )}
+        </section>
+      )}
       {(move.isError || post.isError || assign.isError || saveValues.isError) && (
         <Alert tone="error">
           {errorMessage(move.error ?? post.error ?? assign.error ?? saveValues.error)}

@@ -135,7 +135,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       { label: 'Plan and usage', icon: Tag, href: '/admin/plan', permission: 'settings.manage' },
       { label: 'Branding', icon: Palette, href: '/admin/branding', permission: 'settings.manage' },
       { label: 'Your data', icon: DatabaseBackup, href: '/admin/data', tenantAdmin: true },
-      { label: 'AI assistant', icon: Sparkles, phase: 20 },
+      { label: 'AI assistant', icon: Sparkles, href: '/assistant', feature: 'ai.assistant' },
     ],
   },
   {

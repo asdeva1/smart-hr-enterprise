@@ -20,3 +20,4 @@ export * from './assets.js';
 export * from './inventory.js';
 export * from './projects.js';
 export * from './operations.js';
+export * from './ai.js';

@@ -7,6 +7,7 @@ import { OperationsService } from './operations.service.js';
 @Module({
   imports: [AttendanceModule],
   controllers: [OperationsController],
+  exports: [OperationsService],
   providers: [OperationsService],
 })
 export class OperationsModule implements OnModuleInit {

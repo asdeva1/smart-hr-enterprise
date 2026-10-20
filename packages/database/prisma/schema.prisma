@@ -84,6 +84,7 @@ model Tenant {
   opsFields               OpsField[]
   opsItems                OpsItem[]
   opsItemEvents           OpsItemEvent[]
+  aiUsageEvents           AiUsageEvent[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -3109,4 +3110,21 @@ model OpsItemEvent {
 
   @@index([tenantId, itemId, createdAt])
   @@map("ops_item_event")
+}
+
+/// One call to the AI layer: who, for what, and how many tokens. Never holds prompts or replies.
+model AiUsageEvent {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  feature      String
+  model        String
+  inputTokens  Int      @map("input_tokens")
+  outputTokens Int      @map("output_tokens")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@map("ai_usage_event")
 }

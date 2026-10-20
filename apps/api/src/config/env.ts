@@ -92,6 +92,12 @@ export const apiEnvSchema = baseServerEnvSchema
     DATA_ENCRYPTION_KEYS: keyRing,
     DATA_ENCRYPTION_KEY_ID: z.string().min(1),
 
+    // AI (optional, server-side only). Without a key the AI features report that they are not available.
+    ANTHROPIC_API_KEY: z.string().min(10).optional(),
+    ANTHROPIC_BASE_URL: z.url().default('https://api.anthropic.com'),
+    AI_MODEL: z.string().min(1).max(100).default('claude-sonnet-5-5'),
+    AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
+
     // Document storage. Files are encrypted with DATA_ENCRYPTION_KEYS before they are written. `local` keeps
     // them on disk (development and in-house, on a mounted volume); object storage arrives with the AWS phase.
     STORAGE_DRIVER: z.enum(['local']).default('local'),

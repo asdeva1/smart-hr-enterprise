@@ -204,6 +204,7 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.aiUsageEvent.deleteMany({ where: inTenants });
     await this.db.opsItemEvent.deleteMany({ where: inTenants });
     await this.db.opsItem.deleteMany({ where: inTenants });
     await this.db.opsField.deleteMany({ where: inTenants });
