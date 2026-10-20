@@ -2,6 +2,17 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@smart-hr/api...",
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
-  "functions": { "api/index.js": { "maxDuration": 60, "includeFiles": "dist/**" } }
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "dist/**"
+    }
+  },
+  "outputDirectory": "public"
 }
