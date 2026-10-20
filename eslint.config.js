@@ -18,6 +18,7 @@ export default tseslint.config(
       'infra/**',
       // One-line entry shim for the Kuberns build; the code it runs is the type-checked CLI.
       'apps/api/bootstrap-db-roles.mjs',
+      'apps/api/api/index.js',
     ],
   },
   js.configs.recommended,
