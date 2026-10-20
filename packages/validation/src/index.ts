@@ -17,3 +17,4 @@ export * from './finance.js';
 export * from './expenses.js';
 export * from './procurement.js';
 export * from './assets.js';
+export * from './inventory.js';

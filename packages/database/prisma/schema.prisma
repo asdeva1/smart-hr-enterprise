@@ -73,6 +73,9 @@ model Tenant {
   goodsReceiptLines       GoodsReceiptLine[]
   assets                  Asset[]
   assetAssignments        AssetAssignment[]
+  warehouses              Warehouse[]
+  inventoryItems          InventoryItem[]
+  stockMovements          StockMovement[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -252,6 +255,7 @@ model Company {
   bookLock         BookLock[]
   purchaseOrders   PurchaseOrder[]
   assets           Asset[]
+  warehouses       Warehouse[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -2760,4 +2764,93 @@ model AssetAssignment {
   @@index([tenantId, assetId])
   @@index([tenantId, employeeId])
   @@map("asset_assignment")
+}
+
+// ---- Inventory (Phase 17A) --------------------------------------------------------------------------
+
+enum StockMovementKind {
+  RECEIPT
+  ISSUE
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT
+
+  @@map("stock_movement_kind")
+}
+
+/// A place stock is kept. Belongs to a company.
+model Warehouse {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  companyId String       @map("company_id") @db.Uuid
+  code      String
+  name      String
+  address   String?
+  status    RecordStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company   Company         @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  movements StockMovement[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("warehouse")
+}
+
+/// Something that is stocked: a product, a consumable, a spare part.
+model InventoryItem {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  sku          String
+  name         String
+  /// How it is counted: pcs, kg, box, litre.
+  unit         String
+  category     String?
+  /// Stock at or below this is flagged for reordering; null = never flagged.
+  reorderLevel Decimal?     @map("reorder_level") @db.Decimal(14, 3)
+  /// What one unit is valued at in stock reports.
+  standardCost Decimal      @default(0) @map("standard_cost") @db.Decimal(16, 2)
+  notes        String?
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  movements StockMovement[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, sku])
+  @@map("inventory_item")
+}
+
+/// The stock ledger: every change to stock is a row, never edited or removed. Stock on hand is the sum of
+/// the quantities (positive in, negative out) and can never go below zero.
+model StockMovement {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  itemId          String            @map("item_id") @db.Uuid
+  warehouseId     String            @map("warehouse_id") @db.Uuid
+  kind            StockMovementKind
+  /// Signed: receipts and transfers in are positive, issues and transfers out negative.
+  quantity        Decimal           @db.Decimal(14, 3)
+  unitCost        Decimal?          @map("unit_cost") @db.Decimal(16, 2)
+  occurredOn      DateTime          @map("occurred_on") @db.Date
+  /// A document number or note that explains it: a GRN, a job, a stock count.
+  reference       String?
+  note            String?
+  /// Ties the two halves of a transfer together.
+  transferId      String?           @map("transfer_id") @db.Uuid
+  createdByUserId String            @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  item      InventoryItem @relation(fields: [tenantId, itemId], references: [tenantId, id], onDelete: Restrict)
+  warehouse Warehouse     @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, itemId, warehouseId])
+  @@index([tenantId, occurredOn])
+  @@index([tenantId, transferId])
+  @@map("stock_movement")
 }

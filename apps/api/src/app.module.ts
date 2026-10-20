@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { AttendanceModule } from './attendance/attendance.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { AssetsModule } from './assets/assets.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { LeaveModule } from './leave/leave.module.js';
 import { ProcurementModule } from './procurement/procurement.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
@@ -71,6 +72,7 @@ export class AppModule {
         ExpensesModule,
         ProcurementModule,
         AssetsModule,
+        InventoryModule,
         DocumentsModule,
         RecruitmentModule,
         PayrollModule,
