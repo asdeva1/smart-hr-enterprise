@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Briefcase,
   Building,
   Building2,
   CalendarDays,
@@ -15,6 +14,8 @@ import {
   KeyRound,
   Laptop,
   Boxes,
+  FolderKanban,
+  Briefcase,
   Layers,
   LayoutGrid,
   Menu,
@@ -98,6 +99,7 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         permission: 'inventory.view',
         feature: 'inventory',
       },
+      { label: 'Projects', icon: FolderKanban, href: '/projects', feature: 'projects' },
       { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
       { label: 'Operations', icon: Layers, phase: 17 },
       { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },

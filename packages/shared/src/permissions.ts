@@ -96,6 +96,14 @@ export const PERMISSIONS = {
     module: 'inventory',
     label: 'Maintain items and warehouses, and record stock received, issued, moved and counted',
   },
+  'projects.view': {
+    module: 'projects',
+    label: 'See all projects, the time logged on them and their profitability',
+  },
+  'projects.manage': {
+    module: 'projects',
+    label: 'Create projects, choose who works on them and approve the time logged',
+  },
   'vendors.view': { module: 'procurement', label: 'See vendors' },
   'vendors.manage': { module: 'procurement', label: 'Add and change vendors' },
   'onboarding.manage': {
@@ -125,6 +133,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   procurement: 'Vendors and procurement',
   assets: 'Assets',
   inventory: 'Inventory',
+  projects: 'Projects and timesheets',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -212,6 +221,8 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'assets.manage',
       'inventory.view',
       'inventory.manage',
+      'projects.view',
+      'projects.manage',
     ],
   },
   {
@@ -234,6 +245,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'procurement.view',
       'assets.view',
       'inventory.view',
+      'projects.view',
     ],
   },
   {

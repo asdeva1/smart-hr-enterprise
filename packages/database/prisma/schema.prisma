@@ -76,6 +76,9 @@ model Tenant {
   warehouses              Warehouse[]
   inventoryItems          InventoryItem[]
   stockMovements          StockMovement[]
+  projects                Project[]
+  projectMembers          ProjectMember[]
+  timeEntries             TimeEntry[]
   biometricEnrollments    BiometricEnrollment[]
   biometricLogs           BiometricLog[]
   attendanceDays          AttendanceDay[]
@@ -256,6 +259,7 @@ model Company {
   purchaseOrders   PurchaseOrder[]
   assets           Asset[]
   warehouses       Warehouse[]
+  projects         Project[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -1052,6 +1056,9 @@ model Employee {
   @@index([tenantId, departmentId])
   @@index([tenantId, managerId])
   @@map("employee")
+  managedProjects    Project[]       @relation("ProjectManager")
+  projectMemberships ProjectMember[]
+  timeEntries        TimeEntry[]
 }
 
 /// Identity and bank details. Numbers are encrypted (AES-256-GCM, bound to the employee and field); only
@@ -2853,4 +2860,94 @@ model StockMovement {
   @@index([tenantId, occurredOn])
   @@index([tenantId, transferId])
   @@map("stock_movement")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+
+  @@map("project_status")
+}
+
+enum TimeEntryStatus {
+  OPEN
+  APPROVED
+
+  @@map("time_entry_status")
+}
+
+/// Work done for a client or inside the company, with hours logged against it.
+model Project {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  companyId   String        @map("company_id") @db.Uuid
+  code        String
+  name        String
+  clientName  String?       @map("client_name")
+  status      ProjectStatus @default(ACTIVE)
+  billable    Boolean       @default(true)
+  /// What one billable hour is worth to the client.
+  hourlyRate  Decimal       @default(0) @map("hourly_rate") @db.Decimal(16, 2)
+  budgetHours Decimal?      @map("budget_hours") @db.Decimal(10, 2)
+  startDate   DateTime?     @map("start_date") @db.Date
+  endDate     DateTime?     @map("end_date") @db.Date
+  managerId   String?       @map("manager_id") @db.Uuid
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company         @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  manager Employee?       @relation("ProjectManager", fields: [tenantId, managerId], references: [tenantId, id], onDelete: Restrict)
+  members ProjectMember[]
+  entries TimeEntry[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("project")
+}
+
+/// Someone who can log time on a project, and what an hour of their time costs the company.
+model ProjectMember {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  costRate   Decimal  @default(0) @map("cost_rate") @db.Decimal(16, 2)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  Project  @relation(fields: [tenantId, projectId], references: [tenantId, id], onDelete: Cascade)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([projectId, employeeId])
+  @@index([tenantId, employeeId])
+  @@map("project_member")
+}
+
+/// Time one person spent on one project on one day. Open until a project manager approves it.
+model TimeEntry {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  projectId        String          @map("project_id") @db.Uuid
+  employeeId       String          @map("employee_id") @db.Uuid
+  workDate         DateTime        @map("work_date") @db.Date
+  minutes          Int
+  billable         Boolean         @default(true)
+  note             String?
+  status           TimeEntryStatus @default(OPEN)
+  approvedByUserId String?         @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime?       @map("approved_at") @db.Timestamptz(6)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  Project  @relation(fields: [tenantId, projectId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, employeeId, workDate])
+  @@index([tenantId, projectId, workDate])
+  @@map("time_entry")
 }
