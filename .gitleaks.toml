@@ -1,0 +1,7 @@
+# Extends the built-in rules. The only allowance is the AI test, which uses a made-up key against a local stand-in server.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials used by tests against local stand-in servers"
+paths = ['''apps/api/test/ai\.int\.test\.ts''']
