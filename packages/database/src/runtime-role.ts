@@ -56,9 +56,18 @@ export async function ensureRuntimeRole(ownerConnectionString: string, password?
     // Nothing to change: an existing restricted role and no new password.
     if (existing && !password && !existing.super && !existing.bypass) return { created: false, login: false };
     const login = password ? `LOGIN PASSWORD ${client.escapeLiteral(password)}` : exists ? '' : 'NOLOGIN';
-    await client.query(
-      `${exists ? 'ALTER' : 'CREATE'} ROLE ${RUNTIME_ROLE} NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE ${login}`,
-    );
+    // A new role is already NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE. Stating those attributes needs
+    // superuser rights on managed databases (Neon, RDS), so they are only written to repair an unsafe role.
+    const repair = existing && (existing.super || existing.bypass) ? 'NOSUPERUSER NOBYPASSRLS' : '';
+    await client.query(`${exists ? 'ALTER' : 'CREATE'} ROLE ${RUNTIME_ROLE} ${repair} ${login}`);
+    const after = (
+      await client.query<{ super: boolean; bypass: boolean }>(
+        'SELECT rolsuper AS super, rolbypassrls AS bypass FROM pg_roles WHERE rolname = $1',
+        [RUNTIME_ROLE],
+      )
+    ).rows[0]!;
+    if (after.super || after.bypass)
+      throw new Error(`The ${RUNTIME_ROLE} role is not restricted and could not be repaired.`);
     const db = (await client.query<{ db: string }>('SELECT current_database() AS db')).rows[0]!.db;
     await client.query(`GRANT CONNECT ON DATABASE ${client.escapeIdentifier(db)} TO ${RUNTIME_ROLE}`);
     await client.query(`GRANT USAGE ON SCHEMA public TO ${RUNTIME_ROLE}`);
