@@ -19,7 +19,12 @@ const config: NextConfig = {
   // API_PROXY_TARGET is set, the browser talks to this site and Next forwards /v1 requests to the API.
   async rewrites() {
     const target = process.env.API_PROXY_TARGET?.replace(/\/+$/, '');
-    return target ? [{ source: '/v1/:path*', destination: `${target}/v1/:path*` }] : [];
+    return target
+      ? [
+          { source: '/v1/:path*', destination: `${target}/v1/:path*` },
+          { source: '/health/:path*', destination: `${target}/health/:path*` },
+        ]
+      : [];
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
