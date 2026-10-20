@@ -34,7 +34,10 @@ export async function createApp(
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '100kb' });
   // Biometric machines upload scan lines as plain text, with whatever content type their firmware picks.
-  app.useBodyParser('text', { limit: '1mb', type: (req: IncomingMessage) => req.url?.startsWith('/iclock/') === true });
+  app.useBodyParser('text', {
+    limit: '1mb',
+    type: (req: IncomingMessage) => req.url?.startsWith('/iclock/') === true,
+  });
   app.enableCors({
     origin: env.CORS_ORIGINS,
     credentials: true,

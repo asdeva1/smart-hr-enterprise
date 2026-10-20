@@ -30,7 +30,12 @@ export async function cronHandler(req: IncomingMessage, res: ServerResponse): Pr
   if (!authorised(req, secret)) return send(res, 401, { error: 'unauthorised' });
 
   const requested = new URL(req.url ?? '/', 'http://localhost').searchParams.get('jobs');
-  const names = requested ? requested.split(',').map((n) => n.trim()).filter(Boolean) : [...CRON_JOBS];
+  const names = requested
+    ? requested
+        .split(',')
+        .map((n) => n.trim())
+        .filter(Boolean)
+    : [...CRON_JOBS];
   const unknown = names.filter((n) => !isCronJob(n));
   if (unknown.length > 0) return send(res, 400, { error: 'unknown_job', jobs: unknown });
 

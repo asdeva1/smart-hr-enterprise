@@ -62,6 +62,17 @@ describe('startup tasks', () => {
   });
 
   it('only refresh plans and roles when organisations already exist, ignoring the first-run settings', async () => {
+    // A fresh database has none, so make sure there is one.
+    const existing = `existing-${run}`;
+    slugs.push(existing);
+    emails.push(`existing-${run}@startup.test`);
+    await bootstrapTenant(db, {
+      slug: existing,
+      name: `Existing ${run}`,
+      adminEmail: `existing-${run}@startup.test`,
+      adminName: 'Existing',
+      adminPassword: password,
+    });
     const email = `owner-${run}-a@startup.test`;
     emails.push(email);
     const result = await runStartupTasks(
@@ -132,10 +143,19 @@ describe('startup tasks', () => {
     emails.push(email);
     const slug = `plat-${run}`;
     slugs.push(slug);
-    await bootstrapTenant(db, { slug, name: `Plat ${run}`, adminEmail: email, adminName: 'P', adminPassword: password });
+    await bootstrapTenant(db, {
+      slug,
+      name: `Plat ${run}`,
+      adminEmail: email,
+      adminName: 'P',
+      adminPassword: password,
+    });
     expect((await db.user.findUniqueOrThrow({ where: { email } })).isPlatformAdmin).toBe(false);
 
-    await runStartupTasks({ STARTUP_TASKS: 'true', DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL') }, { db });
+    await runStartupTasks(
+      { STARTUP_TASKS: 'true', DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL') },
+      { db },
+    );
     expect((await db.user.findUniqueOrThrow({ where: { email } })).isPlatformAdmin).toBe(false);
 
     // The oldest organisation in a shared test database isn't this one, so act on a database that has only it.
@@ -153,7 +173,11 @@ describe('startup tasks', () => {
       },
     });
     const result = await runStartupTasks(
-      { STARTUP_TASKS: 'true', PLATFORM_ADMIN_FIRST_OWNER: 'true', DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL') },
+      {
+        STARTUP_TASKS: 'true',
+        PLATFORM_ADMIN_FIRST_OWNER: 'true',
+        DATABASE_MIGRATOR_URL: requireEnv('DATABASE_MIGRATOR_URL'),
+      },
       { db: only },
     );
     expect(result.messages.join('\n')).toMatch(/granted to 1 owner/);

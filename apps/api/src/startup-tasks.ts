@@ -78,7 +78,10 @@ export async function runStartupTasks(
       env.BOOTSTRAP_ADMIN_PASSWORD,
     ];
     if (env.PLATFORM_ADMIN_FIRST_OWNER) {
-      const first = await db.tenant.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true, name: true } });
+      const first = await db.tenant.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true },
+      });
       if (first) {
         const owners = await db.tenantMembership.findMany({
           where: { tenantId: first.id, isTenantAdmin: true, status: 'ACTIVE' },

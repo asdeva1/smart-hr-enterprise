@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { isUniqueViolation } from '@smart-hr/database';
 import { AppError, ForbiddenError, NotFoundError } from '@smart-hr/shared';
-import type { biometricDeviceSchema, biometricDeviceUpdateSchema, biometricLinkSchema, biometricLogQuerySchema } from '@smart-hr/validation';
+import type {
+  biometricDeviceSchema,
+  biometricDeviceUpdateSchema,
+  biometricLinkSchema,
+  biometricLogQuerySchema,
+} from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
@@ -32,7 +37,11 @@ export class BiometricService {
     this.requireConfigure(tenant);
     return this.attendance.run(tenant, auth, async (tx) => {
       const devices = await tx.biometricDevice.findMany({ orderBy: [{ status: 'asc' }, { name: 'asc' }] });
-      const waiting = await tx.biometricLog.groupBy({ by: ['deviceId'], where: { outcome: 'UNMAPPED' }, _count: true });
+      const waiting = await tx.biometricLog.groupBy({
+        by: ['deviceId'],
+        where: { outcome: 'UNMAPPED' },
+        _count: true,
+      });
       const unmapped = new Map(waiting.map((w) => [w.deviceId, w._count]));
       return {
         devices: devices.map((d) => ({
@@ -139,7 +148,11 @@ export class BiometricService {
     return this.attendance.run(tenant, auth, async (tx) => {
       const links = await tx.biometricEnrollment.findMany({
         orderBy: { createdAt: 'desc' },
-        include: { employee: { select: { id: true, employeeCode: true, firstName: true, lastName: true, preferredName: true } } },
+        include: {
+          employee: {
+            select: { id: true, employeeCode: true, firstName: true, lastName: true, preferredName: true },
+          },
+        },
       });
       const waiting = await tx.biometricLog.groupBy({
         by: ['deviceCode'],
@@ -172,7 +185,10 @@ export class BiometricService {
   ) {
     this.requireConfigure(tenant);
     return this.attendance.run(tenant, auth, async (tx) => {
-      const employee = await tx.employee.findUnique({ where: { id: input.employeeId }, select: { id: true } });
+      const employee = await tx.employee.findUnique({
+        where: { id: input.employeeId },
+        select: { id: true },
+      });
       if (!employee) throw new NotFoundError('Employee');
       let link;
       try {

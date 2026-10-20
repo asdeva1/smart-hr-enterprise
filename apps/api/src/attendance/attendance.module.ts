@@ -28,7 +28,9 @@ export class AttendanceModule implements OnModuleInit {
     this.exporter.register('attendanceDays', (tx) =>
       tx.attendanceDay.findMany({ orderBy: [{ employeeId: 'asc' }, { date: 'asc' }], take: 500_000 }),
     );
-    this.exporter.register('biometricDevices', (tx) => tx.biometricDevice.findMany({ orderBy: { name: 'asc' } }));
+    this.exporter.register('biometricDevices', (tx) =>
+      tx.biometricDevice.findMany({ orderBy: { name: 'asc' } }),
+    );
     this.exporter.register('biometricEnrollments', (tx) =>
       tx.biometricEnrollment.findMany({ orderBy: { deviceCode: 'asc' } }),
     );

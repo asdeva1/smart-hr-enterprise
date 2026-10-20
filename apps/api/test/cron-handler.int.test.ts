@@ -68,7 +68,12 @@ describe('scheduled sweeps endpoint', () => {
   it('runs every sweep by default', async () => {
     const reply = await call('/api/cron', `Bearer ${SECRET}`);
     expect(reply.status).toBe(200);
-    expect(reply.body.runs?.map((r) => r.job)).toEqual(['outbox', 'escalation', 'subscriptions', 'documents']);
+    expect(reply.body.runs?.map((r) => r.job)).toEqual([
+      'outbox',
+      'escalation',
+      'subscriptions',
+      'documents',
+    ]);
     expect(reply.body.runs?.every((r) => r.ok)).toBe(true);
   });
 

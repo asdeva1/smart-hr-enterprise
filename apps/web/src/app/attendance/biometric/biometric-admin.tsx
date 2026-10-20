@@ -70,7 +70,7 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
     onSuccess: refresh,
   });
 
-  const origin = typeof window === 'undefined' ? '' : (apiBaseUrl() || window.location.origin);
+  const origin = typeof window === 'undefined' ? '' : apiBaseUrl() || window.location.origin;
   const host = origin.replace(/^https?:\/\//, '');
 
   return (
@@ -83,7 +83,10 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
       <AttendanceTabs session={session} active="/attendance/biometric" />
       {notice && <Alert tone="success">{notice}</Alert>}
 
-      <section aria-labelledby="bio-setup" className="flex flex-col gap-2 rounded-lg border border-border p-4">
+      <section
+        aria-labelledby="bio-setup"
+        className="flex flex-col gap-2 rounded-lg border border-border p-4"
+      >
         <h2 id="bio-setup" className="text-base font-semibold">
           Connecting a machine
         </h2>
@@ -91,12 +94,12 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
           <li>Add the machine here with the serial number shown on its screen (Menu → System Info).</li>
           <li>
             On the machine, open <b>Menu → Comm. → Cloud Server Setting</b> (ADMS) and set the server address
-            to <code className="font-mono">{host || 'this site'}</code>, port <code className="font-mono">443</code>
-            , with HTTPS on.
+            to <code className="font-mono">{host || 'this site'}</code>, port{' '}
+            <code className="font-mono">443</code>, with HTTPS on.
           </li>
           <li>
-            Link each person’s <b>User ID</b> on the machine to their employee record below. Scans from numbers
-            that aren’t linked yet are kept and counted once you link them.
+            Link each person’s <b>User ID</b> on the machine to their employee record below. Scans from
+            numbers that aren’t linked yet are kept and counted once you link them.
           </li>
         </ol>
         <p className="text-xs text-muted-foreground">
@@ -155,7 +158,12 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
                   )}
                 </Td>
                 <Td className="text-right">
-                  <Button size="sm" variant="ghost" disabled={archive.isPending} onClick={() => archive.mutate(d)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={archive.isPending}
+                    onClick={() => archive.mutate(d)}
+                  >
                     {d.status === 'ACTIVE' ? 'Archive' : 'Restore'}
                     <span className="sr-only"> {d.name}</span>
                   </Button>
@@ -183,7 +191,12 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
               <span className="block font-medium">Scans from user IDs that aren’t linked to anyone yet</span>
               <span className="mt-1 flex flex-wrap gap-2">
                 {links.data.unlinked.map((u) => (
-                  <Button key={u.deviceCode} size="sm" variant="outline" onClick={() => setLinking(u.deviceCode)}>
+                  <Button
+                    key={u.deviceCode}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setLinking(u.deviceCode)}
+                  >
                     ID {u.deviceCode} · {u.scans} scan{u.scans === 1 ? '' : 's'}
                   </Button>
                 ))}
@@ -212,7 +225,12 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
                       <span className="font-mono text-xs text-muted-foreground">{l.employee.code}</span>
                     </Td>
                     <Td className="text-right">
-                      <Button size="sm" variant="ghost" disabled={unlink.isPending} onClick={() => unlink.mutate(l.id)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={unlink.isPending}
+                        onClick={() => unlink.mutate(l.id)}
+                      >
                         Unlink<span className="sr-only"> ID {l.deviceCode}</span>
                       </Button>
                     </Td>
@@ -265,7 +283,11 @@ export function BiometricAdmin({ session }: { session: SessionView }) {
                 <Td className="font-mono">{l.deviceCode}</Td>
                 <Td>{l.employee ?? '—'}</Td>
                 <Td>
-                  <Badge tone={l.outcome === 'IMPORTED' ? 'success' : l.outcome === 'UNMAPPED' ? 'warning' : 'neutral'}>
+                  <Badge
+                    tone={
+                      l.outcome === 'IMPORTED' ? 'success' : l.outcome === 'UNMAPPED' ? 'warning' : 'neutral'
+                    }
+                  >
                     {OUTCOME_LABEL[l.outcome]}
                   </Badge>
                 </Td>
@@ -346,7 +368,12 @@ function DeviceDialog({ onClose, onDone }: { onClose: () => void; onDone: (text:
       >
         {formError && <Alert tone="error">{formError}</Alert>}
         <Field id="device-name" label="Name" error={errors.name}>
-          <Input id="device-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Front gate" />
+          <Input
+            id="device-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Front gate"
+          />
         </Field>
         <Field id="device-serial" label="Serial number" error={errors.serialNumber}>
           <Input
@@ -434,7 +461,12 @@ function LinkDialog({
           />
         </Field>
         <Field id="link-employee" label="Employee" error={errors.employeeId}>
-          <EmployeePicker id="link-employee" value={employee} onChange={setEmployee} invalid={!!errors.employeeId} />
+          <EmployeePicker
+            id="link-employee"
+            value={employee}
+            onChange={setEmployee}
+            invalid={!!errors.employeeId}
+          />
         </Field>
       </form>
     </Dialog>

@@ -41,7 +41,16 @@ export function parseAttlog(body: string, timeZone: string): Scan[] {
   for (const raw of body.split(/\r?\n/)) {
     const m = LINE.exec(raw.trim());
     if (!m) continue;
-    const [, code, date, hh, mm, ss, rest] = m as unknown as [string, string, string, string, string, string, string, string | undefined];
+    const [, code, date, hh, mm, ss, rest] = m as unknown as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string | undefined,
+    ];
     const hour = Number(hh);
     const minute = Number(mm);
     const second = Number(ss);
@@ -107,7 +116,12 @@ export class BiometricIngestService {
   }
 
   /** Stores the uploaded scans and turns each one into attendance. Returns how many lines were read. */
-  async receive(device: KnownDevice, body: string, stamp: string | undefined, now = new Date()): Promise<number> {
+  async receive(
+    device: KnownDevice,
+    body: string,
+    stamp: string | undefined,
+    now = new Date(),
+  ): Promise<number> {
     const scans = parseAttlog(body, device.timeZone);
     for (let i = 0; i < scans.length; i += CHUNK) {
       const chunk = scans.slice(i, i + CHUNK);
@@ -181,7 +195,10 @@ export class BiometricIngestService {
     const near = await tx.attendancePunch.findFirst({
       where: {
         employeeId: employee.id,
-        at: { gte: new Date(at.getTime() - DUPLICATE_WINDOW_MS), lte: new Date(at.getTime() + DUPLICATE_WINDOW_MS) },
+        at: {
+          gte: new Date(at.getTime() - DUPLICATE_WINDOW_MS),
+          lte: new Date(at.getTime() + DUPLICATE_WINDOW_MS),
+        },
       },
       select: { id: true },
     });
@@ -196,8 +213,16 @@ export class BiometricIngestService {
   }
 
   /** After a user number is linked to an employee, turns the scans that were waiting for it into attendance. */
-  async applyPending(tx: TenantTransaction, code: string, employeeId: string, now = new Date()): Promise<number> {
-    const employee = await tx.employee.findUnique({ where: { id: employeeId }, select: ATTENDANCE_EMPLOYEE_SELECT });
+  async applyPending(
+    tx: TenantTransaction,
+    code: string,
+    employeeId: string,
+    now = new Date(),
+  ): Promise<number> {
+    const employee = await tx.employee.findUnique({
+      where: { id: employeeId },
+      select: ATTENDANCE_EMPLOYEE_SELECT,
+    });
     if (!employee) return 0;
     const waiting = await tx.biometricLog.findMany({
       where: { outcome: 'UNMAPPED', deviceCode: code },

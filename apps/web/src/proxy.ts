@@ -21,5 +21,7 @@ export default function proxy(request: NextRequest) {
 
 export const config = {
   // Skip Next internals, API calls forwarded to the API (/v1, see next.config.ts) and static files.
-  matcher: ['/((?!_next/|v1/|health/|iclock/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)'],
+  matcher: [
+    '/((?!_next/|v1/|health/|iclock/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)',
+  ],
 };

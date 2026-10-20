@@ -20,7 +20,10 @@ export class CronModule {
       providers: [
         { provide: WORKER_ENV, useValue: env },
         // A single connection: each invocation is short-lived and the pooler multiplexes across instances.
-        { provide: DATABASE, useFactory: () => createDatabaseClient({ connectionString: env.DATABASE_URL, maxConnections: 1 }) },
+        {
+          provide: DATABASE,
+          useFactory: () => createDatabaseClient({ connectionString: env.DATABASE_URL, maxConnections: 1 }),
+        },
         { provide: MAIL_TRANSPORT, useFactory: () => (env.SMTP_URL ? createTransport(env.SMTP_URL) : null) },
         OutboxService,
         EscalationService,
