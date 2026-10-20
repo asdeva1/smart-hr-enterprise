@@ -42,5 +42,16 @@ export async function handler(req: IncomingMessage, res: ServerResponse): Promis
     ready = undefined;
     throw error;
   });
-  (await ready)(req, res);
+  let app: RequestHandler;
+  try {
+    app = await ready;
+  } catch (error) {
+    // Say why the application could not start (no secrets are in these messages), instead of a bare 500.
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error';
+    res.statusCode = 503;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: 'startup_failed', message: message.slice(0, 300) }));
+    return;
+  }
+  app(req, res);
 }

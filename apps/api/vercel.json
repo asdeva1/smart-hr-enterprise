@@ -4,6 +4,10 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=@smart-hr/api... && cd apps/api && node vercel-prepare.mjs",
   "rewrites": [
     {
+      "source": "/__ping",
+      "destination": "/api/ping"
+    },
+    {
       "source": "/(.*)",
       "destination": "/api"
     }

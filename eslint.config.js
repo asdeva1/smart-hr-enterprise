@@ -19,6 +19,7 @@ export default tseslint.config(
       // One-line entry shim for the Kuberns build; the code it runs is the type-checked CLI.
       'apps/api/bootstrap-db-roles.mjs',
       'apps/api/api/index.js',
+      'apps/api/api/ping.js',
       'apps/api/vercel-prepare.mjs',
     ],
   },
