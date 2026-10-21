@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { withExplicitSslMode } from './ssl-mode.js';
 
 export class UnsafeDatabaseRoleError extends Error {
   constructor(role: string, reasons: string[]) {
@@ -16,7 +17,7 @@ export class UnsafeDatabaseRoleError extends Error {
  * BYPASSRLS, or the owner of the tables (owners are exempt from their tables' policies).
  */
 export async function assertRestrictedRuntimeRole(connectionString: string): Promise<void> {
-  const client = new pg.Client({ connectionString });
+  const client = new pg.Client({ connectionString: withExplicitSslMode(connectionString) });
   await client.connect();
   try {
     const { rows } = await client.query<{ role: string; super: boolean; bypass: boolean; owned: number }>(
@@ -43,7 +44,7 @@ const RUNTIME_ROLE = 'app_rw';
  * LOGIN role with that password. Always NOSUPERUSER NOBYPASSRLS. Idempotent; never logs the password.
  */
 export async function ensureRuntimeRole(ownerConnectionString: string, password?: string) {
-  const client = new pg.Client({ connectionString: ownerConnectionString });
+  const client = new pg.Client({ connectionString: withExplicitSslMode(ownerConnectionString) });
   await client.connect();
   try {
     const existing = (

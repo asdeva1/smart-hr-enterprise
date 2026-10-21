@@ -31,6 +31,8 @@ export class InfraModule implements OnApplicationShutdown {
           useFactory: () =>
             new Redis(env.REDIS_URL, {
               lazyConnect: true,
+              // Serverless instances open a fresh TLS connection after idle; allow for a slow first handshake.
+              connectTimeout: 15_000,
               maxRetriesPerRequest: 1,
               enableOfflineQueue: false,
             }),

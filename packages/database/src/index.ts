@@ -1,8 +1,10 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { isUuid } from '@smart-hr/shared';
+import { withExplicitSslMode } from './ssl-mode.js';
 import { Prisma, PrismaClient } from './generated/client.js';
 
 export * from './generated/client.js';
+export { withExplicitSslMode } from './ssl-mode.js';
 
 export type DatabaseClient = PrismaClient;
 export type TenantTransaction = Prisma.TransactionClient;
@@ -14,7 +16,10 @@ export interface CreateDatabaseClientOptions {
 }
 
 export function createDatabaseClient({ connectionString, maxConnections = 10 }: CreateDatabaseClientOptions) {
-  const adapter = new PrismaPg({ connectionString, max: maxConnections });
+  const adapter = new PrismaPg({
+    connectionString: withExplicitSslMode(connectionString),
+    max: maxConnections,
+  });
   return new PrismaClient({ adapter });
 }
 
