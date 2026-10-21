@@ -6,7 +6,7 @@
  */
 import 'reflect-metadata';
 import { execFileSync } from 'node:child_process';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer, type Server } from 'node:https';
 import type { AddressInfo } from 'node:net';
@@ -24,10 +24,9 @@ const owner = createDatabaseClient({
   maxConnections: 2,
 });
 const appRole = createDatabaseClient({ connectionString: process.env.DATABASE_URL!, maxConnections: 2 });
-const box = new SecretBox(
-  parseKeyRing(process.env.DATA_ENCRYPTION_KEYS!),
-  process.env.DATA_ENCRYPTION_KEY_ID!,
-);
+// Its own key ring, so the test does not depend on the environment's.
+const KEYS = `t1:${randomBytes(32).toString('base64')}`;
+const box = new SecretBox(parseKeyRing(KEYS), 't1');
 const dir = mkdtempSync(join(tmpdir(), 'hook-'));
 const SECRET = `whsec_${run}`;
 
@@ -47,6 +46,8 @@ const env = (extra: Record<string, string> = {}) =>
   loadWorkerEnv({
     ...process.env,
     NODE_ENV: 'test',
+    DATA_ENCRYPTION_KEYS: KEYS,
+    DATA_ENCRYPTION_KEY_ID: 't1',
     WEBHOOK_ALLOW_PRIVATE_HOSTS: 'true',
     WEBHOOK_MAX_ATTEMPTS: '3',
     WEBHOOK_DISABLE_AFTER: '2',

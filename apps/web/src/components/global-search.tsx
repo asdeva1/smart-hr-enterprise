@@ -49,7 +49,7 @@ export function GlobalSearch() {
   return (
     <div ref={root} className="relative w-64 max-w-full">
       <label className="relative block">
-        <span className="sr-only">Search</span>
+        <span className="sr-only">Find anything in the organisation</span>
         <Search aria-hidden="true" className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <input
           type="search"

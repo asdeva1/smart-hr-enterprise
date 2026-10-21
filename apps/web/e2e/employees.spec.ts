@@ -82,7 +82,7 @@ test('an owner adds an employee and records a promotion', async ({ page }) => {
 test('identity details stay masked until the owner asks to see them', async ({ page }) => {
   await signInAsOwner(page);
   await page.goto('/employees');
-  await page.getByLabel('Search').fill(`Iyer ${run}`);
+  await page.getByLabel('Search', { exact: true }).fill(`Iyer ${run}`);
   await page.getByRole('link', { name: `Meera Iyer ${run}` }).click();
   await page.getByRole('tab', { name: 'Identity and bank' }).click();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
