@@ -14,6 +14,8 @@ const db = ownerClient();
 const fx = new Fixtures(db);
 let app: NestExpressApplication;
 let noKeyApp: NestExpressApplication;
+let bedrockApp: NestExpressApplication;
+let iamApp: NestExpressApplication;
 let stub: Server;
 let tenantId: string;
 let ownerId: string;
@@ -24,6 +26,7 @@ const year = new Date().getUTCFullYear();
 const KEY = ['fake', 'provider', 'key', '0123456789abcdef'].join('_');
 
 interface Seen {
+  url?: string | undefined;
   headers: Record<string, string | string[] | undefined>;
   body: {
     model: string;
@@ -78,7 +81,7 @@ beforeAll(async () => {
     let raw = '';
     req.on('data', (c: Buffer) => (raw += c.toString()));
     req.on('end', () => {
-      seen.push({ headers: req.headers, body: JSON.parse(raw) as Seen['body'] });
+      seen.push({ url: req.url, headers: req.headers, body: JSON.parse(raw) as Seen['body'] });
       const next = script.shift() ?? { content: [{ type: 'text', text: 'ok' }] };
       res.writeHead(next.status ?? 200, { 'content-type': 'application/json' });
       res.end(
@@ -98,6 +101,26 @@ beforeAll(async () => {
   const base = `http://127.0.0.1:${(stub.address() as AddressInfo).port}`;
   app = await startApp(testEnv({ ANTHROPIC_API_KEY: KEY, ANTHROPIC_BASE_URL: base }));
   noKeyApp = await startApp(testEnv());
+  const MODEL = 'global.anthropic.test-model';
+  bedrockApp = await startApp(
+    testEnv({
+      AI_PROVIDER: 'bedrock',
+      AI_MODEL: MODEL,
+      AWS_REGION: 'us-east-1',
+      AWS_BEARER_TOKEN_BEDROCK: KEY,
+      BEDROCK_BASE_URL: base,
+    }),
+  );
+  iamApp = await startApp(
+    testEnv({
+      AI_PROVIDER: 'bedrock',
+      AI_MODEL: MODEL,
+      AWS_REGION: 'us-east-1',
+      AWS_ACCESS_KEY_ID: 'AKIAFAKEFAKEFAKE0000',
+      AWS_SECRET_ACCESS_KEY: KEY,
+      BEDROCK_BASE_URL: base,
+    }),
+  );
 
   const tenant = await fx.tenant('Ai');
   tenantId = tenant.id;
@@ -133,6 +156,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await app?.close();
   await noKeyApp?.close();
+  await bedrockApp?.close();
+  await iamApp?.close();
   await new Promise((r) => stub?.close(r));
   await fx.cleanup();
   await db.$disconnect();
@@ -291,5 +316,49 @@ describe('budget and governance', () => {
     await b.login(user.email);
     expect((await b.get('/v1/ai/status')).status).toBe(200);
     expect((await b.get('/v1/ai/usage')).status).toBe(403);
+  });
+});
+
+describe('Claude on Amazon Bedrock', () => {
+  const asOwner = async (target: NestExpressApplication) => {
+    const b = new Browser(target);
+    await b.login((await db.user.findUniqueOrThrow({ where: { id: ownerId } })).email);
+    return b;
+  };
+
+  it('calls the model by its id in the path, with the API key as a bearer token', async () => {
+    const b = await asOwner(bedrockApp);
+    script = [{ content: [{ type: 'text', text: 'Hello from Bedrock.' }] }];
+    seen.length = 0;
+    const res = await b.send('post', '/v1/ai/assistant', { message: 'hi' });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.reply).toBe('Hello from Bedrock.');
+    expect(seen[0]!.url).toBe('/model/global.anthropic.test-model/invoke');
+    expect(seen[0]!.headers.authorization).toBe(`Bearer ${KEY}`);
+    expect(seen[0]!.headers['x-api-key']).toBeUndefined();
+    expect(seen[0]!.body).toMatchObject({ anthropic_version: 'bedrock-2023-05-31' });
+    expect(seen[0]!.body).not.toHaveProperty('model');
+  });
+
+  it('signs requests when IAM keys are used instead, without sending the secret', async () => {
+    const b = await asOwner(iamApp);
+    script = [{ content: [{ type: 'text', text: 'Signed.' }] }];
+    seen.length = 0;
+    const res = await b.send('post', '/v1/ai/assistant', { message: 'hi' });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    const auth = String(seen[0]!.headers.authorization);
+    expect(auth).toMatch(
+      /^AWS4-HMAC-SHA256 Credential=AKIAFAKEFAKEFAKE0000\/\d{8}\/us-east-1\/bedrock\/aws4_request/,
+    );
+    expect(auth).not.toContain(KEY);
+    expect(seen[0]!.headers['x-amz-date']).toMatch(/^\d{8}T\d{6}Z$/);
+  });
+
+  it('does not leak the key when Bedrock refuses', async () => {
+    const b = await asOwner(bedrockApp);
+    script = [{ status: 403 }];
+    const res = await b.send('post', '/v1/ai/assistant', { message: 'hi' });
+    expect(res.status).toBe(502);
+    expect(JSON.stringify(res.body)).not.toContain(KEY);
   });
 });

@@ -10,7 +10,13 @@ import type { ApiEnv } from '../config/env.js';
 import type { RequestMeta } from '../common/request-context.js';
 import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import { API_ENV, DATABASE } from '../infra/tokens.js';
-import { AnthropicProvider, type AiBlock, type AiMessage, type AiProvider } from './provider.js';
+import {
+  AnthropicProvider,
+  BedrockProvider,
+  type AiBlock,
+  type AiMessage,
+  type AiProvider,
+} from './provider.js';
 import type { AiTool } from './tools.js';
 
 const MAX_TOOL_ROUNDS = 4;
@@ -39,9 +45,29 @@ export class AiService {
     private readonly entitlements: EntitlementsService,
     private readonly audit: AuditService,
   ) {
-    this.provider = env.ANTHROPIC_API_KEY
+    this.provider = this.buildProvider(env);
+  }
+
+  private buildProvider(env: ApiEnv): AiProvider | null {
+    if (env.AI_PROVIDER === 'bedrock') {
+      return new BedrockProvider(
+        {
+          bearerToken: env.AWS_BEARER_TOKEN_BEDROCK,
+          accessKeyId: env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+          sessionToken: env.AWS_SESSION_TOKEN,
+        },
+        env.AWS_REGION ?? 'us-east-1',
+        env.BEDROCK_BASE_URL,
+      );
+    }
+    return env.ANTHROPIC_API_KEY
       ? new AnthropicProvider(env.ANTHROPIC_API_KEY, env.ANTHROPIC_BASE_URL)
       : null;
+  }
+
+  private get model(): string {
+    return this.env.AI_MODEL ?? 'claude-sonnet-5-5';
   }
 
   registerTool(tool: AiTool): void {
@@ -78,7 +104,7 @@ export class AiService {
       return {
         available: this.provider !== null,
         enabled: await this.enabled(tx),
-        model: this.env.AI_MODEL,
+        model: this.model,
         tokensUsed: await this.usedThisMonth(tx, now),
         tokenLimit: limitOf(e, 'ai.tokens.monthly'),
       };
@@ -180,7 +206,7 @@ export class AiService {
     try {
       for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
         const res = await provider.complete({
-          model: this.env.AI_MODEL,
+          model: this.model,
           system: options.system,
           messages,
           ...(tools.length
@@ -233,7 +259,7 @@ export class AiService {
               tenantId: tenant.id,
               userId: auth.user.id,
               feature: options.feature,
-              model: this.env.AI_MODEL,
+              model: this.model,
               inputTokens: input,
               outputTokens: output,
             },

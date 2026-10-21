@@ -95,7 +95,18 @@ export const apiEnvSchema = baseServerEnvSchema
     // AI (optional, server-side only). Without a key the AI features report that they are not available.
     ANTHROPIC_API_KEY: z.string().min(10).optional(),
     ANTHROPIC_BASE_URL: z.url().default('https://api.anthropic.com'),
-    AI_MODEL: z.string().min(1).max(100).default('claude-sonnet-5-5'),
+    /** Which service answers. Left out, it is Bedrock when a Bedrock API key is set, else Anthropic when a key is set. IAM keys need AI_PROVIDER=bedrock. */
+    AI_PROVIDER: z.enum(['anthropic', 'bedrock']).optional(),
+    /** For Bedrock this must be a Bedrock model id or inference profile id from your AWS account. */
+    AI_MODEL: z.string().min(1).max(200).optional(),
+    // Claude on Amazon Bedrock, billed on the organisation's AWS invoice. Either a Bedrock API key, or IAM keys
+    // (SigV4). Temporary credentials from a role also need AWS_SESSION_TOKEN.
+    AWS_REGION: z.string().min(2).max(30).optional(),
+    AWS_BEARER_TOKEN_BEDROCK: z.string().min(10).optional(),
+    AWS_ACCESS_KEY_ID: z.string().min(10).optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().min(10).optional(),
+    AWS_SESSION_TOKEN: z.string().min(10).optional(),
+    BEDROCK_BASE_URL: z.url().optional(),
     AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
 
     // Document storage. Files are encrypted with DATA_ENCRYPTION_KEYS before they are written. `local` keeps
@@ -107,6 +118,14 @@ export const apiEnvSchema = baseServerEnvSchema
   .transform((env) => ({
     ...env,
     AUTH_COOKIE_SECURE: env.AUTH_COOKIE_SECURE ?? env.NODE_ENV === 'production',
+    AI_PROVIDER:
+      env.AI_PROVIDER ??
+      // IAM keys alone never switch it on: servers running on AWS often carry them for other reasons.
+      (env.AWS_BEARER_TOKEN_BEDROCK
+        ? ('bedrock' as const)
+        : env.ANTHROPIC_API_KEY
+          ? ('anthropic' as const)
+          : undefined),
   }))
   .superRefine((env, ctx) => {
     if (!(env.MFA_ENCRYPTION_KEY_ID in env.MFA_ENCRYPTION_KEYS)) {
@@ -129,6 +148,33 @@ export const apiEnvSchema = baseServerEnvSchema
         code: 'custom',
         path: ['DATA_ENCRYPTION_KEYS'],
         message: 'must not reuse a key from MFA_ENCRYPTION_KEYS',
+      });
+    }
+    if (env.AI_PROVIDER === 'bedrock') {
+      if (!env.AI_MODEL) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['AI_MODEL'],
+          message:
+            'is required for Bedrock: use a Bedrock model id or inference profile id from your AWS account',
+        });
+      }
+      if (!env.AWS_REGION && !env.BEDROCK_BASE_URL) {
+        ctx.addIssue({ code: 'custom', path: ['AWS_REGION'], message: 'is required for Bedrock' });
+      }
+      if (!env.AWS_BEARER_TOKEN_BEDROCK && !(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['AWS_BEARER_TOKEN_BEDROCK'],
+          message: 'or AWS_ACCESS_KEY_ID with AWS_SECRET_ACCESS_KEY is required for Bedrock',
+        });
+      }
+    }
+    if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ANTHROPIC_API_KEY'],
+        message: 'is required for AI_PROVIDER=anthropic',
       });
     }
     if (env.DEPLOYMENT_MODE === 'inhouse') {

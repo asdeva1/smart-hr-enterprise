@@ -10,3 +10,18 @@ Features `ai.assistant` (all plans) and `ai.governance` (usage report); limit `a
 - **Summaries** (`POST /v1/ai/summaries/operations-items/:id`): summarises an item's history for someone who can open it. If they can't open it, nothing is sent to the model.
 - **Safety**: records and tool results are passed to the model as data, with instructions to ignore any commands inside them. A tool call the model invents is ignored. At most four rounds of tool use per question.
 - **Tests** run against a stand-in for Anthropic's API, so no key or network is needed.
+
+## Claude on Amazon Bedrock (AWS invoice)
+
+Set `AI_PROVIDER=bedrock` (or just provide `AWS_BEARER_TOKEN_BEDROCK`, which selects it) to send requests to
+Claude on Amazon Bedrock, so usage appears on the organisation's normal AWS bill instead of an Anthropic account.
+
+| Setting                                                           | Notes                                                                                                                                                                                    |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AWS_REGION`                                                      | Region where Claude model access is enabled, for example `us-east-1`.                                                                                                                    |
+| `AI_MODEL`                                                        | Required. A Bedrock model id or inference profile id from your AWS account.                                                                                                              |
+| `AWS_BEARER_TOKEN_BEDROCK`                                        | A Bedrock API key. Simplest to start with.                                                                                                                                               |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | IAM credentials; requests are signed (SigV4). Needs `AI_PROVIDER=bedrock` because servers on AWS often hold these keys for other reasons. Prefer a role with only `bedrock:InvokeModel`. |
+
+Everything else (opt-in switch, monthly token budget, usage records without content, read-only tools) is the
+same for both providers. Credentials stay on the server and never appear in errors.
