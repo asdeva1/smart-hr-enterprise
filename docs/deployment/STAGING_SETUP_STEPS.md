@@ -32,6 +32,10 @@ Rotate this key if it is ever shown anywhere it should not be.
 
 ## 2. Outgoing email
 
+If you already use Resend (as the other Smart Clues projects do), reuse it through its SMTP service: create a Resend API key
+for this project, then set `SMTP_URL` to `smtps://resend:<API_KEY>@smtp.resend.com:465` and `MAIL_FROM` to an address on a domain
+verified in Resend (for example `Smart HR <no-reply@smartcluestech.com>`). Skip the provider choice below.
+
 Any SMTP service works. Common low-cost choices: Amazon SES (cheapest at scale, needs sender verification),
 Brevo or Resend (free tiers, quick start). Whichever you choose:
 
