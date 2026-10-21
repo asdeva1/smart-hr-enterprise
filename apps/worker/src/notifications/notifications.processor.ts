@@ -7,6 +7,7 @@ import type { WorkerEnv } from '../config/env.js';
 import { MAIL_TRANSPORT, NOTIFICATIONS_QUEUE, WORKER_ENV } from '../queues.js';
 import { EscalationService } from './escalation.service.js';
 import { OutboxService, type OutboxSweepResult } from './outbox.service.js';
+import { WebhookDeliveryService, type WebhookSweepResult } from '../integrations/webhook-delivery.service.js';
 import { DocumentSweepService, type DocumentSweepResult } from './document-sweep.service.js';
 import { SubscriptionExpiryService } from './subscription-expiry.service.js';
 
@@ -30,6 +31,7 @@ export class NotificationsProcessor extends WorkerHost {
     private readonly escalation: EscalationService,
     private readonly subscriptions: SubscriptionExpiryService,
     private readonly documents: DocumentSweepService,
+    private readonly webhooks: WebhookDeliveryService,
   ) {
     super();
   }
@@ -37,7 +39,12 @@ export class NotificationsProcessor extends WorkerHost {
   async process(
     job: Job,
   ): Promise<
-    EmailResult | OutboxSweepResult | DocumentSweepResult | { escalated: number } | { expired: number }
+    | EmailResult
+    | OutboxSweepResult
+    | DocumentSweepResult
+    | WebhookSweepResult
+    | { escalated: number }
+    | { expired: number }
   > {
     switch (job.name) {
       case NotificationJob.Email:
@@ -50,6 +57,8 @@ export class NotificationsProcessor extends WorkerHost {
         return this.subscriptions.sweep();
       case NotificationJob.DocumentSweep:
         return this.documents.sweep();
+      case NotificationJob.WebhookSweep:
+        return this.webhooks.sweep();
       default:
         throw new Error(`Unknown notification job: ${job.name}`);
     }

@@ -6,6 +6,7 @@ import { DocumentSweepService } from './notifications/document-sweep.service.js'
 import { EscalationService } from './notifications/escalation.service.js';
 import { OutboxService } from './notifications/outbox.service.js';
 import { SubscriptionExpiryService } from './notifications/subscription-expiry.service.js';
+import { WebhookDeliveryService } from './integrations/webhook-delivery.service.js';
 import { DATABASE, MAIL_TRANSPORT, WORKER_ENV } from './queues.js';
 
 /**
@@ -29,6 +30,7 @@ export class CronModule {
         EscalationService,
         SubscriptionExpiryService,
         DocumentSweepService,
+        WebhookDeliveryService,
       ],
     };
   }

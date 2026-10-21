@@ -73,6 +73,7 @@ describe('scheduled sweeps endpoint', () => {
       'escalation',
       'subscriptions',
       'documents',
+      'webhooks',
     ]);
     expect(reply.body.runs?.every((r) => r.ok)).toBe(true);
   });

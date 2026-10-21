@@ -21,6 +21,7 @@ import type {
 import type { z } from 'zod';
 import { ApprovalSubjectRegistry } from '../approvals/approval-subjects.js';
 import { ApprovalEngine } from '../approvals/approval.engine.js';
+import { WebhookEventsService } from '../integrations/webhook-events.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { addDays, localDate } from '../attendance/attendance-calc.js';
 import {
@@ -81,6 +82,7 @@ export class LeaveService implements OnModuleInit {
     private readonly engine: ApprovalEngine,
     private readonly subjects: ApprovalSubjectRegistry,
     private readonly audit: AuditService,
+    private readonly webhooks: WebhookEventsService,
   ) {}
 
   onModuleInit(): void {
@@ -777,6 +779,14 @@ export class LeaveService implements OnModuleInit {
       });
     }
     await this.recomputeDays(tx, leave.employeeId, iso(leave.fromDate), iso(leave.toDate));
+    await this.webhooks.emit(tx, leave.tenantId, 'leave.request.approved', {
+      requestId: leave.id,
+      employeeId: leave.employeeId,
+      leaveType: leave.leaveType.code,
+      from: iso(leave.fromDate),
+      to: iso(leave.toDate),
+      days: num(leave.days),
+    });
   }
 
   private async recomputeDays(tx: TenantTransaction, employeeId: string, from: string, to: string) {

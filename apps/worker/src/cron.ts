@@ -8,10 +8,11 @@ import { DocumentSweepService } from './notifications/document-sweep.service.js'
 import { EscalationService } from './notifications/escalation.service.js';
 import { OutboxService } from './notifications/outbox.service.js';
 import { SubscriptionExpiryService } from './notifications/subscription-expiry.service.js';
+import { WebhookDeliveryService } from './integrations/webhook-delivery.service.js';
 import { DATABASE } from './queues.js';
 
 /** The sweeps a scheduler can run, in the order a full run does them. */
-export const CRON_JOBS = ['outbox', 'escalation', 'subscriptions', 'documents'] as const;
+export const CRON_JOBS = ['outbox', 'escalation', 'subscriptions', 'documents', 'webhooks'] as const;
 export type CronJob = (typeof CRON_JOBS)[number];
 
 export function isCronJob(value: string): value is CronJob {
@@ -64,6 +65,8 @@ function run(app: INestApplicationContext, job: CronJob): Promise<unknown> {
       return app.get(SubscriptionExpiryService).sweep();
     case 'documents':
       return app.get(DocumentSweepService).sweep();
+    case 'webhooks':
+      return app.get(WebhookDeliveryService).sweep();
   }
 }
 

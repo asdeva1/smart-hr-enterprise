@@ -204,6 +204,9 @@ export class Fixtures {
     await this.db.approvalTask.deleteMany({ where: inTenants });
     await this.db.approvalRequest.deleteMany({ where: inTenants });
     await this.db.employeeChangeRequest.deleteMany({ where: inTenants });
+    await this.db.webhookDelivery.deleteMany({ where: inTenants });
+    await this.db.webhookEndpoint.deleteMany({ where: inTenants });
+    await this.db.apiKey.deleteMany({ where: inTenants });
     await this.db.aiUsageEvent.deleteMany({ where: inTenants });
     await this.db.opsItemEvent.deleteMany({ where: inTenants });
     await this.db.opsItem.deleteMany({ where: inTenants });

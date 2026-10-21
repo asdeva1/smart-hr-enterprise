@@ -21,3 +21,4 @@ export * from './inventory.js';
 export * from './projects.js';
 export * from './operations.js';
 export * from './ai.js';
+export * from './integrations.js';

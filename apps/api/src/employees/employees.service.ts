@@ -23,6 +23,7 @@ import type {
   updateEmployeeSchema,
 } from '@smart-hr/validation';
 import type { z } from 'zod';
+import { WebhookEventsService } from '../integrations/webhook-events.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
@@ -169,6 +170,7 @@ export class EmployeesService {
     @Inject(DATABASE) private readonly db: DatabaseClient,
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly webhooks: WebhookEventsService,
   ) {
     // Employees count towards the plan's limit while they are employed (notice included).
     entitlements.registerUsage('employees.max', (tx) =>
@@ -552,6 +554,10 @@ export class EmployeesService {
       },
       meta,
     );
+    await this.webhooks.emit(tx, tenant.id, 'employee.created', {
+      employeeId: created.id,
+      employeeCode,
+    });
     return present(
       await tx.employee.findUniqueOrThrow({ where: { id: created.id }, select: EMPLOYEE_SELECT }),
     );
@@ -869,6 +875,13 @@ export class EmployeesService {
         },
         meta,
       );
+      const after = await tx.employee.findUniqueOrThrow({ where: { id }, select: EMPLOYEE_SELECT });
+      await this.webhooks.emit(tx, tenant.id, 'employee.status_changed', {
+        employeeId: id,
+        employeeCode: after.employeeCode,
+        action: input.action,
+        status: after.status,
+      });
       return present(await tx.employee.findUniqueOrThrow({ where: { id }, select: EMPLOYEE_SELECT }));
     });
   }

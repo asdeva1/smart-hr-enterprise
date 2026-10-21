@@ -14,6 +14,8 @@ export const NotificationJob = {
   /** Repeating: records subscriptions whose trial or period (plus grace) has run out, and tells owners. */
   SubscriptionExpirySweep: 'subscriptions.expiry-sweep',
   DocumentSweep: 'documents.sweep',
+  /** Repeating: sends queued webhook events to the endpoints that asked for them. */
+  WebhookSweep: 'integrations.webhook-sweep',
 } as const;
 
 export interface EmailJobData {

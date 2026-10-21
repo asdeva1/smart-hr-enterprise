@@ -12,6 +12,7 @@ import type {
   workspaceSchema,
 } from '@smart-hr/validation';
 import type { z } from 'zod';
+import { WebhookEventsService } from '../integrations/webhook-events.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AttendanceService, toDate } from '../attendance/attendance.service.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
@@ -60,6 +61,7 @@ export class OperationsService {
     private readonly attendance: AttendanceService,
     private readonly audit: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly webhooks: WebhookEventsService,
   ) {
     // Archived workspaces don't count towards the plan's limit.
     entitlements.registerUsage('operations.workspaces.max', (tx) =>
@@ -556,6 +558,11 @@ export class OperationsService {
         await this.event(tx, tenant, auth, item.id, 'ASSIGNED', null, { to: displayName(item.assignee!) });
       }
       await this.record(tx, tenant, auth, 'operations.item.create', 'ops_item', item.id, meta);
+      await this.webhooks.emit(tx, tenant.id, 'operations.item.created', {
+        itemId: item.id,
+        workspaceId,
+        ref: `${item.workspace.prefix}-${String(item.number).padStart(4, '0')}`,
+      });
       return this.itemView(item);
     });
   }
