@@ -39,3 +39,23 @@ describe('encryption keys', () => {
     }
   });
 });
+
+describe('file storage', () => {
+  it('keeps local storage as the default', () => {
+    expect(loadApiEnv(base()).STORAGE_DRIVER).toBe('local');
+  });
+
+  it('needs the bucket, region and keys for S3, and names what is missing', () => {
+    expect(() => loadApiEnv(base({ STORAGE_DRIVER: 's3' }))).toThrow(/S3_BUCKET/);
+    const full = {
+      STORAGE_DRIVER: 's3',
+      S3_BUCKET: 'hr-files',
+      S3_REGION: 'ap-south-1',
+      S3_ACCESS_KEY_ID: 'AKIAFAKEFAKE0000',
+      S3_SECRET_ACCESS_KEY: 'fake-secret-0000',
+    };
+    expect(loadApiEnv(base(full)).S3_BUCKET).toBe('hr-files');
+    const { S3_SECRET_ACCESS_KEY: _omit, ...partial } = full;
+    expect(() => loadApiEnv(base(partial))).toThrow(/S3_SECRET_ACCESS_KEY/);
+  });
+});

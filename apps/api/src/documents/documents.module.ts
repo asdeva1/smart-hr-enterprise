@@ -6,7 +6,7 @@ import { DocumentsController, SignaturesController } from './documents.controlle
 import { DocumentsService } from './documents.service.js';
 import { FilesService } from './files.service.js';
 import { SignaturesService } from './signatures.service.js';
-import { FILE_STORAGE, LocalFileStorage } from './storage.js';
+import { FILE_STORAGE, LocalFileStorage, S3FileStorage } from './storage.js';
 import { uploadsModule } from './uploads.js';
 
 @Module({
@@ -16,7 +16,17 @@ import { uploadsModule } from './uploads.js';
     {
       provide: FILE_STORAGE,
       inject: [API_ENV],
-      useFactory: (env: ApiEnv) => new LocalFileStorage(env.STORAGE_LOCAL_DIR),
+      useFactory: (env: ApiEnv) =>
+        env.STORAGE_DRIVER === 's3'
+          ? new S3FileStorage({
+              bucket: env.S3_BUCKET!,
+              region: env.S3_REGION!,
+              accessKeyId: env.S3_ACCESS_KEY_ID!,
+              secretAccessKey: env.S3_SECRET_ACCESS_KEY!,
+              sessionToken: env.S3_SESSION_TOKEN,
+              endpoint: env.S3_ENDPOINT,
+            })
+          : new LocalFileStorage(env.STORAGE_LOCAL_DIR),
     },
     FilesService,
     DocumentsService,

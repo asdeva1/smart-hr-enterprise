@@ -14,17 +14,18 @@ background work runs through the cron endpoint (see [Background work](#backgroun
 
 **API**
 
-| Variable                                                                      | Purpose                                                                                                               |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`, `DATABASE_URL_UNPOOLED`                                       | Provided by the Neon add-on. At runtime the pooled URL is used as `app_rw`.                                           |
-| `APP_DB_PASSWORD`                                                             | Password for `app_rw` (16+ random characters). Set once.                                                              |
-| `REDIS_URL`                                                                   | From the Upstash add-on.                                                                                              |
-| `APP_PUBLIC_URL`, `CORS_ORIGINS`                                              | The web project's public URL.                                                                                         |
-| `MFA_ENCRYPTION_KEYS` / `_KEY_ID`, `DATA_ENCRYPTION_KEYS` / `_KEY_ID`         | Two different 32-byte key rings. Keep copies safe: without them encrypted data cannot be read.                        |
-| `CRON_SECRET`                                                                 | Protects `/api/cron`. Same value as the GitHub secret of the same name.                                               |
-| `SMTP_URL`, `MAIL_FROM`                                                       | Outgoing email. Without them, emails stay queued.                                                                     |
-| `ANTHROPIC_API_KEY` or `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` + `AI_MODEL` | Optional AI. See [AI](../modules/AI.md).                                                                              |
-| `STARTUP_TASKS`, `BOOTSTRAP_*`, `PLATFORM_ADMIN_FIRST_OWNER`                  | First-run only. Set `STARTUP_TASKS=false` and `PLATFORM_ADMIN_FIRST_OWNER=false` once the first administrator exists. |
+| Variable                                                                                  | Purpose                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`, `DATABASE_URL_UNPOOLED`                                                   | Provided by the Neon add-on. At runtime the pooled URL is used as `app_rw`.                                                                                                                                                                                                                                  |
+| `APP_DB_PASSWORD`                                                                         | Password for `app_rw` (16+ random characters). Set once.                                                                                                                                                                                                                                                     |
+| `REDIS_URL`                                                                               | From the Upstash add-on.                                                                                                                                                                                                                                                                                     |
+| `APP_PUBLIC_URL`, `CORS_ORIGINS`                                                          | The web project's public URL.                                                                                                                                                                                                                                                                                |
+| `MFA_ENCRYPTION_KEYS` / `_KEY_ID`, `DATA_ENCRYPTION_KEYS` / `_KEY_ID`                     | Two different 32-byte key rings. Keep copies safe: without them encrypted data cannot be read.                                                                                                                                                                                                               |
+| `CRON_SECRET`                                                                             | Protects `/api/cron`. Same value as the GitHub secret of the same name.                                                                                                                                                                                                                                      |
+| `STORAGE_DRIVER=s3`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | **Required for documents.** A serverless disk is discarded between runs, so files must live in a bucket. `S3_ENDPOINT` only for S3-compatible services (Cloudflare R2, MinIO). Files are encrypted before upload; give the key only `GetObject` and `PutObject` on that bucket, and keep the bucket private. |
+| `SMTP_URL`, `MAIL_FROM`                                                                   | Outgoing email. Without them, emails stay queued.                                                                                                                                                                                                                                                            |
+| `ANTHROPIC_API_KEY` or `AWS_BEARER_TOKEN_BEDROCK` + `AWS_REGION` + `AI_MODEL`             | Optional AI. See [AI](../modules/AI.md).                                                                                                                                                                                                                                                                     |
+| `STARTUP_TASKS`, `BOOTSTRAP_*`, `PLATFORM_ADMIN_FIRST_OWNER`                              | First-run only. Set `STARTUP_TASKS=false` and `PLATFORM_ADMIN_FIRST_OWNER=false` once the first administrator exists.                                                                                                                                                                                        |
 
 **Web**: `NEXT_PUBLIC_API_URL` (the API project's public URL).
 
@@ -52,7 +53,7 @@ plan, email and webhooks therefore arrive up to five minutes after the event; a 
 - [ ] `GET <api>/api/cron` with the secret returns 200 and every sweep `ok`; without the secret, 401.
 - [ ] Add an employee, ask for a password reset: the email arrives within five minutes.
 - [ ] Create a webhook to a test receiver, press "Send test", see the delivery marked Sent.
-- [ ] Documents: **blocked until an object-storage driver exists** (see Known limits). Do not enable uploads on this setup before then.
+- [ ] Documents: upload, download, and see it again after a redeploy (needs `STORAGE_DRIVER=s3`, see below).
 - [ ] Sign in as a non-administrator and confirm admin screens refuse them.
 - [ ] Runtime logs show no errors for ten minutes of use; no secret or personal data appears in logs.
 - [ ] Take a database backup/branch and restore it into a scratch database; the app starts against it.
@@ -66,5 +67,4 @@ them in a later release).
 ## Known limits on this setup
 
 - No always-on worker, so no sub-minute scheduling.
-- **Document storage is local-disk only today** (`STORAGE_DRIVER=local`). A serverless function's disk is discarded between runs, so uploaded documents, signed PDFs and payslip files would be lost. Staging needs an S3-compatible storage driver (AWS S3, Cloudflare R2 or similar) before documents are used. Files are already encrypted before they are written, so the driver only has to store bytes.
 - Serverless functions are time-limited (60 s); large imports and exports run in pieces.

@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
+import { sha256Hex, signV4 } from '../common/sigv4.js';
 
 export const FILE_STORAGE = Symbol('FILE_STORAGE');
 
@@ -37,5 +38,75 @@ export class LocalFileStorage implements FileStorage {
 
   async get(key: string): Promise<Buffer> {
     return readFile(this.path(key));
+  }
+}
+
+export interface S3Options {
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken?: string | undefined;
+  /** For S3-compatible services (Cloudflare R2, MinIO). Left out, AWS S3 is used. */
+  endpoint?: string | undefined;
+  timeoutMs?: number;
+}
+
+/**
+ * Files in an S3 bucket (or an S3-compatible service), so they survive redeploys and serverless hosting. Only
+ * encrypted bytes are stored. Requests are signed here; no AWS library is needed. Credentials never appear in
+ * an error.
+ */
+export class S3FileStorage implements FileStorage {
+  constructor(private readonly options: S3Options) {}
+
+  private url(key: string): URL {
+    if (!KEY.test(key)) throw new Error('Invalid storage key');
+    const o = this.options;
+    return o.endpoint
+      ? new URL(`${o.endpoint.replace(/\/$/, '')}/${o.bucket}/${key}`)
+      : new URL(`https://${o.bucket}.s3.${o.region}.amazonaws.com/${key}`);
+  }
+
+  private async call(method: 'GET' | 'PUT', key: string, body?: Uint8Array): Promise<Response> {
+    const o = this.options;
+    const url = this.url(key);
+    const payload = body ?? new Uint8Array();
+    const headers = signV4({
+      method,
+      url,
+      body: payload,
+      region: o.region,
+      service: 's3',
+      accessKeyId: o.accessKeyId,
+      secretAccessKey: o.secretAccessKey,
+      sessionToken: o.sessionToken,
+      headers: {
+        'x-amz-content-sha256': sha256Hex(payload),
+        ...(body ? { 'content-type': 'application/octet-stream' } : {}),
+      },
+      doubleEncodePath: false,
+    });
+    try {
+      return await fetch(url, {
+        method,
+        headers,
+        ...(body ? { body: Buffer.from(body) } : {}),
+        signal: AbortSignal.timeout(o.timeoutMs ?? 30_000),
+      });
+    } catch {
+      throw new Error('Storage did not answer');
+    }
+  }
+
+  async put(key: string, data: Uint8Array): Promise<void> {
+    const res = await this.call('PUT', key, data);
+    if (!res.ok) throw new Error(`Storage refused the file (${res.status})`);
+  }
+
+  async get(key: string): Promise<Buffer> {
+    const res = await this.call('GET', key);
+    if (!res.ok) throw new Error(`Storage could not read the file (${res.status})`);
+    return Buffer.from(await res.arrayBuffer());
   }
 }

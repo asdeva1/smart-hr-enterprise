@@ -1,5 +1,5 @@
-import { createHash, createHmac } from 'node:crypto';
 import { AppError } from '@smart-hr/shared';
+import { signV4 } from '../common/sigv4.js';
 
 export type AiBlock =
   | { type: 'text'; text: string }
@@ -102,9 +102,6 @@ export interface BedrockAuth {
   sessionToken?: string | undefined;
 }
 
-const sha256 = (data: string) => createHash('sha256').update(data).digest('hex');
-const hmac = (key: string | Buffer, data: string) => createHmac('sha256', key).update(data).digest();
-
 /** SigV4 headers for one POST to Bedrock. Exported so the signing can be tested against known values. */
 export function signBedrockRequest(input: {
   url: URL;
@@ -113,38 +110,20 @@ export function signBedrockRequest(input: {
   auth: BedrockAuth;
   now?: Date;
 }): Record<string, string> {
-  const { url, body, region, auth } = input;
-  const iso = (input.now ?? new Date()).toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const day = iso.slice(0, 8);
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-    host: url.host,
-    'x-amz-date': iso,
-    ...(auth.sessionToken ? { 'x-amz-security-token': auth.sessionToken } : {}),
-  };
-  const names = Object.keys(headers).sort();
-  const canonicalHeaders = names.map((n) => `${n}:${headers[n]!.trim()}\n`).join('');
-  const signedHeaders = names.join(';');
-  // Each path segment is encoded twice for every service except S3.
-  const canonicalPath = url.pathname
-    .split('/')
-    .map((seg) =>
-      encodeURIComponent(seg).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`),
-    )
-    .join('/');
-  const canonical = ['POST', canonicalPath, '', canonicalHeaders, signedHeaders, sha256(body)].join('\n');
-  const scope = `${day}/${region}/bedrock/aws4_request`;
-  const toSign = ['AWS4-HMAC-SHA256', iso, scope, sha256(canonical)].join('\n');
-  const key = hmac(
-    hmac(hmac(hmac(`AWS4${auth.secretAccessKey ?? ''}`, day), region), 'bedrock'),
-    'aws4_request',
-  );
-  const signature = createHmac('sha256', key).update(toSign).digest('hex');
-  const { host: _host, ...send } = headers;
-  return {
-    ...send,
-    authorization: `AWS4-HMAC-SHA256 Credential=${auth.accessKeyId ?? ''}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-  };
+  return signV4({
+    method: 'POST',
+    url: input.url,
+    body: input.body,
+    region: input.region,
+    service: 'bedrock',
+    accessKeyId: input.auth.accessKeyId ?? '',
+    secretAccessKey: input.auth.secretAccessKey ?? '',
+    sessionToken: input.auth.sessionToken,
+    headers: { 'content-type': 'application/json' },
+    // Each path segment is encoded twice for every service except S3.
+    doubleEncodePath: true,
+    ...(input.now ? { now: input.now } : {}),
+  });
 }
 
 /**

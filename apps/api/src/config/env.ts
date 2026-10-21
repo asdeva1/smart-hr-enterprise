@@ -111,7 +111,14 @@ export const apiEnvSchema = baseServerEnvSchema
 
     // Document storage. Files are encrypted with DATA_ENCRYPTION_KEYS before they are written. `local` keeps
     // them on disk (development and in-house, on a mounted volume); object storage arrives with the AWS phase.
-    STORAGE_DRIVER: z.enum(['local']).default('local'),
+    STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+    // Used when STORAGE_DRIVER=s3 (AWS S3 or an S3-compatible service). Set S3_ENDPOINT only for the latter.
+    S3_BUCKET: z.string().min(3).max(63).optional(),
+    S3_REGION: z.string().min(2).max(30).optional(),
+    S3_ACCESS_KEY_ID: z.string().min(8).optional(),
+    S3_SECRET_ACCESS_KEY: z.string().min(8).optional(),
+    S3_SESSION_TOKEN: z.string().min(8).optional(),
+    S3_ENDPOINT: z.url().optional(),
     STORAGE_LOCAL_DIR: z.string().min(1).default('.data/storage'),
     DOCUMENT_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(50).default(10),
   })
@@ -168,6 +175,12 @@ export const apiEnvSchema = baseServerEnvSchema
           path: ['AWS_BEARER_TOKEN_BEDROCK'],
           message: 'or AWS_ACCESS_KEY_ID with AWS_SECRET_ACCESS_KEY is required for Bedrock',
         });
+      }
+    }
+    if (env.STORAGE_DRIVER === 's3') {
+      for (const name of ['S3_BUCKET', 'S3_REGION', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const) {
+        if (!env[name])
+          ctx.addIssue({ code: 'custom', path: [name], message: 'is required for STORAGE_DRIVER=s3' });
       }
     }
     if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
