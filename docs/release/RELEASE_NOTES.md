@@ -20,6 +20,7 @@ tenant data export, plans and entitlements, platform operator console.
 - First administrator created and able to sign in; first-run settings switched off.
 - Background sweeps authenticate and succeed.
 - Performance at 20,000 employees: every measured endpoint under 150 ms at the 95th percentile (`docs/PERFORMANCE.md`).
+- Backup and restore rehearsal (local PostgreSQL 16, 2026-10-21): a full dump restored into an empty database with all 116 row-level security policies, 6 organisations and 22 employees matching the source. A rehearsal against Neon (branch or point-in-time restore) is still required.
 - Dependency audit: no known high-severity vulnerabilities in production dependencies.
 
 ## Not yet done (blocks calling it production-ready)
