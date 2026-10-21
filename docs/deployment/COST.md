@@ -15,15 +15,15 @@ them again before committing budget. Usage assumptions are ours, not measured on
 
 ## Scenarios
 
-|                           | Staging (demo, a few users)                   | Early production (about 500 employees, always on)                                                                                              |
-| ------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vercel                    | $20 (one seat, two projects)                  | $20 to $40 (one or two seats; usage mostly inside the credit)                                                                                  |
-| Neon                      | $0 to $5 (Free or Launch, suspends when idle) | $40 to $80 (Scale, 0.5 to 1 compute unit always on is about $80 to $160 at full-time 1 CU; Launch with autosuspend off about $40 per CU-month) |
-| Upstash                   | $0 (free tier)                                | $0 to $10 (cron sweeps every 5 minutes are about 9K invocations a month; command count is the unknown, see below)                              |
-| S3                        | under $1                                      | $1 to $5 (tens of GB of documents)                                                                                                             |
-| Email (SMTP provider)     | $0 (free tier)                                | $0 to $20                                                                                                                                      |
-| AI (Bedrock or Anthropic) | $0 until enabled                              | usage based; org budgets cap it                                                                                                                |
-| **Total**                 | **about $20 to $30 a month**                  | **about $60 to $150 a month**                                                                                                                  |
+|                           | Staging (demo, a few users)                   | Early production (about 500 employees, always on)                                                                 |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Vercel                    | $20 (one seat, two projects)                  | $20 to $40 (one or two seats; usage mostly inside the credit)                                                     |
+| Neon                      | $0 to $5 (Free or Launch, suspends when idle) | $40 to $80 (Launch with autosuspend off, about 0.5 to 1 compute unit)                                             |
+| Upstash                   | $0 (free tier)                                | $0 to $10 (cron sweeps every 5 minutes are about 9K invocations a month; command count is the unknown, see below) |
+| S3                        | under $1                                      | $1 to $5 (tens of GB of documents)                                                                                |
+| Email (SMTP provider)     | $0 (free tier)                                | $0 to $20                                                                                                         |
+| AI (Bedrock or Anthropic) | $0 until enabled                              | usage based; org budgets cap it                                                                                   |
+| **Total**                 | **about $20 to $30 a month**                  | **about $60 to $150 a month**                                                                                     |
 
 ## What would move the numbers
 
