@@ -42,7 +42,7 @@ background work runs through the cron endpoint (see [Background work](#backgroun
 
 ## Background work
 
-`GET /api/cron` (header `Authorization: Bearer $CRON_SECRET`) runs the sweeps: email outbox, approval escalation,
+`GET /api/cron` (header `Authorization: Bearer $CRON_SECRET`) runs the sweeps: queued emails (password resets, invitations), email outbox, approval escalation,
 subscription expiry, document reminders and webhook delivery. Vercel Cron calls it daily (free-plan limit) and the
 GitHub workflow `sweeps.yml` calls it every five minutes. `?jobs=outbox,webhooks` limits a run. On the free
 plan, email and webhooks therefore arrive up to five minutes after the event; a paid plan can schedule it every minute.

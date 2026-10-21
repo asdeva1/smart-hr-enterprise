@@ -70,6 +70,7 @@ describe('scheduled sweeps endpoint', () => {
     expect(reply.status).toBe(200);
     expect(reply.body.runs?.map((r) => r.job)).toEqual([
       'outbox',
+      'mail',
       'escalation',
       'subscriptions',
       'documents',
