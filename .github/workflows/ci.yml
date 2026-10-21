@@ -31,6 +31,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
+      - name: Known vulnerabilities in production dependencies
+        run: pnpm audit --prod --audit-level=high
       - run: ./scripts/check-migrations.sh
       - name: Validate in-house compose file
         run: |
