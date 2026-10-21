@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { ApiError, apiFetch, type SessionView } from '@/lib/api';
 import { useSetSession } from '@/lib/session';
+import { GlobalSearch } from './global-search';
 import { NotificationBell } from './notification-bell';
 import { Button } from './ui/button';
 
@@ -63,6 +64,7 @@ export function ShellHeader({ session }: { session: SessionView }) {
           </span>
         )}
       </div>
+      {session.activeTenant && <GlobalSearch />}
       {session.activeTenant && <NotificationBell />}
       <Link
         href="/account/security"

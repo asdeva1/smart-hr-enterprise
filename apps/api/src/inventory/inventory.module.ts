@@ -8,6 +8,7 @@ import { InventoryService } from './inventory.service.js';
   imports: [AttendanceModule],
   controllers: [InventoryController],
   providers: [InventoryService],
+  exports: [InventoryService],
 })
 export class InventoryModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}
