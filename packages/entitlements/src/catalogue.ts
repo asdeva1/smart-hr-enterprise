@@ -128,7 +128,8 @@ const PREMIUM: Feature[] = [
 ];
 
 /**
- * The starting catalogue: the four plans from the product brief, with no prices. Platform operators set
+ * The starting catalogue: the four plans from the product brief, with no prices. A licence covers one company
+ * (extra legal entities need their own licence) and is sold per employee. Platform operators set
  * prices, change quotas and publish new versions; these templates are only used to create version 1 of a
  * plan that does not exist yet, and never overwrite what operators have changed.
  */
@@ -185,7 +186,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
       'storage.gb': 100,
       'ai.tokens.monthly': 2_000_000,
       'operations.workspaces.max': 3,
-      'companies.max': 3,
+      'companies.max': 1,
     },
     trialDays: 14,
     graceDays: 14,
@@ -204,7 +205,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
       'storage.gb': 500,
       'ai.tokens.monthly': 10_000_000,
       'operations.workspaces.max': 10,
-      'companies.max': 10,
+      'companies.max': 1,
     },
     trialDays: 30,
     graceDays: 30,

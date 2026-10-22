@@ -19,6 +19,8 @@ export interface SubscriptionState {
   currentPeriodEnd: Date | null;
   /** Explicit grace deadline set by an operator (e.g. after a failed payment). */
   graceEndsAt: Date | null;
+  /** Employees bought on a per-employee licence; caps the plan's employee limit. Null = plan limit only. */
+  licensedEmployees?: number | null;
 }
 
 export interface PlanState {
@@ -114,7 +116,7 @@ function addLimit(current: number | null | undefined, increment: number | null, 
 
 /**
  * Combines plan, add-ons and operator overrides into what the organisation is entitled to.
- * Order: plan → add-ons (features added, limits increased) → overrides (features granted or removed,
+ * Order: plan (capped by the purchased employee count) → add-ons (features added, limits increased) → overrides (features granted or removed,
  * limits set to an exact value). Unknown keys are ignored, so a catalogue change can't break resolution.
  */
 export function resolveEntitlements(input: {
@@ -133,6 +135,11 @@ export function resolveEntitlements(input: {
   if (plan) {
     for (const f of plan.features) if (isFeature(f)) features.add(f);
     for (const [k, v] of Object.entries(plan.limits)) if (isLimitKey(k)) limits[k] = v ?? null;
+    const licensed = subscription?.licensedEmployees;
+    if (licensed != null) {
+      const planCap = limits['employees.max'];
+      limits['employees.max'] = planCap == null ? licensed : Math.min(planCap, licensed);
+    }
     for (const addon of input.addons ?? []) {
       if (addon.quantity <= 0) continue;
       for (const f of addon.features) if (isFeature(f)) features.add(f);

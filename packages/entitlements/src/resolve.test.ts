@@ -59,6 +59,21 @@ describe('effectiveStatus', () => {
   });
 });
 
+describe('per-employee licences', () => {
+  it('caps the employee limit at the number bought, never above the plan', () => {
+    const at = (licensedEmployees: number | null, planCap: number | null) =>
+      resolveEntitlements({
+        plan: { ...pro, limits: { 'employees.max': planCap } },
+        subscription: sub({ licensedEmployees }),
+        now: NOW,
+      }).limits['employees.max'];
+    expect(at(40, null)).toBe(40); // plan has no cap of its own: the licence is the cap
+    expect(at(40, 300)).toBe(40);
+    expect(at(500, 300)).toBe(300); // buying more than the plan allows doesn't lift the plan's cap
+    expect(at(null, 300)).toBe(300); // no licence recorded: the plan limit applies
+  });
+});
+
 describe('resolveEntitlements', () => {
   it('gives full access to plan features while active', () => {
     const e = resolveEntitlements({ plan: pro, subscription: sub({}), now: NOW });

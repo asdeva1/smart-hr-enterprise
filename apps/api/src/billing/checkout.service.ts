@@ -123,6 +123,7 @@ export class CheckoutService {
           planVersionId: version.id,
           billingPeriod: input.billingPeriod,
           quantity,
+          licensedEmployees: price.pricingModel === 'PER_EMPLOYEE' ? quantity : null,
           currency: CURRENCY,
           amountMinor,
           providerOrderId: remote.id,
@@ -225,6 +226,7 @@ export class CheckoutService {
           currency: order.currency,
           provider: order.provider,
           providerRef: paymentId,
+          licensedEmployees: order.licensedEmployees,
         },
       });
       await tx.checkoutOrder.update({ where: { id: order.id }, data: { tenantId: tenant.id } });

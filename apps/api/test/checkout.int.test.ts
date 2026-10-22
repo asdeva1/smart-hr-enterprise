@@ -209,6 +209,7 @@ describe('confirming a payment', () => {
       provider: 'razorpay',
       providerRef: body.paymentId,
       billingPeriod: 'MONTHLY',
+      licensedEmployees: 20, // per-employee price: the 20 employees bought are the organisation's limit
       planVersion: { plan: { code: planCode } },
     });
     expect(sub.currentPeriodEnd!.getTime()).toBeGreaterThan(Date.now() + 27 * 86_400_000);

@@ -105,6 +105,8 @@ export const assignSubscriptionSchema = z
     currency: currency.default('INR'),
     /** For TRIAL: override the plan's trial length. */
     trialDays: z.coerce.number().int().min(1).max(365).optional(),
+    /** Per-employee licence: how many employees the organisation has bought. Omit for the plan's own limit. */
+    licensedEmployees: z.coerce.number().int().min(1).max(1_000_000).nullable().optional(),
     /** For ACTIVE: end of the paid period; omit for open-ended contracts. */
     currentPeriodEnd: isoDate.nullable().optional(),
     reason: z.string().trim().max(500).optional(),

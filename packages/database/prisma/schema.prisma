@@ -839,6 +839,8 @@ model Subscription {
   /// Null = open-ended (e.g. an annual contract invoiced offline and renewed by an operator).
   currentPeriodEnd   DateTime?           @map("current_period_end") @db.Timestamptz(6)
   graceEndsAt        DateTime?           @map("grace_ends_at") @db.Timestamptz(6)
+  /// Employees this licence covers (per-employee sales). Null = only the plan's own employee limit applies.
+  licensedEmployees  Int?                @map("licensed_employees")
   cancelledAt        DateTime?           @map("cancelled_at") @db.Timestamptz(6)
   /// Billing provider, e.g. `manual`. Card data is never stored here.
   provider           String              @default("manual")
@@ -945,6 +947,8 @@ model CheckoutOrder {
   billingPeriod     BillingPeriod  @map("billing_period")
   /// Members or employees, for per-unit pricing; 1 for flat pricing.
   quantity          Int            @default(1)
+  /// Set when the price is per employee: becomes the organisation's employee limit.
+  licensedEmployees Int?           @map("licensed_employees")
   currency          String         @db.Char(3)
   /// In the currency's smallest unit (paise for INR).
   amountMinor       Int            @map("amount_minor")

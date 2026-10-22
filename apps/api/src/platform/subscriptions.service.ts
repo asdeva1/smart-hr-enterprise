@@ -192,6 +192,7 @@ export class SubscriptionsService {
           currentPeriodEnd: input.status === 'ACTIVE' ? (input.currentPeriodEnd ?? null) : null,
           graceEndsAt: null,
           cancelledAt: null,
+          licensedEmployees: input.licensedEmployees ?? null,
         } satisfies Partial<Subscription>;
 
         await tx.$queryRaw`SELECT 1 FROM tenant WHERE id = ${tenantId}::uuid FOR UPDATE`;

@@ -80,6 +80,7 @@ export class EntitlementsService {
             trialEndsAt: sub.trialEndsAt,
             currentPeriodEnd: sub.currentPeriodEnd,
             graceEndsAt: sub.graceEndsAt,
+            licensedEmployees: sub.licensedEmployees,
           }
         : null,
       addons: (sub?.addons ?? [])
