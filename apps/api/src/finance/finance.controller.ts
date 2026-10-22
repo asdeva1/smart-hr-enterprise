@@ -33,6 +33,9 @@ import { ReportsService } from './reports.service.js';
 
 const id = () => new ParseUUIDPipe();
 const companyQuery = z.object({ companyId: z.uuid() });
+const dateOnlyQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const bookQuerySchema = z.object({ companyId: z.uuid(), from: dateOnlyQuery, to: dateOnlyQuery });
+const cashBookQuerySchema = bookQuerySchema.extend({ kind: z.enum(['CASH', 'BANK', 'ALL']).default('ALL') });
 
 @ApiTags('finance')
 @RequireFeature('finance')
@@ -167,6 +170,28 @@ export class FinanceController {
     @Req() req: AppRequest,
   ) {
     return this.books.reverseJournal(tenant, auth, journalId, body, requestMeta(req));
+  }
+
+  @Get('books-of-accounts/day-book')
+  @RequirePermission('finance.view')
+  @ApiOperation({ summary: 'Day book: every posted journal in a period' })
+  dayBook(
+    @Query({ schema: bookQuerySchema }) q: z.output<typeof bookQuerySchema>,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentAuth() auth: AuthContext,
+  ) {
+    return this.reports.dayBook(tenant, auth, q.companyId, q.from, q.to);
+  }
+
+  @Get('books-of-accounts/cash-book')
+  @RequirePermission('finance.view')
+  @ApiOperation({ summary: 'Cash book and bank book with opening and running balances' })
+  cashBook(
+    @Query({ schema: cashBookQuerySchema }) q: z.output<typeof cashBookQuerySchema>,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentAuth() auth: AuthContext,
+  ) {
+    return this.reports.cashBook(tenant, auth, q.companyId, q.from, q.to, q.kind);
   }
 
   @Get('reports/trial-balance')

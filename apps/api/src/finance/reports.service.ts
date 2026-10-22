@@ -125,4 +125,74 @@ export class ReportsService {
       };
     });
   }
+
+  /** Every posted journal in a period, oldest first, with its lines: the day book. */
+  async dayBook(tenant: TenantContext, auth: AuthContext, companyId: string, from: string, to: string) {
+    return this.books.run(tenant, auth, async (tx) => {
+      const company = await this.books.assertCompany(tx, tenant, companyId, 'finance.view');
+      const entries = await tx.journalEntry.findMany({
+        where: { companyId, status: 'POSTED', date: { gte: toDate(from), lte: toDate(to) } },
+        orderBy: [{ date: 'asc' }, { number: 'asc' }],
+        take: 2000,
+        select: {
+          id: true,
+          number: true,
+          date: true,
+          narration: true,
+          source: true,
+          total: true,
+          lines: {
+            orderBy: { position: 'asc' },
+            select: {
+              id: true,
+              debit: true,
+              credit: true,
+              narration: true,
+              account: { select: { code: true, name: true } },
+            },
+          },
+        },
+      });
+      const rows = entries.map((e) => ({
+        id: e.id,
+        number: e.number,
+        date: iso(e.date),
+        narration: e.narration,
+        source: e.source,
+        total: Number(e.total),
+        lines: e.lines.map((l) => ({
+          id: l.id,
+          account: `${l.account.code} · ${l.account.name}`,
+          debit: Number(l.debit),
+          credit: Number(l.credit),
+          narration: l.narration,
+        })),
+      }));
+      return { company, from, to, rows, total: rows.reduce((s, r) => s + r.total, 0) };
+    });
+  }
+
+  /** The ledgers of the cash and bank accounts: the cash book and bank book. */
+  async cashBook(
+    tenant: TenantContext,
+    auth: AuthContext,
+    companyId: string,
+    from: string,
+    to: string,
+    kind: 'CASH' | 'BANK' | 'ALL',
+  ) {
+    const accounts = await this.books.run(tenant, auth, async (tx) => {
+      await this.books.assertCompany(tx, tenant, companyId, 'finance.view');
+      const chart = await this.books.chartIn(tx, tenant.id, companyId);
+      return chart.filter(
+        (a) =>
+          a.status === 'ACTIVE' &&
+          a.systemKey !== null &&
+          (kind === 'ALL' ? ['CASH', 'BANK'].includes(a.systemKey) : a.systemKey === kind),
+      );
+    });
+    const books = [];
+    for (const a of accounts) books.push(await this.ledger(tenant, auth, a.id, from, to));
+    return { from, to, books };
+  }
 }

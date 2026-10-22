@@ -165,6 +165,13 @@ const NAV: NavGroup[] = [
     icon: Landmark,
     items: [
       { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
+      {
+        label: 'Books of accounts',
+        icon: BookOpen,
+        href: '/finance/books-of-accounts',
+        permission: 'finance.view',
+        feature: 'finance',
+      },
       { label: 'Payroll', icon: Wallet, href: '/payroll', permission: 'payroll.view', feature: 'payroll' },
       { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
       {

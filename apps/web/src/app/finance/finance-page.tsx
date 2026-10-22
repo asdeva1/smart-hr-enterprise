@@ -15,14 +15,16 @@ import { cn } from '@/lib/utils';
 export function FinancePage({
   children,
   permission = 'finance.view',
+  active = 'Finance',
 }: {
   children: (session: SessionView) => ReactNode;
   permission?: string;
+  active?: string;
 }) {
   return (
     <RequireSession permission={permission}>
       {(session) => (
-        <AppShell active="Finance" session={session}>
+        <AppShell active={active} session={session}>
           {hasFeature(session, 'finance') ? (
             children(session)
           ) : (
@@ -38,6 +40,7 @@ export function FinanceTabs({ session, active }: { session: SessionView; active:
   const tabs = [
     { href: '/finance', label: 'Journals' },
     { href: '/finance/accounts', label: 'Chart of accounts' },
+    { href: '/finance/books-of-accounts', label: 'Books of accounts' },
     { href: '/finance/reports', label: 'Reports' },
     ...(can(session, 'finance.configure') ? [{ href: '/finance/books', label: 'Close the books' }] : []),
   ];

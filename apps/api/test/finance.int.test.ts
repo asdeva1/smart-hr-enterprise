@@ -288,6 +288,27 @@ describe('journals', () => {
     expect(ledger).toMatchObject({ opening: 500_000, closing: 460_000 });
     expect(ledger.rows).toHaveLength(1);
   });
+
+  it('show up in the day book and the bank book', async () => {
+    const day = (
+      await viewer.get(
+        `/v1/finance/books-of-accounts/day-book?companyId=${acme}&from=2026-04-01&to=2026-04-30`,
+      )
+    ).body;
+    expect(day.rows.length).toBeGreaterThan(0);
+    for (const e of day.rows) {
+      const d = e.lines.reduce((t: number, l: { debit: number }) => t + l.debit, 0);
+      const c = e.lines.reduce((t: number, l: { credit: number }) => t + l.credit, 0);
+      expect(d).toBe(c);
+    }
+    const bank = (
+      await viewer.get(
+        `/v1/finance/books-of-accounts/cash-book?companyId=${acme}&from=2026-04-10&to=2026-04-30&kind=BANK`,
+      )
+    ).body;
+    expect(bank.books).toHaveLength(1);
+    expect(bank.books[0]).toMatchObject({ opening: 500_000, closing: 460_000 });
+  });
 });
 
 describe('payroll in the books', () => {
