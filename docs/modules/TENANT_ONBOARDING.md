@@ -33,6 +33,7 @@ where.
 | ----------------------------- | ------- | -------------------------------------------- |
 | `SIGNUP_ENABLED`              | `false` | Turns on self-service sign-up                |
 | `SIGNUP_PLAN`                 | `PRO`   | Plan code whose latest version is trialled   |
+| `SIGNUP_BLOCK_FREE_EMAIL`     | `true`  | Refuse gmail.com and similar; ask for a work address |
 | `SIGNUP_TTL_HOURS`            | `24`    | How long the emailed link works              |
 | `SIGNUP_RATE_LIMIT_PER_IP`    | `10`    | Requests per hour per IP address             |
 | `SIGNUP_RATE_LIMIT_PER_EMAIL` | `3`     | Requests per hour per email address          |

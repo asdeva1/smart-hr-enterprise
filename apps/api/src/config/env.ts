@@ -61,6 +61,8 @@ export const apiEnvSchema = baseServerEnvSchema
       .string()
       .regex(/^[A-Z][A-Z0-9_]{1,29}$/)
       .default('PRO'),
+    /** Refuse sign-ups from consumer mailboxes (gmail.com and similar); demo and trials need a work address. */
+    SIGNUP_BLOCK_FREE_EMAIL: z.stringbool().default(true),
     SIGNUP_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
     SIGNUP_RATE_LIMIT_PER_IP: z.coerce.number().int().min(1).default(10),
     SIGNUP_RATE_LIMIT_PER_EMAIL: z.coerce.number().int().min(1).default(3),

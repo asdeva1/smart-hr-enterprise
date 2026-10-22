@@ -134,6 +134,27 @@ const PREMIUM: Feature[] = [
  */
 export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
+    // The website's free demo: a small, time-limited sample of the product. Not sold, and hidden from the
+    // public plans list. It must stay a subset of Lite.
+    code: 'DEMO',
+    name: 'Demo',
+    description: 'A 14-day look at core HR, attendance and leave with a limited team size.',
+    sortOrder: 5,
+    features: ['hr.core', 'attendance.basic', 'leave.basic', 'reports.standard'],
+    limits: {
+      'users.max': 5,
+      'employees.max': 25,
+      'storage.gb': 1,
+      'ai.tokens.monthly': 0,
+      'operations.workspaces.max': 0,
+      'companies.max': 1,
+    },
+    trialDays: 14,
+    graceDays: 0,
+    supportLevel: 'STANDARD',
+    deploymentModels: ['SAAS'],
+  },
+  {
     code: 'LITE',
     name: 'Lite',
     description: 'Core HR, directory, attendance and leave for small teams.',

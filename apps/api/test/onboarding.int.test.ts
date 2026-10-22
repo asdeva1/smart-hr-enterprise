@@ -342,6 +342,33 @@ describe('self-service sign-up', () => {
     expect(mail!.subject).toBe('You already have a Smart HR account');
   });
 
+  it('asks for a company address and creates nothing for a consumer mailbox', async () => {
+    const email = `signup-${fx.run}@gmail.com`;
+    const res = await new Browser(app).send('post', '/v1/signup', {
+      organisationName: 'Personal Co',
+      displayName: 'Pat Personal',
+      email,
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('WORK_EMAIL_REQUIRED');
+    expect(await db.signupRequest.count({ where: { email } })).toBe(0);
+    expect(await queuedEmails(env, email)).toHaveLength(0);
+  });
+
+  it('lists published plans for the website without the demo plan or any organisation data', async () => {
+    const res = await new Browser(app).get('/v1/public/plans');
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toContain('public');
+    const codes = (res.body.plans as { code: string }[]).map((p) => p.code);
+    expect(codes).toEqual(expect.arrayContaining(['LITE', 'PRO', 'PREMIUM', 'ENTERPRISE']));
+    expect(codes).not.toContain('DEMO');
+    const pro = (res.body.plans as { code: string; modules: unknown[]; limits: unknown[] }[]).find(
+      (p) => p.code === 'PRO',
+    )!;
+    expect(pro.modules.length).toBeGreaterThan(0);
+    expect(pro.limits.length).toBeGreaterThan(0);
+  });
+
   it('is unavailable unless enabled', async () => {
     const closed = await startApp(testEnv());
     try {

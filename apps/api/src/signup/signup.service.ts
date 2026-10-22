@@ -10,7 +10,12 @@ import {
 } from '@smart-hr/auth';
 import { withContext, type DatabaseClient } from '@smart-hr/database';
 import { AppError, NotFoundError } from '@smart-hr/shared';
-import type { completeSignupSchema, signupSchema } from '@smart-hr/validation';
+import {
+  isFreeEmailDomain,
+  WORK_EMAIL_MESSAGE,
+  type completeSignupSchema,
+  type signupSchema,
+} from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService, emailFingerprint } from '../audit/audit.service.js';
 import { RateLimiterService } from '../auth/rate-limiter.service.js';
@@ -58,6 +63,12 @@ export class SignupService {
   async request(input: z.output<typeof signupSchema>, meta: RequestMeta): Promise<void> {
     this.requireEnabled();
     const email = normalizeEmail(input.email);
+    // About the domain only, so it says nothing about whether an address has an account.
+    if (this.env.SIGNUP_BLOCK_FREE_EMAIL && isFreeEmailDomain(email)) {
+      throw new AppError('WORK_EMAIL_REQUIRED', WORK_EMAIL_MESSAGE, 422, [
+        { path: 'email', message: WORK_EMAIL_MESSAGE },
+      ]);
+    }
     await this.limiter.consume('signup-ip', meta.ip ?? 'unknown', this.env.SIGNUP_RATE_LIMIT_PER_IP, 60 * 60);
     await this.limiter.consume('signup-email', email, this.env.SIGNUP_RATE_LIMIT_PER_EMAIL, 60 * 60);
 
