@@ -773,6 +773,7 @@ model PlanVersion {
   plan             Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
   prices           PlanPrice[]
   subscriptions    Subscription[]
+  checkoutOrders   CheckoutOrder[]
 
   @@unique([planId, version])
   @@map("plan_version")
@@ -923,6 +924,41 @@ model SignupRequest {
 
   @@index([email])
   @@map("signup_request")
+}
+
+enum CheckoutStatus {
+  PENDING
+  PAID
+
+  @@map("checkout_status")
+}
+
+/// A purchase started on the website: who is buying what, and the payment provider's order for it. Rows exist
+/// before any organisation does, so only platform actors (the checkout service) can see or write them. When the
+/// payment is confirmed, the organisation is created and `tenantId` is set. Card data never reaches us.
+model CheckoutOrder {
+  id                String         @id @default(uuid(7)) @db.Uuid
+  email             String
+  displayName       String         @map("display_name")
+  organisationName  String         @map("organisation_name")
+  planVersionId     String         @map("plan_version_id") @db.Uuid
+  billingPeriod     BillingPeriod  @map("billing_period")
+  /// Members or employees, for per-unit pricing; 1 for flat pricing.
+  quantity          Int            @default(1)
+  currency          String         @db.Char(3)
+  /// In the currency's smallest unit (paise for INR).
+  amountMinor       Int            @map("amount_minor")
+  provider          String         @default("razorpay")
+  providerOrderId   String         @unique @map("provider_order_id")
+  providerPaymentId String?        @unique @map("provider_payment_id")
+  status            CheckoutStatus @default(PENDING)
+  tenantId          String?        @map("tenant_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidAt            DateTime?      @map("paid_at") @db.Timestamptz(6)
+  planVersion       PlanVersion    @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+
+  @@index([email])
+  @@map("checkout_order")
 }
 
 /// One row per installation, created by the migration. Its id binds an in-house licence to this installation.

@@ -67,6 +67,15 @@ export const apiEnvSchema = baseServerEnvSchema
     SIGNUP_RATE_LIMIT_PER_IP: z.coerce.number().int().min(1).default(10),
     SIGNUP_RATE_LIMIT_PER_EMAIL: z.coerce.number().int().min(1).default(3),
 
+    // Buying a plan from the website (off unless enabled). The provider is Razorpay; use its test keys on staging.
+    CHECKOUT_ENABLED: z.stringbool().default(false),
+    RAZORPAY_KEY_ID: z.string().min(8).optional(),
+    RAZORPAY_KEY_SECRET: z.string().min(8).optional(),
+    /** The secret set on the webhook in the Razorpay dashboard; signs every event Razorpay sends us. */
+    RAZORPAY_WEBHOOK_SECRET: z.string().min(8).optional(),
+    /** Overridden only in tests, to point at a local stand-in for Razorpay. */
+    RAZORPAY_API_BASE: z.url().default('https://api.razorpay.com'),
+
     // In-house licensing: public keys only (`keyId:base64 SPKI`, comma-separated). Never a private key.
     LICENCE_PUBLIC_KEYS: z
       .string()
@@ -205,6 +214,20 @@ export const apiEnvSchema = baseServerEnvSchema
           code: 'custom',
           path: ['SIGNUP_ENABLED'],
           message: 'self-service sign-up is not available in-house',
+        });
+      }
+    }
+    if (env.CHECKOUT_ENABLED) {
+      for (const key of ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RAZORPAY_WEBHOOK_SECRET'] as const) {
+        if (!env[key]) {
+          ctx.addIssue({ code: 'custom', path: [key], message: 'is required when CHECKOUT_ENABLED=true' });
+        }
+      }
+      if (env.DEPLOYMENT_MODE === 'inhouse') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CHECKOUT_ENABLED'],
+          message: 'online purchase is not available in-house',
         });
       }
     }

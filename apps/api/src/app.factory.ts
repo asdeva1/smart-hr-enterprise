@@ -25,6 +25,8 @@ export async function createApp(
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env, logger, extraModules), {
     bufferLogs: true,
+    // The payment provider signs the exact bytes of its webhook, so requests keep the unparsed body.
+    rawBody: true,
   });
 
   app.useLogger(app.get(Logger));

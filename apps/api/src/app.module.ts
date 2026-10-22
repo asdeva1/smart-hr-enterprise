@@ -34,6 +34,7 @@ import { MasterDataModule } from './master-data/master-data.module.js';
 import { OrgModule } from './org/org.module.js';
 import { PlatformModule } from './platform/platform.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
+import { BillingModule } from './billing/billing.module.js';
 import { SignupModule } from './signup/signup.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
 
@@ -91,6 +92,7 @@ export class AppModule {
         FinanceModule,
         PlatformModule,
         SignupModule,
+        BillingModule,
         ...extraModules,
       ],
       controllers: [HealthController],
