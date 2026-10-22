@@ -28,6 +28,7 @@ jobs:
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET is not set; skipping."; exit 0; fi
           code=$(curl -sS -m 90 -o /tmp/out.json -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron")
           cat /tmp/out.json; echo
+          echo "::notice title=Sweep result (HTTP $code)::$(head -c 600 /tmp/out.json | tr '\n' ' ')"
           if [ "$code" != "200" ]; then
             echo "::error title=Sweep failed (HTTP $code)::$(head -c 400 /tmp/out.json | tr '\n' ' ')"
             exit 1
