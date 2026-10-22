@@ -13,11 +13,13 @@ export interface MailQueueResult {
 
 const BATCH = 25;
 
-/** An SMTP response code or error name, never the message (it can echo the address). */
+/** The SMTP reply (code and reason) for the logs, with any email address masked. */
 function errorCode(e: unknown): string {
-  const code = (e as { responseCode?: unknown; code?: unknown } | null) ?? {};
-  if (typeof code.responseCode === 'number') return String(code.responseCode);
-  if (typeof code.code === 'string') return code.code;
+  const err = (e as { responseCode?: unknown; code?: unknown; response?: unknown } | null) ?? {};
+  const reason =
+    typeof err.response === 'string' ? err.response.replace(/\S+@\S+/g, '[address]').slice(0, 160) : '';
+  if (typeof err.responseCode === 'number') return `${err.responseCode} ${reason}`.trim();
+  if (typeof err.code === 'string') return err.code;
   return e instanceof Error ? e.name : 'error';
 }
 
