@@ -5,14 +5,28 @@ automatic payroll postings. Requires the `finance` plan feature. Design: [ADR 00
 
 ## Permissions
 
-| Permission          | Allows                                            | System roles        |
-| ------------------- | ------------------------------------------------- | ------------------- |
-| `finance.view`      | Chart of accounts, journals, ledgers and reports  | Accountant, Auditor |
-| `finance.manage`    | Draft, submit, cancel and reverse journals        | Accountant          |
-| `finance.configure` | Add and edit accounts; close and reopen the books | Accountant          |
+| Permission          | Allows                                            | System roles                      |
+| ------------------- | ------------------------------------------------- | --------------------------------- |
+| `finance.view`      | Chart of accounts, journals, ledgers and reports  | Accountant, Finance team, Auditor |
+| `finance.manage`    | Draft, submit, cancel and reverse journals        | Accountant                        |
+| `finance.configure` | Add and edit accounts; close and reopen the books | Accountant                        |
 
 All are scope-checked against the company (tenant or company scope). Approvers named on a journal's
 approval can open that journal without `finance.view`.
+
+## Who sees what
+
+The sidebar groups modules as My work, HR, Accounts & Finance, Operations and Administration. A group opens on
+click and only appears when the member can use something in it. Organisation owners and the Organisation
+administrator role hold every permission.
+
+| Role               | Sees                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- |
+| HR administrator   | HR only: employees, attendance, leave, documents, recruitment, onboarding         |
+| Finance team       | Accounts & Finance: books, payroll, expenses, vendors, procurement                |
+| Operations manager | Operations: departments and teams, projects, assets, inventory, operations spaces |
+
+Everyone keeps their own self-service pages under My work (attendance, leave, approvals, expenses, payslips).
 
 ## Chart of accounts
 

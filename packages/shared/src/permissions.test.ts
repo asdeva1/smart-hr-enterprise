@@ -66,6 +66,34 @@ describe('catalogue', () => {
   });
 });
 
+describe('team roles stay in their own area', () => {
+  const perms = (key: string) => SYSTEM_ROLES.find((r) => r.key === key)!.permissions;
+  const has = (key: string, prefix: string) => perms(key).some((p) => p.startsWith(prefix));
+
+  it('keeps HR out of finance, payroll and operations', () => {
+    for (const area of ['finance.', 'payroll.', 'expenses.', 'vendors.', 'procurement.', 'operations.']) {
+      expect(has('hr_admin', area)).toBe(false);
+    }
+  });
+  it('gives the finance team accounts and payroll but not HR records or operations', () => {
+    expect(has('finance_team', 'finance.manage')).toBe(true);
+    expect(has('finance_team', 'payroll.manage')).toBe(true);
+    for (const area of ['employees.manage', 'employees.lifecycle', 'leave.', 'recruitment.', 'operations.']) {
+      expect(has('finance_team', area)).toBe(false);
+    }
+  });
+  it('gives operations managers structure and operations but not money or personal HR data', () => {
+    expect(has('operations_manager', 'org.manage')).toBe(true);
+    expect(has('operations_manager', 'operations.manage')).toBe(true);
+    for (const area of ['finance.', 'payroll.', 'employees.sensitive', 'employees.manage', 'expenses.']) {
+      expect(has('operations_manager', area)).toBe(false);
+    }
+  });
+  it('gives organisation administrators every permission', () => {
+    expect(new Set(perms('org_admin'))).toEqual(new Set(ALL_PERMISSIONS));
+  });
+});
+
 describe('scopesFor', () => {
   const tenant = 't1';
   it('is ALL for owners and tenant-wide holders, else the held scopes', () => {

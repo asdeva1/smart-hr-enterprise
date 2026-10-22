@@ -5,7 +5,9 @@ import {
   Building,
   Building2,
   CalendarDays,
-  ChartColumn,
+  ChevronDown,
+  Landmark,
+  UserRound,
   CircleCheck,
   Clock,
   DatabaseBackup,
@@ -59,6 +61,12 @@ interface NavItem {
   permission?: string;
   /** Hidden unless the organisation's plan includes this feature. The API enforces it regardless. */
   feature?: string;
+  /** Shown when the member holds any one of these (instead of a single `permission`). */
+  any?: string[];
+  /** Another page title that highlights this item (for example the payslips item on the Payroll pages). */
+  activeAs?: string;
+  /** Hidden for members who hold this permission (they see the full module elsewhere). */
+  unless?: string;
   /** Only for platform administrators. */
   platform?: boolean;
   /** Only for owners of the active organisation. */
@@ -67,10 +75,66 @@ interface NavItem {
   modes?: SessionView['deploymentMode'][];
 }
 
-const NAV: { section?: string; items: NavItem[] }[] = [
-  { items: [{ label: 'Dashboard', icon: LayoutGrid, href: '/' }] },
+/**
+ * The sidebar. Groups open and close on click, and a group only appears when the member can use something in
+ * it, so HR, finance and operations teams each see their own area. Organisation owners hold every
+ * permission, so they see everything. The API enforces access regardless of what is shown here.
+ */
+interface NavGroup {
+  id: string;
+  title?: string;
+  icon?: LucideIcon;
+  items: NavItem[];
+}
+
+const NAV: NavGroup[] = [
+  { id: 'top', items: [{ label: 'Dashboard', icon: LayoutGrid, href: '/' }] },
   {
-    section: 'People',
+    id: 'my-work',
+    title: 'My work',
+    icon: UserRound,
+    items: [
+      { label: 'Attendance', icon: Clock, href: '/attendance', feature: 'attendance.basic' },
+      { label: 'Leave', icon: CalendarDays, href: '/leave', feature: 'leave.basic' },
+      { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
+      { label: 'Expenses', icon: Receipt, href: '/expenses', feature: 'expenses' },
+      {
+        label: 'My payslips',
+        icon: Wallet,
+        href: '/payroll/me',
+        feature: 'payroll',
+        unless: 'payroll.view',
+        activeAs: 'Payroll',
+      },
+      { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
+      {
+        label: 'Onboarding',
+        icon: ListTodo,
+        href: '/onboarding',
+        feature: 'onboarding',
+        unless: 'onboarding.manage',
+      },
+      {
+        label: 'Projects',
+        icon: FolderKanban,
+        href: '/projects',
+        feature: 'projects',
+        unless: 'projects.view',
+      },
+      { label: 'Assets', icon: Laptop, href: '/assets', feature: 'assets', unless: 'assets.view' },
+      {
+        label: 'Procurement',
+        icon: ShoppingCart,
+        href: '/procurement',
+        feature: 'procurement',
+        unless: 'procurement.view',
+      },
+    ],
+  },
+  {
+    id: 'hr',
+    title: 'HR',
+    icon: Users,
     items: [
       {
         label: 'Employees',
@@ -79,21 +143,59 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         permission: 'employees.view',
         feature: 'hr.core',
       },
-      { label: 'Attendance', icon: Clock, href: '/attendance', feature: 'attendance.basic' },
-      { label: 'Leave', icon: CalendarDays, href: '/leave', feature: 'leave.basic' },
-      { label: 'Approvals', icon: CircleCheck, href: '/approvals' },
-      { label: 'Recruitment', icon: Briefcase, href: '/recruitment', feature: 'recruitment' },
-      { label: 'Onboarding', icon: ListTodo, href: '/onboarding', feature: 'onboarding' },
-      { label: 'Payroll', icon: Wallet, href: '/payroll', feature: 'payroll' },
-      { label: 'Expenses', icon: Receipt, href: '/expenses', feature: 'expenses' },
+      {
+        label: 'Recruitment',
+        icon: Briefcase,
+        href: '/recruitment',
+        any: ['recruitment.view', 'recruitment.manage'],
+        feature: 'recruitment',
+      },
+      {
+        label: 'Onboarding',
+        icon: ListTodo,
+        href: '/onboarding',
+        permission: 'onboarding.manage',
+        feature: 'onboarding',
+      },
     ],
   },
   {
-    section: 'Business',
+    id: 'finance',
+    title: 'Accounts & Finance',
+    icon: Landmark,
     items: [
       { label: 'Finance', icon: BookOpen, href: '/finance', permission: 'finance.view', feature: 'finance' },
-      { label: 'Procurement', icon: ShoppingCart, href: '/procurement', feature: 'procurement' },
-      { label: 'Assets', icon: Laptop, href: '/assets', feature: 'assets' },
+      { label: 'Payroll', icon: Wallet, href: '/payroll', permission: 'payroll.view', feature: 'payroll' },
+      { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
+      {
+        label: 'Procurement',
+        icon: ShoppingCart,
+        href: '/procurement',
+        permission: 'procurement.view',
+        feature: 'procurement',
+      },
+    ],
+  },
+  {
+    id: 'operations',
+    title: 'Operations',
+    icon: Layers,
+    items: [
+      {
+        label: 'Operations',
+        icon: Layers,
+        href: '/operations',
+        any: ['operations.view', 'operations.contribute', 'operations.manage'],
+        feature: 'operations.templates',
+      },
+      {
+        label: 'Projects',
+        icon: FolderKanban,
+        href: '/projects',
+        permission: 'projects.view',
+        feature: 'projects',
+      },
+      { label: 'Assets', icon: Laptop, href: '/assets', permission: 'assets.view', feature: 'assets' },
       {
         label: 'Inventory',
         icon: Boxes,
@@ -101,17 +203,14 @@ const NAV: { section?: string; items: NavItem[] }[] = [
         permission: 'inventory.view',
         feature: 'inventory',
       },
-      { label: 'Projects', icon: FolderKanban, href: '/projects', feature: 'projects' },
-      { label: 'Vendors', icon: Store, href: '/vendors', permission: 'vendors.view', feature: 'vendors' },
-      { label: 'Operations', icon: Layers, href: '/operations', feature: 'operations.templates' },
-      { label: 'Documents', icon: FileText, href: '/documents', feature: 'documents' },
-      { label: 'Reports', icon: ChartColumn, phase: 18 },
+      { label: 'Organisation', icon: Building2, href: '/admin/organisation', permission: 'org.view' },
     ],
   },
   {
-    section: 'Administration',
+    id: 'admin',
+    title: 'Administration',
+    icon: Settings,
     items: [
-      { label: 'Organisation', icon: Building2, href: '/admin/organisation', permission: 'org.view' },
       { label: 'People and access', icon: UserCog, href: '/admin/people', permission: 'access.view' },
       { label: 'Roles', icon: KeyRound, href: '/admin/roles', permission: 'access.view' },
       {
@@ -155,7 +254,9 @@ const NAV: { section?: string; items: NavItem[] }[] = [
     ],
   },
   {
-    section: 'Platform',
+    id: 'platform',
+    title: 'Platform',
+    icon: Building,
     items: [
       { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
       {
@@ -176,6 +277,8 @@ function visible(item: NavItem, session: SessionView): boolean {
   if (item.platform) return session.user.isPlatformAdmin;
   if (item.tenantAdmin && !session.activeTenant?.isTenantAdmin) return false;
   if (item.permission && !can(session, item.permission)) return false;
+  if (item.any && !item.any.some((p) => can(session, p))) return false;
+  if (item.unless && can(session, item.unless)) return false;
   if (item.feature && !hasFeature(session, item.feature)) return false;
   return true;
 }
@@ -190,6 +293,11 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const groups = NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => visible(item, session)),
+  })).filter((group) => group.items.length > 0);
   const tenant = session.activeTenant;
   const brandName = tenant?.branding.name ?? tenant?.name ?? 'Smart HR';
   // The API only accepts colours dark enough for white text, so overriding the primary token stays accessible.
@@ -237,51 +345,74 @@ export function AppShell({
           id="main-menu"
           className={cn('flex-col gap-0.5 min-[880px]:flex', menuOpen ? 'flex pb-3' : 'hidden')}
         >
-          {NAV.map((group) => ({
-            ...group,
-            items: group.items.filter((item) => visible(item, session)),
-          }))
-            .filter((group) => group.items.length > 0)
-            .map((group) => (
-              <div key={group.section ?? 'top'} className="flex flex-col gap-0.5">
-                {group.section && (
-                  <div className="px-2.5 pt-4 pb-1.5 text-[11px] tracking-[0.08em] text-sidebar-muted uppercase">
-                    {group.section}
-                  </div>
+          {groups.map((group) => {
+            const grouped = group.title !== undefined;
+            const open =
+              !grouped ||
+              openGroups[group.id] === true ||
+              group.items.some((i) => i.label === active || i.activeAs === active);
+            const GroupIcon = group.icon;
+            return (
+              <div key={group.id} className="flex flex-col gap-0.5">
+                {grouped && (
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={`nav-${group.id}`}
+                    onClick={() => setOpenGroups((all) => ({ ...all, [group.id]: !open }))}
+                    className="mt-1 flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] font-semibold hover:bg-sidebar-accent/60 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+                  >
+                    {GroupIcon && <GroupIcon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />}
+                    {group.title}
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={cn('ml-auto size-4 transition-transform', open && 'rotate-180')}
+                    />
+                  </button>
                 )}
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = item.label === active;
-                  const content = (
-                    <>
-                      <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
-                      {item.label}
-                      {!item.href && item.phase !== undefined && (
-                        <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
-                      )}
-                    </>
-                  );
-                  const classes = cn(
-                    'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
-                    isActive && 'bg-sidebar-accent font-semibold text-white',
-                  );
-                  return item.href ? (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
-                    >
-                      {content}
-                    </Link>
-                  ) : (
-                    <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
-                      {content}
-                    </span>
-                  );
-                })}
+                <div
+                  id={`nav-${group.id}`}
+                  hidden={!open}
+                  className={cn(
+                    'flex flex-col gap-0.5',
+                    grouped && 'ml-3 border-l border-sidebar-accent/60 pl-1.5',
+                  )}
+                >
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = item.label === active || item.activeAs === active;
+                    const content = (
+                      <>
+                        <Icon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+                        {item.label}
+                        {!item.href && item.phase !== undefined && (
+                          <span className="ml-auto text-[11px] text-sidebar-muted">Phase {item.phase}</span>
+                        )}
+                      </>
+                    );
+                    const classes = cn(
+                      'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 py-2',
+                      isActive && 'bg-sidebar-accent font-semibold text-white',
+                    );
+                    return item.href ? (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={cn(classes, !isActive && 'hover:bg-sidebar-accent/60 hover:text-white')}
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <span key={item.label} aria-disabled="true" className={cn(classes, 'opacity-60')}>
+                        {content}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
+            );
+          })}
         </div>
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
