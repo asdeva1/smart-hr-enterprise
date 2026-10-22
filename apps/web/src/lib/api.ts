@@ -145,6 +145,7 @@ export interface SessionView {
       access: 'FULL' | 'READ_ONLY' | 'NONE';
       features: string[];
       graceEndsAt: string | null;
+      trialEndsAt: string | null;
     };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];

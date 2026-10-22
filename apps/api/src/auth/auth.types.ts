@@ -57,6 +57,8 @@ export interface SessionView {
       access: Access;
       features: Feature[];
       graceEndsAt: string | null;
+      /** When a trial or demo ends; null for paid plans. */
+      trialEndsAt: string | null;
     };
   } | null;
   memberships: { tenantId: string; name: string; isTenantAdmin: boolean }[];

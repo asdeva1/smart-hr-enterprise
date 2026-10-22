@@ -345,6 +345,7 @@ export class AuthService {
                 access: activeDetail.entitlements.access,
                 features: activeDetail.entitlements.features,
                 graceEndsAt: activeDetail.entitlements.graceEndsAt,
+                trialEndsAt: activeDetail.entitlements.trialEndsAt,
               },
             }
           : null,

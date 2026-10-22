@@ -318,20 +318,28 @@ function OffboardingBanner({ session }: { session: SessionView }) {
 
 /** Tells everyone when the organisation's subscription limits what they can do. Data is never hidden. */
 function SubscriptionBanner({ session }: { session: SessionView }) {
+  const [now] = useState(() => Date.now());
   const plan = session.activeTenant?.plan;
   if (!plan) return null;
   if (session.deploymentMode === 'inhouse') return <LicenceBanner session={session} />;
   const until = plan.graceEndsAt ? formatDate(plan.graceEndsAt) : null;
+  const trialDaysLeft =
+    plan.status === 'TRIAL' && plan.trialEndsAt
+      ? Math.max(0, Math.ceil((new Date(plan.trialEndsAt).getTime() - now) / 86_400_000))
+      : null;
   const message =
-    plan.status === 'EXPIRED'
-      ? 'Your organisation’s subscription has ended. You can view and export everything, but paid modules can’t be changed until it is renewed.'
-      : plan.status === 'SUSPENDED'
-        ? 'Your organisation’s subscription is suspended. You can view and export everything, but paid modules can’t be changed.'
-        : plan.status === 'GRACE' || plan.status === 'PAST_DUE'
-          ? `Your organisation’s subscription needs attention. Paid modules keep working${until ? ` until ${until}` : ''}, then become read-only.`
-          : null;
+    trialDaysLeft !== null
+      ? `${plan.code === 'DEMO' ? 'Your demo' : 'Your free trial'} ends in ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'}${plan.trialEndsAt ? ` (${formatDate(plan.trialEndsAt)})` : ''}. After that the workspace becomes read-only.`
+      : plan.status === 'EXPIRED'
+        ? 'Your organisation’s subscription has ended. You can view and export everything, but paid modules can’t be changed until it is renewed.'
+        : plan.status === 'SUSPENDED'
+          ? 'Your organisation’s subscription is suspended. You can view and export everything, but paid modules can’t be changed.'
+          : plan.status === 'GRACE' || plan.status === 'PAST_DUE'
+            ? `Your organisation’s subscription needs attention. Paid modules keep working${until ? ` until ${until}` : ''}, then become read-only.`
+            : null;
   if (!message) return null;
   const severe = plan.access === 'READ_ONLY';
+  const upgradeable = plan.status === 'TRIAL' || plan.status === 'EXPIRED' || plan.status === 'GRACE';
   return (
     <div
       role="status"
@@ -346,8 +354,8 @@ function SubscriptionBanner({ session }: { session: SessionView }) {
       {can(session, 'settings.manage') && (
         <>
           {' '}
-          <Link href="/admin/plan" className="font-semibold underline">
-            See plan and usage
+          <Link href={upgradeable ? '/admin/upgrade' : '/admin/plan'} className="font-semibold underline">
+            {upgradeable ? 'Upgrade your plan' : 'See plan and usage'}
           </Link>
         </>
       )}
