@@ -83,6 +83,16 @@ export function PlanOverview() {
                 {sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : 'Open-ended contract'}
               </Detail>
             )}
+            {sub.licensedEmployees !== null && (
+              <Detail label="Licensed employees">
+                {(() => {
+                  const used = limits.find((l) => l.code === 'employees.max')?.used;
+                  return used === null || used === undefined
+                    ? sub.licensedEmployees.toLocaleString('en-IN')
+                    : `${used.toLocaleString('en-IN')} of ${sub.licensedEmployees.toLocaleString('en-IN')} used`;
+                })()}
+              </Detail>
+            )}
             <Detail label="Billing">
               {sub.billingPeriod === 'ANNUAL' ? 'Annual' : 'Monthly'} · {sub.currency}
             </Detail>

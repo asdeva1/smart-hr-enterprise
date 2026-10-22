@@ -28,6 +28,7 @@ interface Created {
 const formSchema = provisionTenantSchema.omit({ subscription: true }).extend({
   planVersionId: z.string(),
   planStatus: z.enum(['TRIAL', 'ACTIVE']),
+  licensedEmployees: z.string().regex(/^\d*$/, 'Enter a whole number').optional(),
 });
 type FormValues = z.input<typeof formSchema>;
 
@@ -50,13 +51,25 @@ export function NewOrganisationDialog({
       ownerName: '',
       planVersionId: '',
       planStatus: 'TRIAL',
+      licensedEmployees: '',
     },
   });
   const create = useMutation({
-    mutationFn: ({ planVersionId, planStatus, ...rest }: FormValues) =>
+    mutationFn: ({ planVersionId, planStatus, licensedEmployees, ...rest }: FormValues) =>
       apiFetch<Created>('/v1/platform/tenants', {
         method: 'POST',
-        body: { ...rest, ...(planVersionId ? { subscription: { planVersionId, status: planStatus } } : {}) },
+        body: {
+          ...rest,
+          ...(planVersionId
+            ? {
+                subscription: {
+                  planVersionId,
+                  status: planStatus,
+                  ...(licensedEmployees ? { licensedEmployees: Number(licensedEmployees) } : {}),
+                },
+              }
+            : {}),
+        },
       }),
     onSuccess: onCreated,
     onError: (e) => {
@@ -154,6 +167,21 @@ export function NewOrganisationDialog({
             </Select>
           </Field>
         </div>
+        {chosen && (
+          <Field
+            id="org-licensed"
+            label="Licensed employees (optional)"
+            error={errors.licensedEmployees?.message}
+            hint="How many employees were bought. Empty = the plan's own limit"
+          >
+            <Input
+              type="number"
+              min={1}
+              {...fieldAria('org-licensed', errors.licensedEmployees?.message, 'hint')}
+              {...form.register('licensedEmployees')}
+            />
+          </Field>
+        )}
       </form>
     </Dialog>
   );

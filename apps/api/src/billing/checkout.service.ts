@@ -6,6 +6,7 @@ import { AppError, NotFoundError } from '@smart-hr/shared';
 import {
   isFreeEmailDomain,
   WORK_EMAIL_MESSAGE,
+  minEmployeesFor,
   type checkoutSchema,
   type confirmCheckoutSchema,
 } from '@smart-hr/validation';
@@ -101,6 +102,12 @@ export class CheckoutService {
       );
     }
     const quantity = price.pricingModel === 'FLAT' ? 1 : input.quantity;
+    if (price.pricingModel === 'PER_EMPLOYEE' && quantity < minEmployeesFor(input.planCode)) {
+      const min = minEmployeesFor(input.planCode);
+      throw new AppError('BELOW_MINIMUM_EMPLOYEES', `This plan starts at ${min} employees.`, 400, [
+        { path: 'quantity', message: `This plan starts at ${min} employees` },
+      ]);
+    }
     const amountMinor = price.amount.mul(quantity).mul(100).toDecimalPlaces(0).toNumber();
     if (!Number.isSafeInteger(amountMinor) || amountMinor < 100 || amountMinor > 2_000_000_000) {
       throw new AppError('PRICE_NOT_AVAILABLE', 'This amount can’t be paid online. Please contact us.', 409);

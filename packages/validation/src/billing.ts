@@ -3,6 +3,15 @@ import { emailField } from './auth.js';
 
 const text = (max: number, message: string) => z.string().trim().min(1, message).max(max);
 
+/** The fewest employees each per-employee plan can be bought for. */
+export const MIN_EMPLOYEES_BY_PLAN: Readonly<Record<string, number>> = {
+  LITE: 10,
+  PRO: 25,
+  PREMIUM: 50,
+  ENTERPRISE: 300,
+};
+export const minEmployeesFor = (planCode: string): number => MIN_EMPLOYEES_BY_PLAN[planCode] ?? 1;
+
 /** Buying a plan from the website. Nothing is created until the payment is confirmed. */
 export const checkoutSchema = z.object({
   planCode: z

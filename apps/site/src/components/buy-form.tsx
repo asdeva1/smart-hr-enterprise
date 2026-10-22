@@ -1,6 +1,6 @@
 'use client';
 
-import { checkoutSchema } from '@smart-hr/validation';
+import { checkoutSchema, minEmployeesFor } from '@smart-hr/validation';
 import { useState } from 'react';
 import { postJson } from '@/lib/api';
 import { readForm } from '@/lib/form';
@@ -183,8 +183,20 @@ export function BuyForm({ plans, initialPlan }: { plans: PublicPlan[]; initialPl
           id="quantity"
           label={price.pricingModel === 'PER_EMPLOYEE' ? 'Number of employees' : 'Number of members'}
           error={errors.quantity}
+          hint={
+            price.pricingModel === 'PER_EMPLOYEE'
+              ? `This plan starts at ${minEmployeesFor(planCode)} employees.`
+              : undefined
+          }
         >
-          <input id="quantity" name="quantity" inputMode="numeric" defaultValue="10" className={inputClass} />
+          <input
+            key={planCode}
+            id="quantity"
+            name="quantity"
+            inputMode="numeric"
+            defaultValue={String(Math.max(10, minEmployeesFor(planCode)))}
+            className={inputClass}
+          />
         </Field>
       )}
       <Field id="organisationName" label="Organisation name" error={errors.organisationName}>

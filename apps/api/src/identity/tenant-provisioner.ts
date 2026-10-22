@@ -20,6 +20,8 @@ export interface NewTenant {
     status: 'TRIAL' | 'ACTIVE';
     trialDays?: number;
     currentPeriodEnd?: Date | null;
+    /** Employees bought on a per-employee licence. */
+    licensedEmployees?: number | null;
   };
   actorUserId: string | null;
   source: 'platform' | 'signup';
@@ -75,6 +77,7 @@ export class TenantProvisioner {
           trialEndsAt: status === 'TRIAL' ? new Date(now.getTime() + trialDays * DAY) : null,
           currentPeriodStart: status === 'ACTIVE' ? now : null,
           currentPeriodEnd: status === 'ACTIVE' ? (input.plan.currentPeriodEnd ?? null) : null,
+          licensedEmployees: input.plan.licensedEmployees ?? null,
         },
       });
       await tx.subscriptionEvent.create({

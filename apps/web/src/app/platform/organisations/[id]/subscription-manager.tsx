@@ -145,6 +145,7 @@ function AssignPlan({
   const [periodEnd, setPeriodEnd] = useState('');
   const [billingPeriod, setBillingPeriod] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
   const [currency, setCurrency] = useState('INR');
+  const [licensed, setLicensed] = useState('');
   const [reason, setReason] = useState('');
   const assign = useMutation({
     mutationFn: () =>
@@ -155,6 +156,7 @@ function AssignPlan({
           status,
           billingPeriod,
           currency,
+          ...(licensed ? { licensedEmployees: Number(licensed) } : {}),
           ...(status === 'ACTIVE' && periodEnd ? { currentPeriodEnd: endOfDay(periodEnd) } : {}),
           ...(reason ? { reason } : {}),
         },
@@ -223,6 +225,19 @@ function AssignPlan({
             className="uppercase"
             value={currency}
             onChange={(ev) => setCurrency(ev.target.value.toUpperCase())}
+          />
+        </Field>
+        <Field
+          id="assign-licensed"
+          label="Licensed employees"
+          hint="Employees bought. Empty = the plan's own limit"
+        >
+          <Input
+            id="assign-licensed"
+            type="number"
+            min={1}
+            value={licensed}
+            onChange={(ev) => setLicensed(ev.target.value)}
           />
         </Field>
         {status === 'ACTIVE' && (

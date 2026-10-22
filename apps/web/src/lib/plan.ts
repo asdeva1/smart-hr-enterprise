@@ -32,6 +32,8 @@ export interface TenantPlanView {
   } | null;
   subscription: {
     storedStatus: StoredSubscriptionStatus;
+    /** Employees bought on a per-employee licence; null when the plan's own limit applies. */
+    licensedEmployees: number | null;
     billingPeriod: BillingPeriod;
     currency: string;
     trialEndsAt: string | null;
@@ -121,6 +123,7 @@ export interface TenantSubscriptionDetail {
     currentPeriodEnd: string | null;
     graceEndsAt: string | null;
     cancelledAt: string | null;
+    licensedEmployees: number | null;
     planVersionId: string;
     planVersion: PlanVersion & { plan: { id: string; code: string; name: string } };
     addons: {

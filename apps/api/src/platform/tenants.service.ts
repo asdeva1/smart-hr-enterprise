@@ -68,6 +68,7 @@ export class PlatformTenantsService {
                 status: sub.status,
                 ...(sub.trialDays !== undefined ? { trialDays: sub.trialDays } : {}),
                 currentPeriodEnd: sub.currentPeriodEnd ?? null,
+                licensedEmployees: sub.licensedEmployees ?? null,
               },
             }
           : {}),

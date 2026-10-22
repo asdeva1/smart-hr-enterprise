@@ -63,6 +63,7 @@ export class EntitlementsController {
         subscription: sub
           ? {
               storedStatus: sub.status,
+              licensedEmployees: sub.licensedEmployees,
               billingPeriod: sub.billingPeriod,
               currency: sub.currency,
               trialEndsAt: sub.trialEndsAt,
