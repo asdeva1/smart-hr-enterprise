@@ -68,3 +68,22 @@ or cancelled. Reopening is allowed and audited.
 
 `ledger-calc.test.ts` (arithmetic), `finance.int.test.ts` (approval, DB guards, reports, payroll postings,
 closing and reversal, plan gating), `e2e/finance.spec.ts` (draft → approve → ledger and reports).
+
+## Sales and receivables
+
+Customers, GST invoices, quotations, proforma invoices, delivery challans and credit notes live under
+`/v1/finance/sales/*` and use the same permissions as the books (`finance.view`, `finance.manage`,
+`finance.configure` for the business details). Nothing is hard-deleted.
+
+- **GST.** The seller's state comes from the company's business details (GSTIN or state code); the buyer's
+  state from the customer or the document's place of supply. Same state: CGST + SGST; otherwise IGST. The
+  arithmetic is shared by the API and the invoice screen (`packages/validation/src/sales-calc.ts`).
+- **Numbers.** `INV/2026-27/0001`, `QTN/…`, `PI/…`, `DC/…`, `CN/…`, `RCT/…`; the financial year restarts on 1 April.
+- **Posting.** Issuing an invoice posts Dr Accounts receivable / Cr Revenue and Output CGST/SGST/IGST; a
+  credit note reverses it; a receipt posts Dr bank or cash / Cr Accounts receivable. Quotations, proformas
+  and challans do not touch the books. The accounts are found by system key (`RECEIVABLES`, `SALES`,
+  `GST_OUT_*`) and added to charts that predate them.
+- **Corrections.** An issued invoice is never edited or cancelled: raise a credit note.
+- **Receipts** settle the oldest open invoices first unless allocated by hand; any excess stays unapplied
+  (the customer is in credit on their statement).
+- **Reports.** Receivables summary, ageing by customer, and a customer statement with a running balance.
