@@ -10,8 +10,9 @@ import type { ReactNode } from 'react';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: { default: 'Smart HR Enterprise', template: '%s · Smart HR Enterprise' },
-  description: 'HR, payroll, finance and operations in one platform.',
+  title: { default: 'SmartHRMS', template: '%s · SmartHRMS' },
+  description:
+    'SmartHRMS: people, process and performance — HR, payroll, finance and operations in one platform.',
   robots: { index: false, follow: false },
 };
 

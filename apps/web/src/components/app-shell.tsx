@@ -45,7 +45,8 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { SessionView } from '@/lib/api';
 import { can, hasFeature } from '@/lib/permissions';
 import { formatDate } from '@/lib/plan';
-import { cn, initials } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { BrandLogo } from './brand-logo';
 import { ShellHeader } from './shell-header';
 
 interface NavItem {
@@ -196,19 +197,19 @@ export function AppShell({
       >
         <div className="flex items-center gap-2.5 px-2.5 py-1 text-[15px] font-bold text-white min-[880px]:pt-0 min-[880px]:pb-4">
           {tenant?.branding.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- an organisation-supplied https URL, not a bundled asset
-            <img
-              src={tenant.branding.logoUrl}
-              alt=""
-              referrerPolicy="no-referrer"
-              className="size-[30px] rounded-md bg-white object-contain"
-            />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- an organisation-supplied https URL, not a bundled asset */}
+              <img
+                src={tenant.branding.logoUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="size-[30px] rounded-md bg-white object-contain"
+              />
+              <span className="min-w-0 truncate">{brandName}</span>
+            </>
           ) : (
-            <span className="grid size-[30px] place-items-center rounded-md bg-primary font-mono text-[13px]">
-              {tenant ? initials(brandName) : 'SH'}
-            </span>
+            <BrandLogo priority className="w-[170px] min-[880px]:w-[200px]" />
           )}
-          <span className="min-w-0 truncate">{brandName}</span>
           {/* Below 880px the menu folds away behind this button, so the page starts at the top of the screen. */}
           <button
             type="button"
