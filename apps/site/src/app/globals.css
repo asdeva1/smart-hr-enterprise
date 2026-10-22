@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+/*
+ * SmartHRMS marketing site. Ink navy and the logo's blue carry the page; marigold is spent in one place, on
+ * the thing that is "done" in the hero, and on focus. Paper is a cool grey-white so nothing here reads as cream.
+ */
+@theme {
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #0e1b33;
+  --color-ink-soft: #1b2c4d;
+  --color-brand: #1d56c9;
+  --color-brand-deep: #123a8c;
+  --color-brand-soft: #e8eefb;
+  --color-marigold: #f2a900;
+  --color-marigold-soft: #fff4d6;
+  --color-paper: #f5f7fa;
+  --color-white: #ffffff;
+  --color-line: #d9e0ea;
+  --color-muted: #52607a;
+  --color-done: #17784a;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-marigold);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+/* The one orchestrated moment: the month-end checklist ticks itself off, once, as the page loads. */
+@keyframes tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes row-settle {
+  from {
+    background-color: var(--color-marigold-soft);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.close-row {
+  animation: row-settle 900ms ease-out both;
+  animation-delay: calc(var(--i) * 650ms + 400ms);
+}
+.close-tick {
+  animation: tick-in 380ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation-delay: calc(var(--i) * 650ms + 400ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .close-row,
+  .close-tick {
+    animation: none;
+  }
+}

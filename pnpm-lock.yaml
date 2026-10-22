@@ -146,6 +146,64 @@ importers:
         specifier: 5.0.4
         version: 5.0.4(@types/node@22.20.5)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
 
+  apps/site:
+    dependencies:
+      '@fontsource-variable/bricolage-grotesque':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource/ibm-plex-sans':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@smart-hr/validation':
+        specifier: workspace:*
+        version: link:../../packages/validation
+      lucide-react:
+        specifier: 1.56.0
+        version: 1.56.0(@types/react@19.3.0)(react@19.3.0)
+      next:
+        specifier: 16.4.0
+        version: 16.4.0(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: 4.3.3
+        version: 4.3.3
+      '@testing-library/react':
+        specifier: 16.3.3
+        version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      '@vitejs/plugin-react':
+        specifier: 6.1.2
+        version: 6.1.2(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
+      jsdom:
+        specifier: 30.1.2
+        version: 30.1.2(@noble/hashes@2.4.0)
+      tailwindcss:
+        specifier: 4.3.3
+        version: 4.3.3
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.4
+        version: 5.0.4(@types/node@22.20.5)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
+
   apps/web:
     dependencies:
       '@fontsource/ibm-plex-mono':
@@ -665,6 +723,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource-variable/bricolage-grotesque@5.3.0':
+    resolution: {integrity: sha512-TLi9Q4hJjS2UvoTMRSS2nHu6c4R56lAw60NR9QYtVRCHn0XtsFpiEhNffZ8Glsoxu6wEEwLKBP8lb94J52PNBA==}
 
   '@fontsource/ibm-plex-mono@5.3.0':
     resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
@@ -4136,6 +4197,8 @@ snapshots:
   '@exodus/bytes@1.16.0(@noble/hashes@2.4.0)':
     optionalDependencies:
       '@noble/hashes': 2.4.0
+
+  '@fontsource-variable/bricolage-grotesque@5.3.0': {}
 
   '@fontsource/ibm-plex-mono@5.3.0': {}
 
