@@ -32,6 +32,7 @@ import { EntitlementsService } from '../entitlements/entitlements.service.js';
 import { MailService } from '../notifications/mail.service.js';
 import { ASSIGNMENT_SELECT, permissionSetFrom } from '../rbac/rbac.service.js';
 import type { AuthContext, SessionView } from './auth.types.js';
+import { OneTimeCodeService } from './one-time-code.service.js';
 import { RateLimiterService } from './rate-limiter.service.js';
 import { SessionService, type IssuedSession } from './session.service.js';
 
@@ -60,6 +61,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly entitlements: EntitlementsService,
+    private readonly codes: OneTimeCodeService,
   ) {
     this.secrets = new SecretBox(env.MFA_ENCRYPTION_KEYS, env.MFA_ENCRYPTION_KEY_ID);
   }
@@ -124,7 +126,7 @@ export class AuthService {
       {
         mfaPending,
         activeTenantId: mfaPending ? null : await this.defaultTenant(user.id),
-        reauthenticated: !mfaPending,
+        reauthenticated: !mfaPending && !this.env.REAUTH_EMAIL_CODE_REQUIRED,
         ...(mfaPending ? { idleMinutes: MFA_PENDING_MINUTES } : {}),
       },
       meta,
@@ -315,6 +317,7 @@ export class AuthService {
         displayName: user.displayName,
         isPlatformAdmin: user.isPlatformAdmin,
         mfaEnabled: user.mfaEnabledAt !== null,
+        reauthEmailCode: this.env.REAUTH_EMAIL_CODE_REQUIRED && user.mfaEnabledAt === null,
       },
       mfaPending: session.mfaPending,
       activeTenant:
@@ -621,18 +624,56 @@ export class AuthService {
     return issued;
   }
 
-  /** Confirms identity again before sensitive changes (MFA setup or removal). */
+  /**
+   * Emails a six-digit code for the next sensitive change. Used by people without an authenticator app; people
+   * with one use the code from the app instead.
+   */
+  async sendReauthenticationCode(auth: AuthContext, meta: RequestMeta): Promise<void> {
+    const { user, session } = auth;
+    if (!this.env.REAUTH_EMAIL_CODE_REQUIRED || user.mfaEnabledAt !== null) {
+      throw new AppError('NOT_NEEDED', 'Use the code from your authenticator app.', 409);
+    }
+    await this.limiter.consume('reauth-code-session', session.id, 3, 10 * 60);
+    await this.limiter.consume('reauth-code-user', user.id, 6, 60 * 60);
+    const code = await this.codes.issue(session.id, this.env.REAUTH_EMAIL_CODE_TTL_MINUTES);
+    await this.mail.send({
+      to: user.email,
+      category: 'reauth_code',
+      subject: 'Your Smart HR confirmation code',
+      text: [
+        `Hello ${user.displayName},`,
+        '',
+        `Your confirmation code is ${code}`,
+        '',
+        `It works once and expires in ${this.env.REAUTH_EMAIL_CODE_TTL_MINUTES} minutes. Someone asked to change settings in your organisation.`,
+        'If this was not you, do not share the code; change your password instead.',
+      ].join('\n'),
+    });
+    await this.audit.record(
+      { action: 'auth.reauthenticate.code_sent', outcome: 'SUCCESS', actorUserId: user.id },
+      meta,
+    );
+  }
+
+  /** Confirms identity again before sensitive changes (MFA setup or removal, organisation settings, exports). */
   async reauthenticate(auth: AuthContext, input: ReauthenticateInput, meta: RequestMeta): Promise<void> {
     const { user, session } = auth;
     await this.limiter.consume('reauth-session', session.id, 5, 5 * 60);
     const passwordOk = !!user.passwordHash && (await verifyPassword(user.passwordHash, input.password));
-    const factorOk =
-      user.mfaEnabledAt === null || (await this.checkSecondFactor(user, { code: input.code ?? '' }));
+    const needsEmailCode = this.env.REAUTH_EMAIL_CODE_REQUIRED && user.mfaEnabledAt === null;
+    // A wrong password must not use up the emailed code, so the code is checked only after the password.
+    const factorOk = needsEmailCode
+      ? passwordOk && (await this.codes.verify(session.id, input.emailCode ?? ''))
+      : user.mfaEnabledAt === null || (await this.checkSecondFactor(user, { code: input.code ?? '' }));
     if (!passwordOk || !factorOk) {
       await this.registerFailure(user, 'bad_reauthentication', meta);
       throw new AppError(
         'INVALID_CREDENTIALS',
-        user.mfaEnabledAt ? 'Your password or authenticator code is incorrect' : 'Your password is incorrect',
+        needsEmailCode
+          ? 'Your password or the emailed code is incorrect, or the code has expired'
+          : user.mfaEnabledAt
+            ? 'Your password or authenticator code is incorrect'
+            : 'Your password is incorrect',
         401,
       );
     }

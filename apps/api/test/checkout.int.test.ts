@@ -283,3 +283,48 @@ describe('when online purchase is off', () => {
     }
   });
 });
+
+describe('contact us', () => {
+  const enquiry = (overrides: Record<string, unknown> = {}) => ({
+    name: 'Ira Buyer',
+    email: `ira-${fx.run}@${domain()}`,
+    company: 'Umbrella Corp',
+    interest: 'PRICING',
+    message: 'We have 400 people. Please send a quote.',
+    ...overrides,
+  });
+
+  it('is not found until a sales address is set', async () => {
+    const res = await new Browser(app).send('post', '/v1/public/contact', enquiry());
+    expect(res.status).toBe(404);
+  });
+
+  it('emails the sales inbox, keeps a pasted newline out of the subject, and rejects bad input', async () => {
+    const sales = `sales-${fx.run}@${domain()}`;
+    const salesEnv = testEnv({
+      SALES_CONTACT_EMAIL: sales,
+      SIGNUP_RATE_LIMIT_PER_IP: '100000',
+      SIGNUP_RATE_LIMIT_PER_EMAIL: '100000',
+    });
+    const withSales = await startApp(salesEnv);
+    try {
+      const ok = await new Browser(withSales).send(
+        'post',
+        '/v1/public/contact',
+        enquiry({ company: 'Umbrella\nBcc: spy@example.com' }),
+      );
+      expect(ok.status).toBe(202);
+      const mails = await queuedEmails(salesEnv, sales);
+      expect(mails).toHaveLength(1);
+      expect(mails[0]!.subject).not.toMatch(/[\r\n]/);
+      expect(mails[0]!.subject).toContain('Umbrella Bcc: spy@example.com');
+      expect(mails[0]!.text).toContain('We have 400 people');
+
+      const bad = await new Browser(withSales).send('post', '/v1/public/contact', enquiry({ email: 'nope' }));
+      expect(bad.status).toBe(400);
+      expect((await queuedEmails(salesEnv, sales)).length).toBe(1);
+    } finally {
+      await withSales.close();
+    }
+  });
+});

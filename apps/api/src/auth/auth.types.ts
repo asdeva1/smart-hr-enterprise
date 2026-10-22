@@ -34,6 +34,8 @@ export interface SessionView {
     displayName: string;
     isPlatformAdmin: boolean;
     mfaEnabled: boolean;
+    /** Sensitive changes ask for a code sent by email (for people without an authenticator app). */
+    reauthEmailCode: boolean;
   };
   mfaPending: boolean;
   activeTenant: {

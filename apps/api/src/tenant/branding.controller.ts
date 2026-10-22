@@ -5,7 +5,13 @@ import { ForbiddenError } from '@smart-hr/shared';
 import { brandingSchema } from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
-import { CurrentAuth, CurrentTenant, RequirePermission, RequireTenant } from '../auth/auth.decorators.js';
+import {
+  CurrentAuth,
+  CurrentTenant,
+  RequirePermission,
+  RequireTenant,
+  RequireRecentAuth,
+} from '../auth/auth.decorators.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -30,6 +36,7 @@ export class BrandingController {
   }
 
   @Put()
+  @RequireRecentAuth()
   @RequirePermission('settings.manage')
   @ApiOperation({ summary: 'Change branding (settings.manage, whole organisation)' })
   update(

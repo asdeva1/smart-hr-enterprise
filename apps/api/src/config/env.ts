@@ -37,6 +37,12 @@ export const apiEnvSchema = baseServerEnvSchema
     AUTH_SESSION_IDLE_MINUTES: minutes(30),
     AUTH_SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(168).default(12),
     AUTH_REAUTH_MINUTES: minutes(10),
+    /**
+     * Sensitive changes (organisation settings, access and security, data export) need a second proof, not just
+     * the password: an authenticator code for people who have one, otherwise a code sent by email.
+     */
+    REAUTH_EMAIL_CODE_REQUIRED: z.stringbool().default(false),
+    REAUTH_EMAIL_CODE_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
     /** Cookie domain, e.g. `.example.com` when web and API are on sibling subdomains. Unset = host-only. */
     AUTH_COOKIE_DOMAIN: z.string().optional(),
     /** Defaults to true in production. Only local HTTP development may turn it off. */
@@ -75,6 +81,9 @@ export const apiEnvSchema = baseServerEnvSchema
     RAZORPAY_WEBHOOK_SECRET: z.string().min(8).optional(),
     /** Overridden only in tests, to point at a local stand-in for Razorpay. */
     RAZORPAY_API_BASE: z.url().default('https://api.razorpay.com'),
+
+    /** Where "contact us" messages from the website go. The form answers 404 until this is set. */
+    SALES_CONTACT_EMAIL: z.email().optional(),
 
     // In-house licensing: public keys only (`keyId:base64 SPKI`, comma-separated). Never a private key.
     LICENCE_PUBLIC_KEYS: z

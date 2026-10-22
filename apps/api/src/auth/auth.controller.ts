@@ -152,6 +152,13 @@ export class AuthController {
     setSessionCookies(res, issued, this.env);
   }
 
+  @Post('reauthenticate/code')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Email a one-time code to confirm a sensitive change' })
+  async sendReauthenticationCode(@CurrentAuth() current: AuthContext, @Req() req: AppRequest): Promise<void> {
+    await this.auth.sendReauthenticationCode(current, requestMeta(req));
+  }
+
   @Post('reauthenticate')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Confirm identity before a sensitive change' })

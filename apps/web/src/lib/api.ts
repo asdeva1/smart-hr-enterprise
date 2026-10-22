@@ -117,7 +117,15 @@ export type SubscriptionEffectiveStatus =
 
 /** Shape returned by /v1/auth/session and the sign-in endpoints. */
 export interface SessionView {
-  user: { id: string; email: string; displayName: string; isPlatformAdmin: boolean; mfaEnabled: boolean };
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    isPlatformAdmin: boolean;
+    mfaEnabled: boolean;
+    /** Sensitive changes ask for a code sent by email (for people without an authenticator app). */
+    reauthEmailCode?: boolean;
+  };
   mfaPending: boolean;
   activeTenant: {
     id: string;

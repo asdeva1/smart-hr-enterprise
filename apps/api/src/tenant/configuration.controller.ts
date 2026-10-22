@@ -2,7 +2,13 @@ import { Body, Controller, Get, Put, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { configurationUpdateSchema } from '@smart-hr/validation';
 import type { z } from 'zod';
-import { CurrentAuth, CurrentTenant, RequirePermission, RequireTenant } from '../auth/auth.decorators.js';
+import {
+  CurrentAuth,
+  CurrentTenant,
+  RequirePermission,
+  RequireTenant,
+  RequireRecentAuth,
+} from '../auth/auth.decorators.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { ConfigurationService } from './configuration.service.js';
@@ -21,6 +27,7 @@ export class ConfigurationController {
   }
 
   @Put()
+  @RequireRecentAuth()
   @RequirePermission('settings.manage')
   @ApiOperation({ summary: 'Change one or more settings (settings.manage, whole organisation)' })
   update(

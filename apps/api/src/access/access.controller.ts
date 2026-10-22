@@ -25,7 +25,7 @@ import {
   updateRoleSchema,
 } from '@smart-hr/validation';
 import type { z } from 'zod';
-import { CurrentAuth, CurrentTenant, RequirePermission } from '../auth/auth.decorators.js';
+import { CurrentAuth, CurrentTenant, RequirePermission, RequireRecentAuth } from '../auth/auth.decorators.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { AccessService } from './access.service.js';
@@ -61,6 +61,7 @@ export class AccessController {
   }
 
   @Post('members')
+  @RequireRecentAuth()
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Invite someone (creates their account if needed) with optional roles' })
   invite(
@@ -73,6 +74,7 @@ export class AccessController {
   }
 
   @Patch('members/:id')
+  @RequireRecentAuth()
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Suspend or reactivate a member; owners can grant or remove ownership' })
   updateMember(
@@ -86,6 +88,7 @@ export class AccessController {
   }
 
   @Post('members/:id/invitation')
+  @RequireRecentAuth()
   @HttpCode(HttpStatus.ACCEPTED)
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Send a new invitation link to someone who has not set up their account' })
@@ -100,6 +103,7 @@ export class AccessController {
   }
 
   @Post('members/:id/password-reset')
+  @RequireRecentAuth()
   @HttpCode(HttpStatus.ACCEPTED)
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Email the member a password reset link' })
@@ -114,6 +118,7 @@ export class AccessController {
   }
 
   @Post('members/:id/assignments')
+  @RequireRecentAuth()
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Give a member a role at a scope' })
   addAssignment(
@@ -127,6 +132,7 @@ export class AccessController {
   }
 
   @Delete('members/:id/assignments/:assignmentId')
+  @RequireRecentAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Remove a role from a member' })
@@ -157,6 +163,7 @@ export class AccessController {
   }
 
   @Post('roles')
+  @RequireRecentAuth()
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Create a custom role' })
   createRole(
@@ -169,6 +176,7 @@ export class AccessController {
   }
 
   @Patch('roles/:id')
+  @RequireRecentAuth()
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Rename a custom role or change its permissions' })
   updateRole(
@@ -182,6 +190,7 @@ export class AccessController {
   }
 
   @Delete('roles/:id')
+  @RequireRecentAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission('access.manage')
   @ApiOperation({ summary: 'Delete an unused custom role' })
@@ -204,6 +213,7 @@ export class AccessController {
   }
 
   @Put('security')
+  @RequireRecentAuth()
   @RequirePermission('security.manage')
   @ApiOperation({ summary: 'Change the organisation security policy' })
   updateSecurityPolicy(

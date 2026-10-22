@@ -5,7 +5,13 @@ import { AppError, ForbiddenError, NotFoundError } from '@smart-hr/shared';
 import { isOrganisationSetting, parseSetting } from '@smart-hr/validation';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
-import { CurrentAuth, CurrentTenant, RequirePermission, RequireTenant } from '../auth/auth.decorators.js';
+import {
+  CurrentAuth,
+  CurrentTenant,
+  RequirePermission,
+  RequireTenant,
+  RequireRecentAuth,
+} from '../auth/auth.decorators.js';
 import type { AuthContext, TenantContext } from '../auth/auth.types.js';
 import { requestMeta, type AppRequest } from '../common/request-context.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -65,6 +71,7 @@ export class TenantSettingsController {
 
   @RequirePermission('settings.manage')
   @Put(':key')
+  @RequireRecentAuth()
   @ApiOperation({ summary: 'Create or update a setting (settings.manage)' })
   async put(
     @Param('key', { schema: settingKey }) key: string,

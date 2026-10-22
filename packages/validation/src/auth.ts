@@ -63,6 +63,12 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export const reauthenticateSchema = z.object({
   password: currentPasswordField,
   code: totpCodeField.optional(),
+  /** The six-digit code emailed by POST /v1/auth/reauthenticate/code, for people without an authenticator app. */
+  emailCode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code from your email')
+    .optional(),
 });
 export type ReauthenticateInput = z.infer<typeof reauthenticateSchema>;
 
