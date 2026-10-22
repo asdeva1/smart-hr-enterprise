@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { MonthEnd } from '@/components/month-end';
+import { ProductTour } from '@/components/product-tour';
 import { ButtonLink } from '@/components/ui';
 import { areas } from '@/lib/content';
 
@@ -38,6 +39,13 @@ export default function Home() {
       </section>
 
       <section className="mx-auto max-w-6xl px-5 pt-20">
+        <h2 className="max-w-2xl text-4xl font-semibold">See it work, screen by screen.</h2>
+        <div className="mt-8">
+          <ProductTour />
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pt-24">
         <h2 className="max-w-2xl text-4xl font-semibold">One system for the whole employee story.</h2>
         <p className="mt-4 max-w-2xl text-muted">
           Start with people and time. Add payroll, operations and finance when you need them; your data is
