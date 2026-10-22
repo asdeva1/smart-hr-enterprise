@@ -296,6 +296,8 @@ describe('budget and governance', () => {
       const status = await ravi.browser.get('/v1/ai/status');
       expect(status.body.tokenLimit).toBe(1);
       expect(status.body.tokensUsed).toBeGreaterThan(1);
+      expect(status.body.tokensAvailable).toBe(0);
+      expect(status.body.rolloverMonths).toBe(0);
     } finally {
       await db.entitlementOverride.deleteMany({ where: { tenantId, key: 'ai.tokens.monthly' } });
     }

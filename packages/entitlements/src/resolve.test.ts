@@ -74,6 +74,21 @@ describe('per-employee licences', () => {
   });
 });
 
+describe('AI allowance per employee', () => {
+  const plan: PlanState = {
+    ...pro,
+    limits: { 'employees.max': null, 'ai.tokens.monthly': 1_000, 'ai.tokens.per_employee': 5_000 },
+  };
+  it('multiplies the per-employee allowance by the employees bought', () => {
+    const e = resolveEntitlements({ plan, subscription: sub({ licensedEmployees: 40 }), now: NOW });
+    expect(e.limits['ai.tokens.monthly']).toBe(200_000);
+  });
+  it("keeps the plan's monthly pool when no headcount was bought", () => {
+    const e = resolveEntitlements({ plan, subscription: sub({}), now: NOW });
+    expect(e.limits['ai.tokens.monthly']).toBe(1_000);
+  });
+});
+
 describe('resolveEntitlements', () => {
   it('gives full access to plan features while active', () => {
     const e = resolveEntitlements({ plan: pro, subscription: sub({}), now: NOW });

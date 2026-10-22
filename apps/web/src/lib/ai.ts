@@ -4,6 +4,16 @@ export interface AiStatus {
   model: string;
   tokensUsed: number;
   tokenLimit: number | null;
+  /** What the rollover window still allows (null = no limit). */
+  tokensAvailable: number | null;
+  rolloverMonths: number;
+}
+
+export interface AiUsageRow {
+  feature: string;
+  userId: string;
+  calls: number;
+  tokens: number;
 }
 
 export interface ChatTurn {
@@ -17,4 +27,6 @@ export const TOOL_LABEL: Record<string, string> = {
   my_time_logged: 'your logged time',
 };
 
-export const aiKeys = { status: ['ai', 'status'] as const };
+export const aiKeys = { status: ['ai', 'status'] as const, usage: ['ai', 'usage'] as const };
+
+export const FEATURE_LABEL: Record<string, string> = { assistant: 'Assistant' };

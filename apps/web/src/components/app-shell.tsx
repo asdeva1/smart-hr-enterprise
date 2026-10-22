@@ -145,6 +145,13 @@ const NAV: { section?: string; items: NavItem[] }[] = [
       },
       { label: 'Your data', icon: DatabaseBackup, href: '/admin/data', tenantAdmin: true },
       { label: 'AI assistant', icon: Sparkles, href: '/assistant', feature: 'ai.assistant' },
+      {
+        label: 'AI controls',
+        icon: Sparkles,
+        href: '/admin/ai',
+        permission: 'settings.manage',
+        feature: 'ai.assistant',
+      },
     ],
   },
   {

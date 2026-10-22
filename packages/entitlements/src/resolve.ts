@@ -136,9 +136,14 @@ export function resolveEntitlements(input: {
     for (const f of plan.features) if (isFeature(f)) features.add(f);
     for (const [k, v] of Object.entries(plan.limits)) if (isLimitKey(k)) limits[k] = v ?? null;
     const licensed = subscription?.licensedEmployees;
-    if (licensed != null) {
+    if (licensed !== undefined && licensed !== null) {
       const planCap = limits['employees.max'];
-      limits['employees.max'] = planCap == null ? licensed : Math.min(planCap, licensed);
+      limits['employees.max'] =
+        planCap === undefined || planCap === null ? licensed : Math.min(planCap, licensed);
+      // The AI pool grows with the headcount that was bought.
+      const perEmployee = limits['ai.tokens.per_employee'];
+      if (perEmployee !== undefined && perEmployee !== null)
+        limits['ai.tokens.monthly'] = perEmployee * licensed;
     }
     for (const addon of input.addons ?? []) {
       if (addon.quantity <= 0) continue;

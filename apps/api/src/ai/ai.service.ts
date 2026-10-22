@@ -29,6 +29,27 @@ function monthStart(now: Date) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
+/** Unused tokens roll over for up to this many earlier months (so a month can use up to 4 x the pool). */
+export const ROLLOVER_MONTHS = 3;
+
+/**
+ * The rollover window. Tokens not used in the last three months stay available, oldest first to expire, which
+ * is the same as budgeting the whole window: (months lived in it) x (monthly pool). A newly enabled
+ * organisation only has the months it has actually lived, so it can't borrow against the future.
+ */
+export function rolloverWindow(now: Date, enabledSince: Date | null) {
+  const thisMonth = monthStart(now);
+  const first = enabledSince ? monthStart(enabledSince) : thisMonth;
+  const lived =
+    (thisMonth.getUTCFullYear() - first.getUTCFullYear()) * 12 +
+    (thisMonth.getUTCMonth() - first.getUTCMonth());
+  const months = Math.min(ROLLOVER_MONTHS, Math.max(0, lived)) + 1;
+  return {
+    months,
+    start: new Date(Date.UTC(thisMonth.getUTCFullYear(), thisMonth.getUTCMonth() - (months - 1), 1)),
+  };
+}
+
 /**
  * The AI layer. Every call is checked against the organisation's own switch and its monthly token budget,
  * answers only from what the signed-in person is allowed to see (tools run as them), and leaves a usage
@@ -90,23 +111,50 @@ export class AiService {
     return rows[0]!.id;
   }
 
-  private async usedThisMonth(tx: TenantTransaction, now: Date): Promise<number> {
+  private async usedSince(tx: TenantTransaction, since: Date): Promise<number> {
     const sum = await tx.aiUsageEvent.aggregate({
-      where: { createdAt: { gte: monthStart(now) } },
+      where: { createdAt: { gte: since } },
       _sum: { inputTokens: true, outputTokens: true },
     });
     return (sum._sum.inputTokens ?? 0) + (sum._sum.outputTokens ?? 0);
   }
 
+  private async usedThisMonth(tx: TenantTransaction, now: Date): Promise<number> {
+    return this.usedSince(tx, monthStart(now));
+  }
+
+  /** The monthly pool, what the rollover window allows in total, and what is left of it. */
+  private async budget(tx: TenantTransaction, now: Date) {
+    const e = await this.entitlements.forTenant(tx);
+    const pool = limitOf(e, 'ai.tokens.monthly');
+    const row = await tx.tenantSetting.findUnique({
+      where: { tenantId_key: { tenantId: await this.tenantId(tx), key: POLICY_KEY } },
+      select: { createdAt: true },
+    });
+    const window = rolloverWindow(now, row?.createdAt ?? null);
+    const usedInWindow = await this.usedSince(tx, window.start);
+    const allowance = pool === null ? null : pool * window.months;
+    return {
+      pool,
+      allowance,
+      usedInWindow,
+      available: allowance === null ? null : Math.max(0, allowance - usedInWindow),
+      rolloverMonths: window.months - 1,
+    };
+  }
+
   status(tenant: TenantContext, auth: AuthContext, now = new Date()) {
     return this.run(tenant, auth, async (tx) => {
-      const e = await this.entitlements.forTenant(tx);
+      const b = await this.budget(tx, now);
       return {
         available: this.provider !== null,
         enabled: await this.enabled(tx),
         model: this.model,
+        /** This month's use, the monthly pool, and what the rollover window leaves (null = no limit). */
         tokensUsed: await this.usedThisMonth(tx, now),
-        tokenLimit: limitOf(e, 'ai.tokens.monthly'),
+        tokenLimit: b.pool,
+        tokensAvailable: b.available,
+        rolloverMonths: b.rolloverMonths,
       };
     });
   }
@@ -182,16 +230,15 @@ export class AiService {
           403,
         );
       }
-      const e = await this.entitlements.forTenant(tx);
-      const cap = limitOf(e, 'ai.tokens.monthly');
-      if (cap !== null && (await this.usedThisMonth(tx, now)) >= cap) {
+      const b = await this.budget(tx, now);
+      if (b.available !== null && b.available <= 0) {
         throw new AppError(
           'AI_BUDGET_REACHED',
           'Your organisation has used its AI allowance for this month.',
           429,
         );
       }
-      return cap;
+      return b.available;
     });
 
     const tools = (options.toolNames ?? []).flatMap((n) => {
