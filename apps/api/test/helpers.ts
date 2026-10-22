@@ -231,6 +231,13 @@ export class Fixtures {
     await this.db.expenseClaim.deleteMany({ where: inTenants });
     await this.db.expenseCategory.deleteMany({ where: inTenants });
     await this.db.vendor.deleteMany({ where: inTenants });
+    await this.db.receiptAllocation.deleteMany({ where: inTenants });
+    await this.db.customerReceipt.deleteMany({ where: inTenants });
+    await this.db.salesDocumentLine.deleteMany({ where: inTenants });
+    await this.db.salesDocument.deleteMany({ where: inTenants });
+    await this.db.salesSetting.deleteMany({ where: inTenants });
+    await this.db.invoiceTemplate.deleteMany({ where: inTenants });
+    await this.db.customer.deleteMany({ where: inTenants });
     await this.db.$executeRaw`ALTER TABLE "journal_line" DISABLE TRIGGER journal_line_check`;
     try {
       await this.db.journalLine.deleteMany({ where: inTenants });

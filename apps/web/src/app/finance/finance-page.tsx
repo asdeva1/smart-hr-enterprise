@@ -63,6 +63,34 @@ export function FinanceTabs({ session, active }: { session: SessionView; active:
   );
 }
 
+export function SalesTabs({ active }: { active: string }) {
+  const tabs = [
+    { href: '/finance/invoices', label: 'Invoices' },
+    { href: '/finance/customers', label: 'Customers' },
+    { href: '/finance/receipts', label: 'Payments received' },
+    { href: '/finance/receivables', label: 'Ageing' },
+    { href: '/finance/invoice-templates', label: 'Invoice templates' },
+    { href: '/finance/sales-settings', label: 'Business details' },
+  ];
+  return (
+    <nav aria-label="Sales" className="flex gap-1 overflow-x-auto border-b border-border">
+      {tabs.map((t) => (
+        <Link
+          key={t.href}
+          href={t.href}
+          aria-current={t.href === active ? 'page' : undefined}
+          className={cn(
+            '-mb-px border-b-2 border-transparent px-3.5 py-3 font-medium whitespace-nowrap text-[#3e4c57]',
+            t.href === active && 'border-primary font-semibold text-primary',
+          )}
+        >
+          {t.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function CompanyPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const companies = useCompanies();
   if (!companies.data?.length) return null;

@@ -5,11 +5,13 @@ import { BooksService } from './books.service.js';
 import { FinanceController } from './finance.controller.js';
 import { PayrollPostingService } from './payroll-posting.service.js';
 import { ReportsService } from './reports.service.js';
+import { SalesController } from './sales.controller.js';
+import { SalesService } from './sales.service.js';
 
 @Module({
   imports: [PayrollModule],
-  controllers: [FinanceController],
-  providers: [BooksService, ReportsService, PayrollPostingService],
+  controllers: [FinanceController, SalesController],
+  providers: [BooksService, ReportsService, PayrollPostingService, SalesService],
 })
 export class FinanceModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}
@@ -27,5 +29,16 @@ export class FinanceModule implements OnModuleInit {
       }),
     );
     this.exporter.register('bookLocks', (tx) => tx.bookLock.findMany());
+    this.exporter.register('customers', (tx) => tx.customer.findMany({ orderBy: { code: 'asc' } }));
+    this.exporter.register('salesDocuments', (tx) =>
+      tx.salesDocument.findMany({ orderBy: { date: 'asc' }, include: { lines: true }, take: 200_000 }),
+    );
+    this.exporter.register('customerReceipts', (tx) =>
+      tx.customerReceipt.findMany({
+        orderBy: { date: 'asc' },
+        include: { allocations: true },
+        take: 200_000,
+      }),
+    );
   }
 }

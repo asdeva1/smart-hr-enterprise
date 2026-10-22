@@ -122,6 +122,13 @@ model Tenant {
   payrollRuns             PayrollRun[]
   payslips                Payslip[]
   ledgerAccounts          LedgerAccount[]
+  customers               Customer[]
+  invoiceTemplates        InvoiceTemplate[]
+  salesSettings           SalesSetting[]
+  salesDocuments          SalesDocument[]
+  salesDocumentLines      SalesDocumentLine[]
+  customerReceipts        CustomerReceipt[]
+  receiptAllocations      ReceiptAllocation[]
   journalEntries          JournalEntry[]
   journalLines            JournalLine[]
   bookLocks               BookLock[]
@@ -265,6 +272,9 @@ model Company {
   ledgerAccounts   LedgerAccount[]
   journalEntries   JournalEntry[]
   bookLock         BookLock[]
+  salesSettings    SalesSetting[]
+  salesDocuments   SalesDocument[]
+  receipts         CustomerReceipt[]
   purchaseOrders   PurchaseOrder[]
   assets           Asset[]
   warehouses       Warehouse[]
@@ -2371,6 +2381,8 @@ enum JournalSource {
   REVERSAL
   PAYROLL
   PAYROLL_PAYMENT
+  SALES_DOCUMENT
+  SALES_RECEIPT
 
   @@map("journal_source")
 }
@@ -3172,7 +3184,6 @@ model AiUsageEvent {
   @@map("ai_usage_event")
 }
 
-
 // ---- Integrations: API keys and webhooks ----------------------------------------------------------
 
 enum WebhookStatus {
@@ -3257,4 +3268,232 @@ model WebhookDelivery {
   @@index([tenantId, endpointId, createdAt])
   @@index([status, nextAttemptAt])
   @@map("webhook_delivery")
+}
+
+// ---- Sales and receivables ----------------------------------------------------------------------
+
+enum SalesDocType {
+  INVOICE
+  QUOTATION
+  PROFORMA
+  CHALLAN
+  CREDIT_NOTE
+
+  @@map("sales_doc_type")
+}
+
+enum SalesDocStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+
+  @@map("sales_doc_status")
+}
+
+enum PaymentMode {
+  BANK
+  CASH
+  UPI
+  CARD
+  CHEQUE
+
+  @@map("payment_mode")
+}
+
+/// Who we bill. GST state follows the first two digits of the GSTIN when there is one.
+model Customer {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  tenantId         String       @map("tenant_id") @db.Uuid
+  code             String
+  name             String
+  gstin            String?
+  pan              String?
+  /// GST state code (01-38) used to choose CGST+SGST or IGST.
+  stateCode        String?      @map("state_code") @db.Char(2)
+  contactName      String?      @map("contact_name")
+  email            String?
+  phone            String?
+  billingAddress   String?      @map("billing_address")
+  shippingAddress  String?      @map("shipping_address")
+  paymentTermsDays Int          @default(15) @map("payment_terms_days")
+  notes            String?
+  status           RecordStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  documents SalesDocument[]
+  receipts  CustomerReceipt[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("customer")
+}
+
+/// How documents look: accent colour, which blocks show, default terms.
+model InvoiceTemplate {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  name          String
+  layout        String       @default("CLASSIC")
+  accent        String       @default("#1d56c9")
+  showHsn       Boolean      @default(true) @map("show_hsn")
+  showGstSplit  Boolean      @default(true) @map("show_gst_split")
+  showBank      Boolean      @default(true) @map("show_bank")
+  showUpi       Boolean      @default(true) @map("show_upi")
+  showSignatory Boolean      @default(false) @map("show_signatory")
+  showPo        Boolean      @default(true) @map("show_po")
+  defaultTerms  String?      @map("default_terms")
+  defaultNote   String?      @map("default_note")
+  isDefault     Boolean      @default(false) @map("is_default")
+  status        RecordStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  documents SalesDocument[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@map("invoice_template")
+}
+
+/// The seller's tax and bank details printed on documents, per company.
+model SalesSetting {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  gstin         String?
+  pan           String?
+  stateCode     String?  @map("state_code") @db.Char(2)
+  address       String?
+  bankName      String?  @map("bank_name")
+  bankAccountNo String?  @map("bank_account_no")
+  bankIfsc      String?  @map("bank_ifsc")
+  upiId         String?  @map("upi_id")
+  signatory     String?
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([companyId])
+  @@unique([tenantId, id])
+  @@map("sales_setting")
+}
+
+/// An invoice, quotation, proforma, delivery challan or credit note.
+model SalesDocument {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  companyId       String         @map("company_id") @db.Uuid
+  customerId      String         @map("customer_id") @db.Uuid
+  templateId      String?        @map("template_id") @db.Uuid
+  type            SalesDocType
+  /// Given when issued: INV/2026-27/0001.
+  number          String?
+  status          SalesDocStatus @default(DRAFT)
+  date            DateTime       @db.Date
+  dueDate         DateTime?      @map("due_date") @db.Date
+  poNumber        String?        @map("po_number")
+  /// GST state the supply is made to; the same as the seller's state means CGST + SGST.
+  placeOfSupply   String?        @map("place_of_supply") @db.Char(2)
+  note            String?
+  terms           String?
+  subtotal        Decimal        @default(0) @db.Decimal(16, 2)
+  cgst            Decimal        @default(0) @db.Decimal(16, 2)
+  sgst            Decimal        @default(0) @db.Decimal(16, 2)
+  igst            Decimal        @default(0) @db.Decimal(16, 2)
+  total           Decimal        @default(0) @db.Decimal(16, 2)
+  /// Receipts and credit notes applied.
+  settled         Decimal        @default(0) @db.Decimal(16, 2)
+  /// The invoice a credit note corrects, or the quotation an invoice came from.
+  relatedId       String?        @map("related_id") @db.Uuid
+  journalEntryId  String?        @map("journal_entry_id") @db.Uuid
+  createdByUserId String         @map("created_by_user_id") @db.Uuid
+  issuedAt        DateTime?      @map("issued_at") @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  template    InvoiceTemplate?    @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Restrict)
+  lines       SalesDocumentLine[]
+  allocations ReceiptAllocation[]
+
+  @@unique([tenantId, id])
+  @@index([companyId, type, status])
+  @@index([customerId])
+  @@map("sales_document")
+}
+
+model SalesDocumentLine {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  position    Int
+  description String
+  hsn         String?
+  quantity    Decimal  @db.Decimal(14, 3)
+  unit        String?
+  rate        Decimal  @db.Decimal(16, 2)
+  discountPct Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
+  gstRate     Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2)
+  /// Quantity x rate less discount, before tax.
+  amount      Decimal  @db.Decimal(16, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  document SalesDocument @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([documentId, position])
+  @@map("sales_document_line")
+}
+
+/// Money received from a customer, shared out across their invoices.
+model CustomerReceipt {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  tenantId         String      @map("tenant_id") @db.Uuid
+  companyId        String      @map("company_id") @db.Uuid
+  customerId       String      @map("customer_id") @db.Uuid
+  number           String
+  date             DateTime    @db.Date
+  amount           Decimal     @db.Decimal(16, 2)
+  mode             PaymentMode
+  reference        String?
+  note             String?
+  /// Bank or cash account the money went into.
+  depositAccountId String      @map("deposit_account_id") @db.Uuid
+  journalEntryId   String?     @map("journal_entry_id") @db.Uuid
+  createdByUserId  String      @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  customer    Customer            @relation(fields: [tenantId, customerId], references: [tenantId, id], onDelete: Restrict)
+  allocations ReceiptAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([companyId, number])
+  @@index([customerId])
+  @@map("customer_receipt")
+}
+
+model ReceiptAllocation {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  receiptId  String   @map("receipt_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  amount     Decimal  @db.Decimal(16, 2)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  receipt  CustomerReceipt @relation(fields: [tenantId, receiptId], references: [tenantId, id], onDelete: Restrict)
+  document SalesDocument   @relation(fields: [tenantId, documentId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@map("receipt_allocation")
 }

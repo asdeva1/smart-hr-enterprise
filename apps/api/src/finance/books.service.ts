@@ -41,7 +41,7 @@ export const DEFAULT_CHART: {
 }[] = [
   { code: '1000', name: 'Cash in hand', type: 'ASSET', systemKey: 'CASH' },
   { code: '1100', name: 'Bank', type: 'ASSET', systemKey: 'BANK' },
-  { code: '1200', name: 'Accounts receivable', type: 'ASSET' },
+  { code: '1200', name: 'Accounts receivable', type: 'ASSET', systemKey: 'RECEIVABLES' },
   { code: '1300', name: 'Advances to employees', type: 'ASSET' },
   { code: '2000', name: 'Accounts payable', type: 'LIABILITY' },
   { code: '2100', name: 'Salaries payable', type: 'LIABILITY', systemKey: 'SALARY_PAYABLE' },
@@ -55,9 +55,12 @@ export const DEFAULT_CHART: {
     type: 'LIABILITY',
     systemKey: 'OTHER_DEDUCTIONS_PAYABLE',
   },
+  { code: '2310', name: 'Output CGST payable', type: 'LIABILITY', systemKey: 'GST_OUT_CGST' },
+  { code: '2320', name: 'Output SGST payable', type: 'LIABILITY', systemKey: 'GST_OUT_SGST' },
+  { code: '2330', name: 'Output IGST payable', type: 'LIABILITY', systemKey: 'GST_OUT_IGST' },
   { code: '3000', name: 'Share capital', type: 'EQUITY' },
   { code: '3100', name: 'Retained earnings', type: 'EQUITY', systemKey: 'RETAINED_EARNINGS' },
-  { code: '4000', name: 'Revenue from operations', type: 'INCOME' },
+  { code: '4000', name: 'Revenue from operations', type: 'INCOME', systemKey: 'SALES' },
   { code: '4100', name: 'Other income', type: 'INCOME' },
   { code: '5000', name: 'Salaries and wages', type: 'EXPENSE', systemKey: 'SALARY_EXPENSE' },
   { code: '5100', name: 'Employer PF and ESI', type: 'EXPENSE', systemKey: 'STATUTORY_EXPENSE' },
@@ -66,7 +69,9 @@ export const DEFAULT_CHART: {
 ];
 
 export interface SystemLine {
-  systemKey: string;
+  /** Either the system's own account by key, or a specific account (for example the bank chosen). */
+  systemKey?: string;
+  accountId?: string;
   debit: number;
   credit: number;
   narration?: string;
@@ -177,6 +182,29 @@ export class BooksService implements OnModuleInit {
       });
     }
     return tx.ledgerAccount.findMany({ where: { companyId }, orderBy: { code: 'asc' } });
+  }
+
+  /**
+   * Makes sure the accounts the system posts to exist in a chart that may predate them: an account with the
+   * system's usual code is claimed (when it has the right type), otherwise a new one is created.
+   */
+  async ensureSystemAccounts(tx: TenantTransaction, tenantId: string, companyId: string) {
+    const chart = await this.chartIn(tx, tenantId, companyId);
+    for (const want of DEFAULT_CHART.filter((a) => a.systemKey)) {
+      if (chart.some((a) => a.systemKey === want.systemKey)) continue;
+      const sameCode = chart.find((a) => a.code === want.code);
+      if (sameCode && sameCode.type === want.type && !sameCode.systemKey) {
+        await tx.ledgerAccount.update({ where: { id: sameCode.id }, data: { systemKey: want.systemKey! } });
+      } else if (!sameCode) {
+        await tx.ledgerAccount.create({ data: { tenantId, companyId, ...want, systemKey: want.systemKey! } });
+      } else {
+        let code = Number(want.code) + 1;
+        while (chart.some((a) => a.code === String(code))) code += 1;
+        await tx.ledgerAccount.create({
+          data: { tenantId, companyId, ...want, code: String(code), systemKey: want.systemKey! },
+        });
+      }
+    }
   }
 
   async accounts(tenant: TenantContext, auth: AuthContext, companyId: string) {
@@ -591,7 +619,7 @@ export class BooksService implements OnModuleInit {
       companyId: string;
       date: Date;
       narration: string;
-      source: 'PAYROLL' | 'PAYROLL_PAYMENT';
+      source: 'PAYROLL' | 'PAYROLL_PAYMENT' | 'SALES_DOCUMENT' | 'SALES_RECEIPT';
       sourceId: string;
       createdByUserId: string;
       lines: SystemLine[];
@@ -607,7 +635,10 @@ export class BooksService implements OnModuleInit {
     const lines = input.lines
       .filter((l) => toPaise(l.debit) > 0 || toPaise(l.credit) > 0)
       .map((l) => {
-        const account = byKey.get(l.systemKey);
+        if (l.accountId) {
+          return { accountId: l.accountId, debit: l.debit, credit: l.credit, narration: l.narration ?? null };
+        }
+        const account = l.systemKey ? byKey.get(l.systemKey) : undefined;
         if (!account) throw new AppError('ACCOUNT_MISSING', `No account is set for ${l.systemKey}`, 409);
         return { accountId: account.id, debit: l.debit, credit: l.credit, narration: l.narration ?? null };
       });
