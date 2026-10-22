@@ -77,7 +77,7 @@
   }
 }
 .close-row {
-  animation: row-settle 900ms ease-out both;
+  animation: row-settle 900ms ease-out forwards;
   animation-delay: calc(var(--i) * 650ms + 400ms);
 }
 .close-tick {
@@ -233,5 +233,25 @@
   .t-fill {
     animation: none;
     transform: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.signin-pop {
+  transform-origin: top right;
+  animation: pop-in 160ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .signin-pop {
+    animation: none;
   }
 }

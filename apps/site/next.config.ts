@@ -8,6 +8,8 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ];
 
+const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://smart-hr-web.vercel.app').replace(/\/+$/, '');
+
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -33,8 +35,8 @@ const config: NextConfig = {
               "img-src 'self' data: https://*.razorpay.com",
               "font-src 'self' data:",
               "connect-src 'self' https://*.razorpay.com https://lumberjack.razorpay.com",
-              "frame-src https://api.razorpay.com https://checkout.razorpay.com",
-              "form-action 'self'",
+              'frame-src https://api.razorpay.com https://checkout.razorpay.com',
+              `form-action 'self' ${appUrl}`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
             ].join('; '),

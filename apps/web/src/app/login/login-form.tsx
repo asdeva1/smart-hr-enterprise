@@ -17,6 +17,9 @@ import { useSession, useSetSession } from '@/lib/session';
 
 const REASONS: Record<string, { tone: 'info' | 'warning' | 'success'; text: string }> = {
   expired: { tone: 'warning', text: 'Your session ended. Please sign in again.' },
+  'handoff-failed': { tone: 'warning', text: 'That email or password didn’t match. Try again.' },
+  'handoff-limit': { tone: 'warning', text: 'Too many attempts. Wait a few minutes and try again.' },
+  'handoff-error': { tone: 'warning', text: 'We couldn’t sign you in just now. Please try again.' },
   'signed-out': { tone: 'info', text: 'You’re signed out.' },
   'password-reset': {
     tone: 'success',

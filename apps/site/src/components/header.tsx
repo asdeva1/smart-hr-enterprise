@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { APP_URL } from '@/lib/config';
 import { Logo } from './logo';
+import { SignInMenu } from './signin-menu';
 import { ButtonLink } from './ui';
 
 const links = [
@@ -29,12 +29,7 @@ export function Header() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <a
-            href={`${APP_URL}/login`}
-            className="rounded-md px-3 py-2 text-[15px] font-semibold text-ink hover:bg-brand-soft"
-          >
-            Sign in
-          </a>
+          <SignInMenu />
           <span className="hidden sm:block">
             <ButtonLink href="/demo" className="!py-2">
               Try the demo
