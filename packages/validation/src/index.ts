@@ -28,4 +28,6 @@ export * from './sales.js';
 export * from './sales-calc.js';
 export * from './purchases.js';
 export * from './gst.js';
+export * from './bank.js';
+export * from './bank-calc.js';
 export * from './gst-calc.js';

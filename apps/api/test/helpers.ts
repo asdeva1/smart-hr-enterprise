@@ -242,6 +242,8 @@ export class Fixtures {
     await this.db.salesSetting.deleteMany({ where: inTenants });
     await this.db.invoiceTemplate.deleteMany({ where: inTenants });
     await this.db.customer.deleteMany({ where: inTenants });
+    await this.db.bankStatementLine.deleteMany({ where: inTenants });
+    await this.db.bankStatement.deleteMany({ where: inTenants });
     await this.db.$executeRaw`ALTER TABLE "journal_line" DISABLE TRIGGER journal_line_check`;
     try {
       await this.db.journalLine.deleteMany({ where: inTenants });

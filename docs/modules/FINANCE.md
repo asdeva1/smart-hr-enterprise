@@ -109,3 +109,17 @@ Return figures worked out from posted documents, under `/v1/finance/gst` (permis
 - **TDS**: tax deducted on vendor bills by vendor and rate, net of debit notes, with a warning for vendors without a PAN.
 
 Not built: e-invoice (IRN) and e-way bill generation. Both need an account with a GST Suvidha Provider and credentials, which are not set up yet.
+
+## Bank reconciliation
+
+Page: **Accounts & Finance → Bank reconciliation** (`/finance/bank`). Needs `finance.view` to look and `finance.manage` to import and match.
+
+1. **Import** a statement as a CSV from the bank. The file is read in the browser (`parseBankCsv`): it finds the header row, reads dates such as 31/12/2026 or 5 Mar 2026, Indian-grouped amounts, Dr/Cr suffixes and either Debit/Credit columns or one signed Amount column. Any problem is listed by row and nothing is imported until the file is fixed. The bank's "Credit" is our deposit and its "Debit" our withdrawal.
+2. **De-duplication.** Each line gets a key from its date, narration, reference and amounts (plus its position among identical lines in the file). Importing an overlapping or repeated statement skips lines already held; two genuinely identical lines in one file are both kept.
+3. **Matching.** A statement line matches one posted journal line on the same account for the same amount and direction (a deposit to a debit, a withdrawal to a credit). The page suggests entries within five days of each line. **Match automatically** pairs a line only when it has exactly one possible entry and no other line wants it; anything ambiguous is left for a person. Lines can be set aside with a note, and matched or set-aside lines can be returned.
+4. **Rules the database enforces.** A statement line can only point at a posted journal line of the same tenant, account, amount and direction, and a journal line can be taken by one statement line only. Statements and lines are never edited or deleted; only a line's matching can change.
+5. **Summary.** Books balance and the last statement closing balance, then the standard reconciliation: statement balance, plus deposits in transit, less uncleared payments, against the books plus bank-only deposits less bank-only charges. The two adjusted balances agree when everything is explained.
+
+Matching does not change the books. A bank charge or interest line with no entry is booked as an ordinary journal (which goes through approval) and then matched.
+
+API: `GET /v1/finance/bank/accounts|statements|lines|book-items|summary`, `POST /v1/finance/bank/statements|auto-match|lines/:id/match|unmatch|ignore`. Tests: `apps/api/test/bank.int.test.ts` and `packages/validation/src/bank-calc.test.ts`.

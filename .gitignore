@@ -44,3 +44,4 @@ dump.rdb
 
 # local document storage
 .data/
+apps/web/AGENTS.md

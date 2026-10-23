@@ -190,6 +190,13 @@ const NAV: NavGroup[] = [
         feature: 'finance',
       },
       {
+        label: 'Bank reconciliation',
+        icon: Landmark,
+        href: '/finance/bank',
+        permission: 'finance.view',
+        feature: 'finance',
+      },
+      {
         label: 'GST and TDS',
         icon: Percent,
         href: '/finance/gst',

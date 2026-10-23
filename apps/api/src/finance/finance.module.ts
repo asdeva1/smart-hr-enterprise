@@ -1,6 +1,8 @@
 import { Module, type OnModuleInit } from '@nestjs/common';
 import { PayrollModule } from '../payroll/payroll.module.js';
 import { TenantExportService } from '../tenant/export.service.js';
+import { BankController } from './bank.controller.js';
+import { BankService } from './bank.service.js';
 import { BooksService } from './books.service.js';
 import { FinanceController } from './finance.controller.js';
 import { PayrollPostingService } from './payroll-posting.service.js';
@@ -14,7 +16,7 @@ import { SalesService } from './sales.service.js';
 
 @Module({
   imports: [PayrollModule],
-  controllers: [FinanceController, SalesController, PurchasesController, GstController],
+  controllers: [FinanceController, SalesController, PurchasesController, GstController, BankController],
   providers: [
     BooksService,
     ReportsService,
@@ -22,6 +24,7 @@ import { SalesService } from './sales.service.js';
     SalesService,
     PurchasesService,
     GstService,
+    BankService,
   ],
 })
 export class FinanceModule implements OnModuleInit {
@@ -40,6 +43,9 @@ export class FinanceModule implements OnModuleInit {
       }),
     );
     this.exporter.register('bookLocks', (tx) => tx.bookLock.findMany());
+    this.exporter.register('bankStatements', (tx) =>
+      tx.bankStatement.findMany({ orderBy: { createdAt: 'asc' }, include: { lines: true }, take: 50_000 }),
+    );
     this.exporter.register('customers', (tx) => tx.customer.findMany({ orderBy: { code: 'asc' } }));
     this.exporter.register('salesDocuments', (tx) =>
       tx.salesDocument.findMany({ orderBy: { date: 'asc' }, include: { lines: true }, take: 200_000 }),

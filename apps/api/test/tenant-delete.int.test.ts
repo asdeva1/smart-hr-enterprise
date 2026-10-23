@@ -120,6 +120,37 @@ describe('deleting an organisation', () => {
     expect((await victim.owner.send('post', `${S}/documents/${invoice.body.id}/issue`)).status).toBe(200);
     expect(await db.journalLine.count({ where: { tenantId: victim.tenant.id } })).toBeGreaterThan(0);
 
+    // A bank statement line matched to one of those journal lines must not stand in the way of deleting.
+    const debitLine = await db.journalLine.findFirstOrThrow({
+      where: { tenantId: victim.tenant.id, debit: { gt: 0 } },
+    });
+    const bankStatement = await db.bankStatement.create({
+      data: {
+        tenantId: victim.tenant.id,
+        companyId: company.id,
+        accountId: debitLine.accountId,
+        fileName: 'x.csv',
+        periodFrom: new Date('2026-04-10'),
+        periodTo: new Date('2026-04-10'),
+        lineCount: 1,
+        importedByUserId: victim.ownerUser.id,
+      },
+    });
+    await db.bankStatementLine.create({
+      data: {
+        tenantId: victim.tenant.id,
+        statementId: bankStatement.id,
+        companyId: company.id,
+        accountId: debitLine.accountId,
+        date: new Date('2026-04-10'),
+        description: 'Matched',
+        deposit: debitLine.debit,
+        dedupeKey: 'k1',
+        status: 'MATCHED',
+        journalLineId: debitLine.id,
+      },
+    });
+
     // A stored file on disk.
     const fileId = randomUUID();
     const key = `${victim.tenant.id}/${fileId}`;
@@ -167,6 +198,7 @@ describe('deleting an organisation', () => {
     expect(await db.tenant.findUnique({ where: { id: victim.tenant.id } })).toBeNull();
     expect(await db.company.count({ where: { tenantId: victim.tenant.id } })).toBe(0);
     expect(await db.journalLine.count({ where: { tenantId: victim.tenant.id } })).toBe(0);
+    expect(await db.bankStatementLine.count({ where: { tenantId: victim.tenant.id } })).toBe(0);
     expect(await db.employee.count({ where: { tenantId: victim.tenant.id } })).toBe(0);
     expect(existsSync(join(env.STORAGE_LOCAL_DIR, key))).toBe(false);
     expect(await db.user.findUnique({ where: { id: victim.ownerUser.id } })).toBeNull();

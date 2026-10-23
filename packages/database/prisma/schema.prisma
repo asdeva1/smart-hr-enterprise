@@ -136,6 +136,8 @@ model Tenant {
   journalEntries          JournalEntry[]
   journalLines            JournalLine[]
   bookLocks               BookLock[]
+  bankStatements          BankStatement[]
+  bankStatementLines      BankStatementLine[]
 
   @@map("tenant")
 }
@@ -268,24 +270,26 @@ model Company {
   branches     Branch[]
   departments  Department[]
 
-  holidayCalendars HolidayCalendar[]
-  employees        Employee[]
-  jobOpenings      JobOpening[]
-  payrollSetting   PayrollSetting[]
-  payrollRuns      PayrollRun[]
-  ledgerAccounts   LedgerAccount[]
-  journalEntries   JournalEntry[]
-  bookLock         BookLock[]
-  salesSettings    SalesSetting[]
-  salesDocuments   SalesDocument[]
-  receipts         CustomerReceipt[]
-  purchaseBills    PurchaseBill[]
-  vendorPayments   VendorPayment[]
-  purchaseOrders   PurchaseOrder[]
-  assets           Asset[]
-  warehouses       Warehouse[]
-  projects         Project[]
-  opsWorkspaces    OpsWorkspace[]
+  holidayCalendars   HolidayCalendar[]
+  employees          Employee[]
+  jobOpenings        JobOpening[]
+  payrollSetting     PayrollSetting[]
+  payrollRuns        PayrollRun[]
+  ledgerAccounts     LedgerAccount[]
+  journalEntries     JournalEntry[]
+  bookLock           BookLock[]
+  bankStatements     BankStatement[]
+  bankStatementLines BankStatementLine[]
+  salesSettings      SalesSetting[]
+  salesDocuments     SalesDocument[]
+  receipts           CustomerReceipt[]
+  purchaseBills      PurchaseBill[]
+  vendorPayments     VendorPayment[]
+  purchaseOrders     PurchaseOrder[]
+  assets             Asset[]
+  warehouses         Warehouse[]
+  projects           Project[]
+  opsWorkspaces      OpsWorkspace[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -2410,9 +2414,11 @@ model LedgerAccount {
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  company Company       @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
-  lines   JournalLine[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company            Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  lines              JournalLine[]
+  bankStatements     BankStatement[]
+  bankStatementLines BankStatementLine[]
 
   @@unique([tenantId, id])
   @@unique([companyId, code])
@@ -2469,6 +2475,9 @@ model JournalLine {
   entry   JournalEntry  @relation(fields: [tenantId, entryId], references: [tenantId, id], onDelete: Restrict)
   account LedgerAccount @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Restrict)
 
+  bankLine BankStatementLine?
+
+  @@unique([tenantId, id])
   @@unique([entryId, position])
   @@index([tenantId, accountId])
   @@map("journal_line")
@@ -2488,6 +2497,76 @@ model BookLock {
 
   @@unique([tenantId, companyId])
   @@map("book_lock")
+}
+
+// ---- Bank reconciliation -------------------------------------------------------------------------------
+
+enum BankLineStatus {
+  UNMATCHED
+  MATCHED
+  IGNORED
+
+  @@map("bank_line_status")
+}
+
+/// A bank statement imported for one bank account of a company.
+model BankStatement {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  companyId        String   @map("company_id") @db.Uuid
+  accountId        String   @map("account_id") @db.Uuid
+  fileName         String   @map("file_name")
+  periodFrom       DateTime @map("period_from") @db.Date
+  periodTo         DateTime @map("period_to") @db.Date
+  openingBalance   Decimal? @map("opening_balance") @db.Decimal(16, 2)
+  closingBalance   Decimal? @map("closing_balance") @db.Decimal(16, 2)
+  lineCount        Int      @map("line_count")
+  importedByUserId String   @map("imported_by_user_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  account LedgerAccount       @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Restrict)
+  lines   BankStatementLine[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, accountId, periodTo])
+  @@map("bank_statement")
+}
+
+/// One line of a bank statement. A deposit matches a debit to the bank account in the books, a withdrawal a credit.
+model BankStatementLine {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  tenantId        String         @map("tenant_id") @db.Uuid
+  statementId     String         @map("statement_id") @db.Uuid
+  companyId       String         @map("company_id") @db.Uuid
+  accountId       String         @map("account_id") @db.Uuid
+  date            DateTime       @db.Date
+  description     String
+  reference       String?
+  deposit         Decimal        @default(0) @db.Decimal(16, 2)
+  withdrawal      Decimal        @default(0) @db.Decimal(16, 2)
+  /// The bank's running balance, when the statement has one.
+  balance         Decimal?       @db.Decimal(16, 2)
+  /// Stops the same statement line being imported twice.
+  dedupeKey       String         @map("dedupe_key")
+  status          BankLineStatus @default(UNMATCHED)
+  journalLineId   String?        @map("journal_line_id") @db.Uuid
+  matchedByUserId String?        @map("matched_by_user_id") @db.Uuid
+  matchedAt       DateTime?      @map("matched_at") @db.Timestamptz(6)
+  note            String?
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company       @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  account     LedgerAccount @relation(fields: [tenantId, accountId], references: [tenantId, id], onDelete: Restrict)
+  statement   BankStatement @relation(fields: [tenantId, statementId], references: [tenantId, id], onDelete: Cascade)
+  journalLine JournalLine?  @relation(fields: [tenantId, journalLineId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([accountId, dedupeKey])
+  @@unique([tenantId, journalLineId])
+  @@index([tenantId, accountId, status, date])
+  @@map("bank_statement_line")
 }
 
 // ---- Vendors and expenses (Phase 16) ----------------------------------------------------------------
