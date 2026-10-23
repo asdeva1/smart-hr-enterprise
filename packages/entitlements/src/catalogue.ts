@@ -239,4 +239,26 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
     supportLevel: 'PREMIUM',
     deploymentModels: ['SAAS', 'DEDICATED', 'IN_HOUSE'],
   },
+  {
+    // The first release: every feature the product has, so customers see all of it while the plans are decided.
+    // Trim it, or split it into the plans above, by publishing new versions.
+    code: 'LAUNCH',
+    name: 'SmartHR Launch',
+    description: 'Every SmartHR feature, for the first release. Plans are decided later.',
+    sortOrder: 1,
+    features: [...ALL_FEATURES],
+    limits: {
+      'users.max': null,
+      'employees.max': null,
+      'storage.gb': null,
+      'ai.tokens.monthly': null,
+      'ai.tokens.per_employee': null,
+      'operations.workspaces.max': null,
+      'companies.max': null,
+    },
+    trialDays: 14,
+    graceDays: 30,
+    supportLevel: 'PRIORITY',
+    deploymentModels: ['SAAS'],
+  },
 ];
