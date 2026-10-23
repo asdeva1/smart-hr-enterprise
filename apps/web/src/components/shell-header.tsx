@@ -53,10 +53,18 @@ export function ShellHeader({ session }: { session: SessionView }) {
             </select>
           </label>
         ) : (
-          <b>{session.activeTenant?.name ?? 'No organisation'}</b>
+          <b>
+            {session.activeTenant?.name ??
+              (session.user.isPlatformAdmin ? 'SmartHR · SaaS administration' : 'No organisation')}
+          </b>
         )}
         <span className="text-xs text-muted-foreground">
-          {session.activeTenant?.isTenantAdmin ? 'Organisation administrator' : 'Member'}
+          {session.user.isPlatformAdmin && !session.activeTenant
+            ? 'SaaS Administrator'
+            : session.activeTenant?.isTenantAdmin
+              ? 'Organisation administrator'
+              : 'Member'}
+          {session.user.isPlatformAdmin && session.activeTenant ? ' · SaaS Administrator' : ''}
         </span>
         {switchError && (
           <span role="alert" className="text-xs text-danger">

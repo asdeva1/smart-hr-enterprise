@@ -12,6 +12,8 @@ import {
   Clock,
   DatabaseBackup,
   FileKey,
+  GaugeCircle,
+  ListTree,
   FileText,
   KeyRound,
   Laptop,
@@ -76,6 +78,23 @@ interface NavItem {
   /** Only in these deployment modes. */
   modes?: SessionView['deploymentMode'][];
 }
+
+/** What a SaaS administrator uses. The same items are the whole menu for an account that has no organisation. */
+const PLATFORM_ITEMS: NavItem[] = [
+  { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
+  {
+    label: 'Plan catalogue',
+    icon: PackageCheck,
+    href: '/platform/plans',
+    platform: true,
+    modes: ['saas', 'dedicated'],
+  },
+  { label: 'Features and specifications', icon: ListTree, href: '/platform/features', platform: true },
+  { label: 'Licence', icon: FileKey, href: '/platform/licence', platform: true, modes: ['inhouse'] },
+  { label: 'SaaS administrators', icon: ShieldUser, href: '/platform/operators', platform: true },
+];
+
+const SAAS_HOME: NavItem = { label: 'Overview', icon: GaugeCircle, href: '/', platform: true };
 
 /**
  * The sidebar. Groups open and close on click, and a group only appears when the member can use something in
@@ -306,20 +325,9 @@ const NAV: NavGroup[] = [
   },
   {
     id: 'platform',
-    title: 'Platform',
+    title: 'SaaS administration',
     icon: Building,
-    items: [
-      { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
-      {
-        label: 'Plan catalogue',
-        icon: PackageCheck,
-        href: '/platform/plans',
-        platform: true,
-        modes: ['saas', 'dedicated'],
-      },
-      { label: 'Licence', icon: FileKey, href: '/platform/licence', platform: true, modes: ['inhouse'] },
-      { label: 'Operators', icon: ShieldUser, href: '/platform/operators', platform: true },
-    ],
+    items: PLATFORM_ITEMS,
   },
 ];
 
@@ -345,10 +353,18 @@ export function AppShell({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const groups = NAV.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => visible(item, session)),
-  })).filter((group) => group.items.length > 0);
+  // A SaaS administrator with no organisation of their own sees only the administration menu, not an empty member menu.
+  const saasOnly = session.user.isPlatformAdmin && !session.activeTenant;
+  const groups = (
+    saasOnly
+      ? [{ id: 'saas', title: undefined, icon: undefined, items: [SAAS_HOME, ...PLATFORM_ITEMS] }]
+      : NAV
+  )
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => visible(item, session)),
+    }))
+    .filter((group) => group.items.length > 0);
   const tenant = session.activeTenant;
   const brandName = tenant?.branding.name ?? tenant?.name ?? 'Smart HR';
   // The API only accepts colours dark enough for white text, so overriding the primary token stays accessible.
@@ -465,6 +481,11 @@ export function AppShell({
             );
           })}
         </div>
+        {saasOnly && (
+          <p className="mt-auto px-2.5 pt-6 text-[11px] leading-snug text-sidebar-muted">
+            SmartHR is a product of Smartclues Technologies LLP.
+          </p>
+        )}
       </nav>
       <div className="flex min-w-0 flex-[999_1_560px] flex-col">
         <ShellHeader session={session} />
