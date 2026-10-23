@@ -21,4 +21,20 @@ const result = spawnSync('pnpm', ['--filter', '@smart-hr/database', 'db:migrate:
   env: { ...process.env, DATABASE_MIGRATOR_URL: owner },
   stdio: 'inherit',
 });
-process.exit(result.status ?? 1);
+if (result.status !== 0) process.exit(result.status ?? 1);
+
+// Bring the plan catalogue and every organisation's built-in roles up to date, so a release that adds a plan
+// (such as SmartHR Launch) or a permission works without anyone running commands by hand. Both are idempotent:
+// they only add what is missing and never change a plan an operator has edited.
+for (const script of ['sync-plan-catalogue.js', 'sync-system-roles.js']) {
+  const sync = spawnSync('node', [`dist/cli/${script}`], {
+    cwd: new URL('.', import.meta.url).pathname,
+    env: { ...process.env, DATABASE_MIGRATOR_URL: owner },
+    stdio: 'inherit',
+  });
+  if (sync.status !== 0) {
+    // A failed catalogue sync must not stop the release; the app still starts and the log says why.
+    console.log(`[prepare] ${script} failed (exit ${sync.status ?? 'unknown'}); continuing.`);
+  }
+}
+process.exit(0);
