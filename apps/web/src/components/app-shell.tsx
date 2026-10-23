@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronDown,
   Landmark,
+  GaugeCircle,
   UserRound,
   CircleCheck,
   Clock,
@@ -309,6 +310,7 @@ const NAV: NavGroup[] = [
     title: 'Platform',
     icon: Building,
     items: [
+      { label: 'Platform dashboard', icon: GaugeCircle, href: '/platform', platform: true },
       { label: 'Organisations', icon: Building, href: '/platform/organisations', platform: true },
       {
         label: 'Plan catalogue',

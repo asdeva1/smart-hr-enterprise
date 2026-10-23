@@ -42,7 +42,9 @@ export function OrganisationDetail({
 }) {
   const overview = useTenantOverview(tenantId);
   const params = useSearchParams();
-  const [tab, setTab] = useState<'overview' | 'subscription'>('overview');
+  const [tab, setTab] = useState<'overview' | 'subscription'>(
+    params.get('tab') === 'subscription' ? 'subscription' : 'overview',
+  );
   const created = params.get('created');
 
   if (overview.isPending) return <Loading />;

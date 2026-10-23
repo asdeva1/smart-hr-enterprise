@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { normalizeEmail } from '@smart-hr/auth';
+import { randomInt } from 'node:crypto';
+import { hashPassword, normalizeEmail } from '@smart-hr/auth';
 import {
   setTenantContext,
   type DatabaseClient,
@@ -15,6 +16,7 @@ import type { RequestMeta } from '../common/request-context.js';
 import { FILE_STORAGE, type FileStorage } from '../documents/storage.js';
 import { InvitationService } from '../identity/invitation.service.js';
 import { TenantProvisioner } from '../identity/tenant-provisioner.js';
+import { latestPublishedVersion } from '../entitlements/catalogue-sync.js';
 import { DATABASE } from '../infra/tokens.js';
 import { asPlatform } from './platform-context.js';
 
@@ -84,6 +86,55 @@ export class PlatformTenantsService {
       await this.invitations.send(owner.id, email, input.ownerName, tenant.name, 'Smart HR');
     }
     return { id: tenant.id, slug: tenant.slug, name: tenant.name, ownerInvited: owner.passwordHash === null };
+  }
+
+  /**
+   * A ready-to-use demo organisation for checking the product: on the SmartHR Launch plan (every feature), with
+   * an owner whose password is made here and returned once. The address is not a real mailbox. Every call makes
+   * a new, separate organisation, so a demo can be deleted when it is no longer needed.
+   */
+  async createDemo(auth: AuthContext, meta: RequestMeta) {
+    const words = [
+      'amber',
+      'harbour',
+      'violet',
+      'lantern',
+      'copper',
+      'meadow',
+      'signal',
+      'tundra',
+      'orbit',
+      'kettle',
+    ];
+    const pick = () => words[randomInt(words.length)]!;
+    const suffix = String(randomInt(100_000, 999_999));
+    const email = `demo-${suffix}@demo.smarthr.example`;
+    const password = `${pick()} ${pick()} ${pick()} ${randomInt(10, 99)}`;
+    const owner = await this.db.user.create({
+      data: {
+        email,
+        displayName: 'Demo Owner',
+        passwordHash: await hashPassword(password),
+        passwordChangedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    const { tenant } = await asPlatform(this.db, auth, async (tx) => {
+      const version = await latestPublishedVersion(tx, 'LAUNCH');
+      if (!version) {
+        throw new AppError('NO_LAUNCH_PLAN', 'The SmartHR Launch plan does not exist yet', 409);
+      }
+      return this.provisioner.create(tx, {
+        name: `SmartHR Demo ${suffix}`,
+        slug: `demo-${suffix}`,
+        ownerUserId: owner.id,
+        plan: { version, status: 'ACTIVE', currentPeriodEnd: null },
+        actorUserId: auth.user.id,
+        source: 'platform',
+        meta,
+      });
+    });
+    return { id: tenant.id, name: tenant.name, slug: tenant.slug, email, password };
   }
 
   async overview(auth: AuthContext, tenantId: string) {

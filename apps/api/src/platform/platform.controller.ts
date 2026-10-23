@@ -223,6 +223,15 @@ export class PlatformTenantsController {
     return this.tenants.provision(auth, body, requestMeta(req));
   }
 
+  @Post('demo-organisation')
+  @RequireRecentAuth()
+  @ApiOperation({
+    summary: 'Create a demo organisation on the Launch plan; its sign-in is returned once',
+  })
+  createDemo(@CurrentAuth() auth: AuthContext, @Req() req: AppRequest) {
+    return this.tenants.createDemo(auth, requestMeta(req));
+  }
+
   @Get('tenants/:tenantId')
   @ApiOperation({ summary: 'Organisation status, owners and size' })
   overview(@Param('tenantId', uuid) tenantId: string, @CurrentAuth() auth: AuthContext) {
