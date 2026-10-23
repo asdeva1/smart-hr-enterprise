@@ -101,6 +101,7 @@ describe('permissions', () => {
       'leave.view',
       'operations.view',
       'org.view',
+      'performance.view',
       'procurement.view',
       'projects.view',
       'recruitment.view',

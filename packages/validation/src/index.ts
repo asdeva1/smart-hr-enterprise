@@ -31,3 +31,4 @@ export * from './gst.js';
 export * from './bank.js';
 export * from './bank-calc.js';
 export * from './gst-calc.js';
+export * from './performance.js';

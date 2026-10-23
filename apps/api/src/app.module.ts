@@ -11,6 +11,7 @@ import { AttendanceModule } from './attendance/attendance.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { AssetsModule } from './assets/assets.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { PerformanceModule } from './performance/performance.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { SelfServiceModule } from './selfservice/selfservice.module.js';
 import { SearchModule } from './search/search.module.js';
@@ -81,6 +82,7 @@ export class AppModule {
         AssetsModule,
         InventoryModule,
         ProjectsModule,
+        PerformanceModule,
         OperationsModule,
         AiModule,
         SelfServiceModule,

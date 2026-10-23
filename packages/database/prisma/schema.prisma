@@ -79,6 +79,10 @@ model Tenant {
   projects                Project[]
   projectMembers          ProjectMember[]
   timeEntries             TimeEntry[]
+  reviewCycles            ReviewCycle[]
+  performanceGoals        PerformanceGoal[]
+  appraisals              Appraisal[]
+  feedbackNotes           FeedbackNote[]
   opsWorkspaces           OpsWorkspace[]
   opsStages               OpsStage[]
   opsFields               OpsField[]
@@ -289,6 +293,7 @@ model Company {
   assets             Asset[]
   warehouses         Warehouse[]
   projects           Project[]
+  reviewCycles       ReviewCycle[]
   opsWorkspaces      OpsWorkspace[]
 
   @@unique([tenantId, code])
@@ -1118,6 +1123,11 @@ model Employee {
   managedProjects       Project[]               @relation("ProjectManager")
   projectMemberships    ProjectMember[]
   timeEntries           TimeEntry[]
+  performanceGoals      PerformanceGoal[]
+  appraisalsOwn         Appraisal[]             @relation("AppraisalSubject")
+  appraisalsToReview    Appraisal[]             @relation("AppraisalReviewer")
+  feedbackGiven         FeedbackNote[]          @relation("FeedbackFrom")
+  feedbackReceived      FeedbackNote[]          @relation("FeedbackTo")
   opsItems              OpsItem[]
 
   @@unique([tenantId, id])
@@ -3716,4 +3726,136 @@ model PaymentAllocation {
 
   @@index([billId])
   @@map("payment_allocation")
+}
+
+// ---- Performance management ------------------------------------------------------------------------------
+
+enum ReviewCycleStatus {
+  DRAFT
+  OPEN
+  CLOSED
+
+  @@map("review_cycle_status")
+}
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  DROPPED
+
+  @@map("goal_status")
+}
+
+enum AppraisalStatus {
+  AWAITING_SELF
+  AWAITING_MANAGER
+  COMPLETED
+  ACKNOWLEDGED
+
+  @@map("appraisal_status")
+}
+
+enum FeedbackKind {
+  PRAISE
+  SUGGESTION
+
+  @@map("feedback_kind")
+}
+
+/// A period people are reviewed for, for one company: set up, opened (which starts everyone's review) and closed.
+model ReviewCycle {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tenantId        String            @map("tenant_id") @db.Uuid
+  companyId       String            @map("company_id") @db.Uuid
+  name            String
+  periodFrom      DateTime          @map("period_from") @db.Date
+  periodTo        DateTime          @map("period_to") @db.Date
+  status          ReviewCycleStatus @default(DRAFT)
+  openedAt        DateTime?         @map("opened_at") @db.Timestamptz(6)
+  closedAt        DateTime?         @map("closed_at") @db.Timestamptz(6)
+  createdByUserId String            @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company    Company           @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  goals      PerformanceGoal[]
+  appraisals Appraisal[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, companyId, name])
+  @@map("review_cycle")
+}
+
+/// Something an employee is working towards in a cycle. Weights across one person's goals add up to at most 100.
+model PerformanceGoal {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  tenantId    String     @map("tenant_id") @db.Uuid
+  cycleId     String     @map("cycle_id") @db.Uuid
+  employeeId  String     @map("employee_id") @db.Uuid
+  title       String
+  description String?
+  weight      Int
+  /// 0 to 100.
+  progress    Int        @default(0)
+  status      GoalStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  cycle    ReviewCycle @relation(fields: [tenantId, cycleId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee    @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, cycleId, employeeId])
+  @@map("performance_goal")
+}
+
+/// One person's review in one cycle: they rate themselves, their reviewer rates them, they acknowledge it.
+model Appraisal {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  tenantId         String          @map("tenant_id") @db.Uuid
+  cycleId          String          @map("cycle_id") @db.Uuid
+  employeeId       String          @map("employee_id") @db.Uuid
+  reviewerId       String?         @map("reviewer_id") @db.Uuid
+  status           AppraisalStatus @default(AWAITING_SELF)
+  selfRating       Int?            @map("self_rating")
+  selfComment      String?         @map("self_comment")
+  selfSubmittedAt  DateTime?       @map("self_submitted_at") @db.Timestamptz(6)
+  managerRating    Int?            @map("manager_rating")
+  managerComment   String?         @map("manager_comment")
+  reviewedByUserId String?         @map("reviewed_by_user_id") @db.Uuid
+  completedAt      DateTime?       @map("completed_at") @db.Timestamptz(6)
+  acknowledgedAt   DateTime?       @map("acknowledged_at") @db.Timestamptz(6)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  cycle    ReviewCycle @relation(fields: [tenantId, cycleId], references: [tenantId, id], onDelete: Restrict)
+  employee Employee    @relation("AppraisalSubject", fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  reviewer Employee?   @relation("AppraisalReviewer", fields: [tenantId, reviewerId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, cycleId, employeeId])
+  @@index([tenantId, reviewerId])
+  @@map("appraisal")
+}
+
+/// A note from one colleague to another, outside any cycle.
+model FeedbackNote {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  fromId    String       @map("from_id") @db.Uuid
+  toId      String       @map("to_id") @db.Uuid
+  kind      FeedbackKind
+  message   String
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  from   Employee @relation("FeedbackFrom", fields: [tenantId, fromId], references: [tenantId, id], onDelete: Restrict)
+  to     Employee @relation("FeedbackTo", fields: [tenantId, toId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, toId, createdAt])
+  @@index([tenantId, fromId, createdAt])
+  @@map("feedback_note")
 }

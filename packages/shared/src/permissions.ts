@@ -113,6 +113,14 @@ export const PERMISSIONS = {
     module: 'operations',
     label: 'Create operations workspaces and set up their stages and fields',
   },
+  'performance.view': {
+    module: 'performance',
+    label: 'See review cycles, goals and appraisals for people in their part of the organisation',
+  },
+  'performance.manage': {
+    module: 'performance',
+    label: 'Set up review cycles, open and close them, and complete reviews for anyone',
+  },
   'vendors.view': { module: 'procurement', label: 'See vendors' },
   'vendors.manage': { module: 'procurement', label: 'Add and change vendors' },
   'onboarding.manage': {
@@ -144,6 +152,7 @@ export const PERMISSION_MODULES: Record<string, string> = {
   inventory: 'Inventory',
   projects: 'Projects and timesheets',
   operations: 'Operations',
+  performance: 'Performance',
 };
 
 export function isPermission(code: string): code is Permission {
@@ -196,6 +205,8 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'recruitment.view',
       'recruitment.manage',
       'onboarding.manage',
+      'performance.view',
+      'performance.manage',
     ],
   },
   {
@@ -302,6 +313,7 @@ export const SYSTEM_ROLES: { key: string; name: string; description: string; per
       'inventory.view',
       'projects.view',
       'operations.view',
+      'performance.view',
     ],
   },
   {

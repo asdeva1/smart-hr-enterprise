@@ -213,6 +213,10 @@ export class Fixtures {
     await this.db.opsField.deleteMany({ where: inTenants });
     await this.db.opsStage.deleteMany({ where: inTenants });
     await this.db.opsWorkspace.deleteMany({ where: inTenants });
+    await this.db.feedbackNote.deleteMany({ where: inTenants });
+    await this.db.appraisal.deleteMany({ where: inTenants });
+    await this.db.performanceGoal.deleteMany({ where: inTenants });
+    await this.db.reviewCycle.deleteMany({ where: inTenants });
     await this.db.timeEntry.deleteMany({ where: inTenants });
     await this.db.projectMember.deleteMany({ where: inTenants });
     await this.db.project.deleteMany({ where: inTenants });
