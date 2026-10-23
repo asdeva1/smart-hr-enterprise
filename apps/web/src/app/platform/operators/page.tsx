@@ -40,7 +40,7 @@ function Operators({ session }: { session: SessionView }) {
   return (
     <>
       <PageHeader
-        title="SaaS administrators"
+        title="Platform operators"
         description="People who can run the platform console: every organisation, the plan catalogue and other operators."
       />
       {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
@@ -139,7 +139,5 @@ function Operators({ session }: { session: SessionView }) {
 }
 
 export default function PlatformOperatorsPage() {
-  return (
-    <PlatformPage active="SaaS administrators">{(session) => <Operators session={session} />}</PlatformPage>
-  );
+  return <PlatformPage active="Operators">{(session) => <Operators session={session} />}</PlatformPage>;
 }
