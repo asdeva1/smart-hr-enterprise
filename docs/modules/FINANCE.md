@@ -97,3 +97,15 @@ Vendor bills and payments, booked to the company's books. Routes sit under `/v1/
 - **Payments made** (`PAY/…`) debit Payables and credit the chosen bank or cash account. Without explicit allocations they settle the oldest bills by due date first. A bill's status moves to part paid or paid as the settled amount grows; a database check keeps settled at or below total less TDS.
 - **Reports**: summary (owed, overdue, due in 7 days, paid this month), payables ageing by vendor, and a vendor ledger with a running balance.
 - Posted bills cannot be edited; drafts can be changed or discarded. Posting is idempotent per bill and moves its date forward when the period is closed.
+
+## GST and TDS
+
+Return figures worked out from posted documents, under `/v1/finance/gst` (permission `finance.view`; nothing here writes to the books). Pick a company and a return month on the "GST and TDS" screen.
+
+- **GSTR-1**: B2B invoices (customer has a GSTIN), B2C large (inter-state, unregistered, over ₹2.5 lakh), B2C small totalled by state and rate, credit notes to registered customers (CDNR) and to unregistered customers (CDNUR), and the HSN summary. Credit notes are netted out of the HSN summary and B2C small. Each section downloads as CSV. Warnings show a missing seller GSTIN or lines without an HSN or SAC code.
+- **GSTR-3B summary**: tax on sales less input tax credit from bills and debit notes, per head (IGST, CGST, SGST). The cross-head set-off made when filing is not applied.
+- **Purchase register**: posted bills and debit notes with the input tax on each.
+- **GSTR-2B check**: upload the GSTR-2B JSON from the GST portal. Each portal invoice is matched to a posted bill on supplier GSTIN and invoice number (case, punctuation and leading zeros ignored; a rupee of rounding allowed). Results: matched, differs (with what differs), not in your books, not in GSTR-2B. Nothing is stored. Parsing and matching live in `packages/validation/src/gst-calc.ts`.
+- **TDS**: tax deducted on vendor bills by vendor and rate, net of debit notes, with a warning for vendors without a PAN.
+
+Not built: e-invoice (IRN) and e-way bill generation. Both need an account with a GST Suvidha Provider and credentials, which are not set up yet.

@@ -27,3 +27,5 @@ export * from './billing.js';
 export * from './sales.js';
 export * from './sales-calc.js';
 export * from './purchases.js';
+export * from './gst.js';
+export * from './gst-calc.js';

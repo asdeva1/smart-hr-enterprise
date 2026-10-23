@@ -4,6 +4,8 @@ import { TenantExportService } from '../tenant/export.service.js';
 import { BooksService } from './books.service.js';
 import { FinanceController } from './finance.controller.js';
 import { PayrollPostingService } from './payroll-posting.service.js';
+import { GstController } from './gst.controller.js';
+import { GstService } from './gst.service.js';
 import { PurchasesController } from './purchases.controller.js';
 import { PurchasesService } from './purchases.service.js';
 import { ReportsService } from './reports.service.js';
@@ -12,8 +14,15 @@ import { SalesService } from './sales.service.js';
 
 @Module({
   imports: [PayrollModule],
-  controllers: [FinanceController, SalesController, PurchasesController],
-  providers: [BooksService, ReportsService, PayrollPostingService, SalesService, PurchasesService],
+  controllers: [FinanceController, SalesController, PurchasesController, GstController],
+  providers: [
+    BooksService,
+    ReportsService,
+    PayrollPostingService,
+    SalesService,
+    PurchasesService,
+    GstService,
+  ],
 })
 export class FinanceModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}
