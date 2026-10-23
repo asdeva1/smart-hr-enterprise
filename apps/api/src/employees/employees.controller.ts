@@ -125,6 +125,7 @@ export class EmployeesController {
 
   @Post(':id/lifecycle')
   @HttpCode(HttpStatus.OK)
+  @RequireFeature('hr.lifecycle')
   @RequirePermission('employees.lifecycle')
   @ApiOperation({
     summary: 'Transfer, promote, change manager, record notice, withdraw notice or record an exit',
