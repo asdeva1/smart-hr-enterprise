@@ -14,14 +14,7 @@ import type { Feature, LimitKey } from './catalogue.js';
  */
 export type Delivery = 'BUILT' | 'BUILT_UNGATED' | 'PARTIAL' | 'NOT_BUILT' | 'DEFERRED';
 
-export const AREAS = [
-  'Foundation (every plan)',
-  'People and HR',
-  'Finance and ERP',
-  'Operations',
-  'Shared services',
-  'Security and integration',
-] as const;
+export const AREAS = ['HR module', 'Finance', 'Operations', 'Administration'] as const;
 export type Area = (typeof AREAS)[number];
 
 export interface ModuleSpec {
@@ -45,7 +38,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'organisation',
     name: 'Organisation structure and master data',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary: 'Companies, branches, departments and the reference lists every module draws on.',
@@ -62,7 +55,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'access',
     name: 'People, roles and access',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary:
@@ -79,7 +72,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'approvals',
     name: 'Approvals and notifications',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary: 'One approval engine and one notification service used by every module.',
@@ -94,7 +87,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'audit',
     name: 'Audit log',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary: 'An append-only record of sensitive actions that nobody can edit or delete.',
@@ -107,7 +100,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'audit-advanced',
     name: 'Advanced audit',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: ['audit.advanced'],
     delivery: 'NOT_BUILT',
     summary: 'Advanced audit search and exports.',
@@ -117,7 +110,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'org-admin',
     name: 'Organisation administration',
-    area: 'Foundation (every plan)',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary: 'Tools an organisation administrator uses to run their own space.',
@@ -134,7 +127,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'employees',
     name: 'Employee records and directory',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['hr.core'],
     delivery: 'BUILT',
     summary: 'The employee master: one record per person, separate from their sign-in account.',
@@ -152,7 +145,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'lifecycle',
     name: 'Employment lifecycle',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['hr.lifecycle'],
     delivery: 'BUILT_UNGATED',
     summary: 'Promotions, transfers, manager changes, notice and exit, each through approval.',
@@ -166,7 +159,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'attendance',
     name: 'Attendance and shifts',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['attendance.basic'],
     delivery: 'BUILT',
     summary: 'Clock-ins, shifts, daily status and corrections.',
@@ -181,7 +174,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'attendance-advanced',
     name: 'Advanced attendance',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['attendance.advanced'],
     delivery: 'NOT_BUILT',
     summary: 'Rosters, overtime and regularisation rules.',
@@ -196,7 +189,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'leave',
     name: 'Leave and holidays',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['leave.basic'],
     delivery: 'BUILT',
     summary: 'Leave types, balances, requests and holiday calendars.',
@@ -212,7 +205,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'leave-advanced',
     name: 'Advanced leave',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['leave.advanced'],
     delivery: 'PARTIAL',
     summary: 'Accrual, carry-forward, encashment and partial days.',
@@ -224,7 +217,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'self-service',
     name: 'Employee and manager self-service',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['self_service.employee', 'self_service.manager'],
     delivery: 'BUILT',
     summary: 'A personal home page and a team page.',
@@ -237,7 +230,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'recruitment',
     name: 'Recruitment',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['recruitment'],
     delivery: 'BUILT',
     summary: 'Openings, candidates, interviews and offers.',
@@ -252,7 +245,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'onboarding',
     name: 'Onboarding',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['onboarding'],
     delivery: 'BUILT',
     summary: 'Checklists for people joining.',
@@ -265,7 +258,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'payroll',
     name: 'Payroll',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['payroll'],
     delivery: 'BUILT',
     summary: 'Monthly payroll runs, payslips and bank files, with approval.',
@@ -281,7 +274,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'statutory',
     name: 'India statutory compliance',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['payroll.statutory_in'],
     delivery: 'BUILT',
     summary: 'PF, ESI, professional tax and TDS on salary.',
@@ -295,7 +288,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'performance',
     name: 'Performance management',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['performance'],
     delivery: 'NOT_BUILT',
     summary: 'Goals, reviews and feedback.',
@@ -305,7 +298,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'documents',
     name: 'Documents',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['documents'],
     delivery: 'BUILT',
     summary: 'Employee documents, encrypted at rest.',
@@ -320,7 +313,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'esignature',
     name: 'Electronic signatures',
-    area: 'People and HR',
+    area: 'HR module',
     features: ['esignature'],
     delivery: 'BUILT',
     summary: 'Send a document to be signed and keep the evidence.',
@@ -334,7 +327,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'books',
     name: 'Books of accounts',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['finance'],
     delivery: 'BUILT',
     summary: 'Double-entry books for each company.',
@@ -350,7 +343,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'sales',
     name: 'Sales and receivables',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['finance'],
     delivery: 'BUILT',
     summary: 'GST invoicing from quotation to payment.',
@@ -366,7 +359,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'purchases',
     name: 'Purchases and payables',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['finance', 'vendors'],
     delivery: 'BUILT',
     summary: 'Vendor bills, debit notes and payments with input GST and TDS.',
@@ -380,7 +373,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'gst',
     name: 'GST and TDS returns',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['finance'],
     delivery: 'BUILT',
     summary: 'Return-ready figures worked out from posted documents.',
@@ -396,7 +389,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'bank',
     name: 'Bank reconciliation',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['finance'],
     delivery: 'NOT_BUILT',
     summary: 'Match bank statements with the books.',
@@ -406,7 +399,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'expenses',
     name: 'Expenses',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['expenses'],
     delivery: 'BUILT',
     summary: 'Claims and reimbursements.',
@@ -419,7 +412,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'vendors',
     name: 'Vendors',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['vendors'],
     delivery: 'BUILT',
     summary: 'The supplier master shared by every company.',
@@ -428,7 +421,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'procurement',
     name: 'Procurement',
-    area: 'Finance and ERP',
+    area: 'Finance',
     features: ['procurement'],
     delivery: 'BUILT',
     summary: 'From purchase request to goods received.',
@@ -441,7 +434,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'assets',
     name: 'Assets',
-    area: 'Finance and ERP',
+    area: 'Operations',
     features: ['assets'],
     delivery: 'BUILT',
     summary: 'Register, assignment and depreciation.',
@@ -455,7 +448,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'inventory',
     name: 'Inventory',
-    area: 'Finance and ERP',
+    area: 'Operations',
     features: ['inventory'],
     delivery: 'BUILT',
     summary: 'Items, warehouses and an append-only stock ledger.',
@@ -470,7 +463,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'projects',
     name: 'Projects and timesheets',
-    area: 'Finance and ERP',
+    area: 'Operations',
     features: ['projects'],
     delivery: 'BUILT',
     summary: 'Time logging and project profitability.',
@@ -512,7 +505,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'reports',
     name: 'Reports and dashboards',
-    area: 'Shared services',
+    area: 'Administration',
     features: ['reports.standard', 'reports.advanced'],
     delivery: 'BUILT_UNGATED',
     summary: 'Reports inside each module.',
@@ -527,7 +520,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'ai',
     name: 'AI assistant',
-    area: 'Shared services',
+    area: 'Administration',
     features: ['ai.assistant', 'ai.governance'],
     delivery: 'BUILT',
     summary: 'A Claude-powered assistant that works only with what the signed-in person may see.',
@@ -545,7 +538,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'security',
     name: 'Sign-in security',
-    area: 'Security and integration',
+    area: 'Administration',
     features: [],
     delivery: 'BUILT',
     summary: 'Protection for every account, on every plan.',
@@ -559,7 +552,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'sso',
     name: 'Single sign-on',
-    area: 'Security and integration',
+    area: 'Administration',
     features: ['sso'],
     delivery: 'NOT_BUILT',
     summary: 'OIDC and SAML sign-in.',
@@ -569,7 +562,7 @@ export const MODULE_SPECS: readonly ModuleSpec[] = [
   {
     id: 'integrations',
     name: 'API keys and webhooks',
-    area: 'Security and integration',
+    area: 'Administration',
     features: ['integrations.custom'],
     delivery: 'BUILT',
     summary: 'For an organisation’s own systems.',

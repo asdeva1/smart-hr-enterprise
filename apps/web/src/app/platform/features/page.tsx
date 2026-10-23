@@ -41,11 +41,35 @@ function Features() {
         ))}
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {AREAS.map((area) => {
+          const specs = MODULE_SPECS.filter((m) => m.area === area);
+          const built = specs.filter((m) => m.delivery === 'BUILT').length;
+          return (
+            <a
+              key={area}
+              href={`#${area.replace(/\s+/g, '-').toLowerCase()}`}
+              className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4 hover:bg-muted"
+            >
+              <b className="text-[15px]">{area}</b>
+              <span className="text-2xl font-semibold">{specs.length}</span>
+              <span className="text-xs text-muted-foreground">
+                modules, {built} fully built and gated or in every plan
+              </span>
+            </a>
+          );
+        })}
+      </div>
+
       {AREAS.map((area) => {
         const specs = MODULE_SPECS.filter((m) => m.area === area);
         if (specs.length === 0) return null;
         return (
-          <section key={area} className="flex flex-col gap-3">
+          <section
+            key={area}
+            id={area.replace(/\s+/g, '-').toLowerCase()}
+            className="flex scroll-mt-4 flex-col gap-3"
+          >
             <h2 className="text-lg font-semibold">{area}</h2>
             <div className="grid gap-4 lg:grid-cols-2">
               {specs.map((m) => (
