@@ -45,6 +45,16 @@ export const tenantLifecycleSchema = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('rename'), name: organisationName }),
 ]);
+/**
+ * Permanently deletes an organisation and everything in it. Typing the organisation's address confirms it;
+ * `deleteAccounts` also removes sign-in accounts that belonged to this organisation alone.
+ */
+export const deleteTenantSchema = z.object({
+  confirmSlug: z.string().trim(),
+  reason: z.string().trim().min(3, 'Say why').max(500),
+  deleteAccounts: z.boolean().default(false),
+});
+export type DeleteTenantInput = z.input<typeof deleteTenantSchema>;
 export type TenantLifecycleInput = z.input<typeof tenantLifecycleSchema>;
 
 function channel(c: number): number {

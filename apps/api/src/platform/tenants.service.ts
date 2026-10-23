@@ -7,11 +7,12 @@ import {
   type TenantTransaction,
 } from '@smart-hr/database';
 import { AppError, NotFoundError } from '@smart-hr/shared';
-import type { provisionTenantSchema, tenantLifecycleSchema } from '@smart-hr/validation';
+import type { deleteTenantSchema, provisionTenantSchema, tenantLifecycleSchema } from '@smart-hr/validation';
 import type { z } from 'zod';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext } from '../auth/auth.types.js';
 import type { RequestMeta } from '../common/request-context.js';
+import { FILE_STORAGE, type FileStorage } from '../documents/storage.js';
 import { InvitationService } from '../identity/invitation.service.js';
 import { TenantProvisioner } from '../identity/tenant-provisioner.js';
 import { DATABASE } from '../infra/tokens.js';
@@ -23,8 +24,8 @@ import { asPlatform } from './platform-context.js';
  *   ACTIVE ──suspend──▶ SUSPENDED ──reactivate──▶ ACTIVE           (no access while suspended)
  *   ACTIVE ──start_offboarding──▶ OFFBOARDING ──archive──▶ ARCHIVED (read-only + export, then no access)
  *
- * Nothing here deletes organisation data. Archived data is retained until a separately approved,
- * documented retention process removes it.
+ * Archiving keeps the data. Only `delete` removes it, permanently: it is a separate, deliberate step that asks
+ * for the operator's password and the organisation's address.
  */
 @Injectable()
 export class PlatformTenantsService {
@@ -33,6 +34,7 @@ export class PlatformTenantsService {
     private readonly audit: AuditService,
     private readonly provisioner: TenantProvisioner,
     private readonly invitations: InvitationService,
+    @Inject(FILE_STORAGE) private readonly storage: FileStorage,
   ) {}
 
   async provision(auth: AuthContext, input: z.output<typeof provisionTenantSchema>, meta: RequestMeta) {
@@ -187,6 +189,77 @@ export class PlatformTenantsService {
       );
       return after;
     });
+  }
+
+  /**
+   * Permanently deletes an organisation, all its data and its stored files. One database function does the
+   * deletion in a single transaction (so a failure leaves everything as it was); the files are removed
+   * afterwards and any that can't be removed are reported, not hidden.
+   */
+  async deleteTenant(
+    auth: AuthContext,
+    tenantId: string,
+    input: z.output<typeof deleteTenantSchema>,
+    meta: RequestMeta,
+  ) {
+    const { result, keys, tenant } = await asPlatform(
+      this.db,
+      auth,
+      async (tx) => {
+        const tenant = await tx.tenant.findUnique({ where: { id: tenantId } });
+        if (!tenant) throw new NotFoundError('Organisation');
+        if (input.confirmSlug !== tenant.slug) {
+          throw new AppError('CONFIRMATION_MISMATCH', 'Type the organisation’s address to confirm', 422, [
+            { path: 'confirmSlug', message: `Type ${tenant.slug}` },
+          ]);
+        }
+        const files = await tx.storedFile.findMany({ select: { storageKey: true } });
+        const rows = await tx.$queryRaw<{ result: unknown }[]>`
+          SELECT platform_delete_tenant(${tenantId}::uuid, ${input.deleteAccounts}) AS result`;
+        const result = (rows[0]?.result ?? {}) as {
+          tables?: Record<string, number>;
+          accountsDeleted?: number;
+        };
+        await this.audit.recordInTransaction(
+          tx,
+          {
+            action: 'platform.tenant.delete',
+            outcome: 'SUCCESS',
+            tenantId,
+            actorUserId: auth.user.id,
+            targetType: 'tenant',
+            targetId: tenantId,
+            metadata: {
+              name: tenant.name,
+              slug: tenant.slug,
+              status: tenant.status,
+              reason: input.reason,
+              accountsDeleted: result.accountsDeleted ?? 0,
+              filesToRemove: files.length,
+            },
+          },
+          meta,
+        );
+        return { result, keys: files.map((f) => f.storageKey), tenant };
+      },
+      tenantId,
+    );
+    let failed = 0;
+    for (const key of keys) {
+      try {
+        await this.storage.delete(key);
+      } catch {
+        failed += 1;
+      }
+    }
+    return {
+      deleted: true,
+      name: tenant.name,
+      slug: tenant.slug,
+      accountsDeleted: result.accountsDeleted ?? 0,
+      records: Object.values(result.tables ?? {}).reduce((a, b) => a + b, 0),
+      files: { removed: keys.length - failed, failed },
+    };
   }
 
   // ---------------------------------------------------------------------------------------------

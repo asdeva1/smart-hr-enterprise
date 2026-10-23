@@ -18,6 +18,7 @@ import {
   createAddonSchema,
   createOverrideSchema,
   createPlanSchema,
+  deleteTenantSchema,
   grantOperatorSchema,
   provisionTenantSchema,
   tenantLifecycleSchema,
@@ -238,6 +239,22 @@ export class PlatformTenantsController {
     @Req() req: AppRequest,
   ) {
     return this.tenants.lifecycle(auth, tenantId, body, requestMeta(req));
+  }
+
+  @Post('tenants/:tenantId/delete')
+  @RequireRecentAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Permanently delete an organisation and all its data (needs recent password entry and the organisation’s address)',
+  })
+  remove(
+    @Param('tenantId', uuid) tenantId: string,
+    @Body({ schema: deleteTenantSchema }) body: z.output<typeof deleteTenantSchema>,
+    @CurrentAuth() auth: AuthContext,
+    @Req() req: AppRequest,
+  ) {
+    return this.tenants.deleteTenant(auth, tenantId, body, requestMeta(req));
   }
 
   @Get('operators')

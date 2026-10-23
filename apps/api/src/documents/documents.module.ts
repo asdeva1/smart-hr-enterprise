@@ -32,7 +32,7 @@ import { uploadsModule } from './uploads.js';
     DocumentsService,
     SignaturesService,
   ],
-  exports: [FilesService, DocumentsService],
+  exports: [FilesService, DocumentsService, FILE_STORAGE],
 })
 export class DocumentsModule implements OnModuleInit {
   constructor(private readonly exporter: TenantExportService) {}

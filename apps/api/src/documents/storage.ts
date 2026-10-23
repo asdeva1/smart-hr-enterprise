@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
 import { sha256Hex, signV4 } from '../common/sigv4.js';
@@ -9,6 +9,8 @@ export const FILE_STORAGE = Symbol('FILE_STORAGE');
 export interface FileStorage {
   put(key: string, data: Uint8Array): Promise<void>;
   get(key: string): Promise<Buffer>;
+  /** Removes a file; a file that is already gone is not an error. */
+  delete(key: string): Promise<void>;
 }
 
 const KEY = /^[0-9a-f-]{36}\/[0-9a-f-]{36}$/;
@@ -39,6 +41,10 @@ export class LocalFileStorage implements FileStorage {
   async get(key: string): Promise<Buffer> {
     return readFile(this.path(key));
   }
+
+  async delete(key: string): Promise<void> {
+    await rm(this.path(key), { force: true });
+  }
 }
 
 export interface S3Options {
@@ -68,7 +74,7 @@ export class S3FileStorage implements FileStorage {
       : new URL(`https://${o.bucket}.s3.${o.region}.amazonaws.com/${key}`);
   }
 
-  private async call(method: 'GET' | 'PUT', key: string, body?: Uint8Array): Promise<Response> {
+  private async call(method: 'GET' | 'PUT' | 'DELETE', key: string, body?: Uint8Array): Promise<Response> {
     const o = this.options;
     const url = this.url(key);
     const payload = body ?? new Uint8Array();
@@ -108,5 +114,11 @@ export class S3FileStorage implements FileStorage {
     const res = await this.call('GET', key);
     if (!res.ok) throw new Error(`Storage could not read the file (${res.status})`);
     return Buffer.from(await res.arrayBuffer());
+  }
+
+  async delete(key: string): Promise<void> {
+    const res = await this.call('DELETE', key);
+    // S3 answers 204 whether or not the object existed.
+    if (!res.ok && res.status !== 404) throw new Error(`Storage could not remove the file (${res.status})`);
   }
 }

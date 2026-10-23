@@ -15,6 +15,7 @@ import { errorMessage } from '@/lib/admin';
 import { apiFetch } from '@/lib/api';
 import { formatDate, planKeys } from '@/lib/plan';
 import { platformKeys, useTenantOverview, type TenantOverview } from '@/lib/platform';
+import { DeleteOrganisation } from './delete-organisation';
 import { SubscriptionManager } from './subscription-manager';
 
 const STATUS_TONE = {
@@ -30,7 +31,15 @@ const STATUS_TEXT = {
   ARCHIVED: 'Archived — no access',
 } as const;
 
-export function OrganisationDetail({ tenantId, usesLicence }: { tenantId: string; usesLicence: boolean }) {
+export function OrganisationDetail({
+  tenantId,
+  usesLicence,
+  mfaEnabled,
+}: {
+  tenantId: string;
+  usesLicence: boolean;
+  mfaEnabled: boolean;
+}) {
   const overview = useTenantOverview(tenantId);
   const params = useSearchParams();
   const [tab, setTab] = useState<'overview' | 'subscription'>('overview');
@@ -70,7 +79,7 @@ export function OrganisationDetail({ tenantId, usesLicence }: { tenantId: string
             </Link>
             .
           </p>
-          <Overview data={overview.data} />
+          <Overview data={overview.data} mfaEnabled={mfaEnabled} />
         </>
       ) : (
         <>
@@ -84,7 +93,7 @@ export function OrganisationDetail({ tenantId, usesLicence }: { tenantId: string
             ]}
           />
           {tab === 'overview' ? (
-            <Overview data={overview.data} />
+            <Overview data={overview.data} mfaEnabled={mfaEnabled} />
           ) : (
             <SubscriptionManager tenantId={tenantId} />
           )}
@@ -94,7 +103,7 @@ export function OrganisationDetail({ tenantId, usesLicence }: { tenantId: string
   );
 }
 
-function Overview({ data }: { data: TenantOverview }) {
+function Overview({ data, mfaEnabled }: { data: TenantOverview; mfaEnabled: boolean }) {
   const { tenant, owners, members, companies } = data;
   const client = useQueryClient();
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string }>();
@@ -255,9 +264,10 @@ function Overview({ data }: { data: TenantOverview }) {
         )}
         <p className="text-xs text-muted-foreground">
           Suspending and archiving end all access at once. Offboarding keeps members on read-only so they can
-          export their data. Nothing is deleted by any of these.
+          export their data. None of these deletes anything.
         </p>
       </section>
+      <DeleteOrganisation tenant={tenant} mfaEnabled={mfaEnabled} />
     </div>
   );
 }

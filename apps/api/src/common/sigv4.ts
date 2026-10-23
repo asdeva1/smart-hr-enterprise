@@ -7,7 +7,7 @@ export const EMPTY_SHA256 = sha256('');
 export const sha256Hex = sha256;
 
 export interface SigV4Input {
-  method: 'GET' | 'PUT' | 'POST';
+  method: 'GET' | 'PUT' | 'POST' | 'DELETE';
   url: URL;
   body: string | Uint8Array;
   region: string;
