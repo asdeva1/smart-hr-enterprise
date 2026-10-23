@@ -230,6 +230,10 @@ export class Fixtures {
     await this.db.expenseLine.deleteMany({ where: inTenants });
     await this.db.expenseClaim.deleteMany({ where: inTenants });
     await this.db.expenseCategory.deleteMany({ where: inTenants });
+    await this.db.paymentAllocation.deleteMany({ where: inTenants });
+    await this.db.vendorPayment.deleteMany({ where: inTenants });
+    await this.db.purchaseBillLine.deleteMany({ where: inTenants });
+    await this.db.purchaseBill.deleteMany({ where: inTenants });
     await this.db.vendor.deleteMany({ where: inTenants });
     await this.db.receiptAllocation.deleteMany({ where: inTenants });
     await this.db.customerReceipt.deleteMany({ where: inTenants });

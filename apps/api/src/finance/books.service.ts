@@ -43,7 +43,16 @@ export const DEFAULT_CHART: {
   { code: '1100', name: 'Bank', type: 'ASSET', systemKey: 'BANK' },
   { code: '1200', name: 'Accounts receivable', type: 'ASSET', systemKey: 'RECEIVABLES' },
   { code: '1300', name: 'Advances to employees', type: 'ASSET' },
-  { code: '2000', name: 'Accounts payable', type: 'LIABILITY' },
+  { code: '2000', name: 'Accounts payable', type: 'LIABILITY', systemKey: 'PAYABLES' },
+  {
+    code: '2250',
+    name: 'TDS payable on vendor payments',
+    type: 'LIABILITY',
+    systemKey: 'TDS_VENDOR_PAYABLE',
+  },
+  { code: '1410', name: 'Input CGST', type: 'ASSET', systemKey: 'GST_IN_CGST' },
+  { code: '1420', name: 'Input SGST', type: 'ASSET', systemKey: 'GST_IN_SGST' },
+  { code: '1430', name: 'Input IGST', type: 'ASSET', systemKey: 'GST_IN_IGST' },
   { code: '2100', name: 'Salaries payable', type: 'LIABILITY', systemKey: 'SALARY_PAYABLE' },
   { code: '2200', name: 'Provident fund payable', type: 'LIABILITY', systemKey: 'PF_PAYABLE' },
   { code: '2210', name: 'ESI payable', type: 'LIABILITY', systemKey: 'ESI_PAYABLE' },
@@ -619,7 +628,13 @@ export class BooksService implements OnModuleInit {
       companyId: string;
       date: Date;
       narration: string;
-      source: 'PAYROLL' | 'PAYROLL_PAYMENT' | 'SALES_DOCUMENT' | 'SALES_RECEIPT';
+      source:
+        | 'PAYROLL'
+        | 'PAYROLL_PAYMENT'
+        | 'SALES_DOCUMENT'
+        | 'SALES_RECEIPT'
+        | 'PURCHASE_BILL'
+        | 'VENDOR_PAYMENT';
       sourceId: string;
       createdByUserId: string;
       lines: SystemLine[];

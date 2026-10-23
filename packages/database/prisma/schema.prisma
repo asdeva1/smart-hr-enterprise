@@ -123,6 +123,10 @@ model Tenant {
   payslips                Payslip[]
   ledgerAccounts          LedgerAccount[]
   customers               Customer[]
+  purchaseBills           PurchaseBill[]
+  purchaseBillLines       PurchaseBillLine[]
+  vendorPayments          VendorPayment[]
+  paymentAllocations      PaymentAllocation[]
   invoiceTemplates        InvoiceTemplate[]
   salesSettings           SalesSetting[]
   salesDocuments          SalesDocument[]
@@ -275,6 +279,8 @@ model Company {
   salesSettings    SalesSetting[]
   salesDocuments   SalesDocument[]
   receipts         CustomerReceipt[]
+  purchaseBills    PurchaseBill[]
+  vendorPayments   VendorPayment[]
   purchaseOrders   PurchaseOrder[]
   assets           Asset[]
   warehouses       Warehouse[]
@@ -2383,6 +2389,8 @@ enum JournalSource {
   PAYROLL_PAYMENT
   SALES_DOCUMENT
   SALES_RECEIPT
+  PURCHASE_BILL
+  VENDOR_PAYMENT
 
   @@map("journal_source")
 }
@@ -2517,6 +2525,8 @@ model Vendor {
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purchaseOrders PurchaseOrder[]
   assets         Asset[]
+  bills          PurchaseBill[]
+  payments       VendorPayment[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, code])
@@ -3496,4 +3506,135 @@ model ReceiptAllocation {
 
   @@index([documentId])
   @@map("receipt_allocation")
+}
+
+// ---- Purchases and payables ---------------------------------------------------------------------
+
+enum BillType {
+  BILL
+  DEBIT_NOTE
+
+  @@map("bill_type")
+}
+
+enum BillStatus {
+  DRAFT
+  POSTED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+
+  @@map("bill_status")
+}
+
+/// What we owe a vendor: a bill, or a debit note that reduces it.
+model PurchaseBill {
+  id              String     @id @default(uuid(7)) @db.Uuid
+  tenantId        String     @map("tenant_id") @db.Uuid
+  companyId       String     @map("company_id") @db.Uuid
+  vendorId        String     @map("vendor_id") @db.Uuid
+  type            BillType   @default(BILL)
+  /// Our own number, given when posted: BILL/2026-27/0001.
+  number          String?
+  /// The number printed on the vendor's bill.
+  vendorBillNo    String?    @map("vendor_bill_no")
+  status          BillStatus @default(DRAFT)
+  date            DateTime   @db.Date
+  dueDate         DateTime?  @map("due_date") @db.Date
+  placeOfSupply   String?    @map("place_of_supply") @db.Char(2)
+  note            String?
+  subtotal        Decimal    @default(0) @db.Decimal(16, 2)
+  cgst            Decimal    @default(0) @db.Decimal(16, 2)
+  sgst            Decimal    @default(0) @db.Decimal(16, 2)
+  igst            Decimal    @default(0) @db.Decimal(16, 2)
+  total           Decimal    @default(0) @db.Decimal(16, 2)
+  /// TDS deducted from what we pay, as a percentage of the taxable value.
+  tdsRate         Decimal    @default(0) @map("tds_rate") @db.Decimal(5, 2)
+  tdsAmount       Decimal    @default(0) @map("tds_amount") @db.Decimal(16, 2)
+  /// Paid and debit notes applied, against total less TDS.
+  settled         Decimal    @default(0) @db.Decimal(16, 2)
+  relatedId       String?    @map("related_id") @db.Uuid
+  journalEntryId  String?    @map("journal_entry_id") @db.Uuid
+  createdByUserId String     @map("created_by_user_id") @db.Uuid
+  postedAt        DateTime?  @map("posted_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  vendor      Vendor              @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
+  lines       PurchaseBillLine[]
+  allocations PaymentAllocation[]
+
+  @@unique([tenantId, id])
+  @@index([companyId, type, status])
+  @@index([vendorId])
+  @@map("purchase_bill")
+}
+
+model PurchaseBillLine {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  billId      String   @map("bill_id") @db.Uuid
+  position    Int
+  description String
+  hsn         String?
+  quantity    Decimal  @db.Decimal(14, 3)
+  rate        Decimal  @db.Decimal(16, 2)
+  gstRate     Decimal  @default(0) @map("gst_rate") @db.Decimal(5, 2)
+  /// The expense (or asset) account this line is booked to.
+  accountId   String   @map("account_id") @db.Uuid
+  amount      Decimal  @db.Decimal(16, 2)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  bill   PurchaseBill @relation(fields: [tenantId, billId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([billId, position])
+  @@map("purchase_bill_line")
+}
+
+/// Money paid to a vendor, shared out across their bills.
+model VendorPayment {
+  id                String      @id @default(uuid(7)) @db.Uuid
+  tenantId          String      @map("tenant_id") @db.Uuid
+  companyId         String      @map("company_id") @db.Uuid
+  vendorId          String      @map("vendor_id") @db.Uuid
+  number            String
+  date              DateTime    @db.Date
+  amount            Decimal     @db.Decimal(16, 2)
+  mode              PaymentMode
+  reference         String?
+  note              String?
+  /// Bank or cash account the money came from.
+  paidFromAccountId String      @map("paid_from_account_id") @db.Uuid
+  journalEntryId    String?     @map("journal_entry_id") @db.Uuid
+  createdByUserId   String      @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  company     Company             @relation(fields: [tenantId, companyId], references: [tenantId, id], onDelete: Restrict)
+  vendor      Vendor              @relation(fields: [tenantId, vendorId], references: [tenantId, id], onDelete: Restrict)
+  allocations PaymentAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([companyId, number])
+  @@index([vendorId])
+  @@map("vendor_payment")
+}
+
+model PaymentAllocation {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  paymentId String   @map("payment_id") @db.Uuid
+  billId    String   @map("bill_id") @db.Uuid
+  amount    Decimal  @db.Decimal(16, 2)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  payment VendorPayment @relation(fields: [tenantId, paymentId], references: [tenantId, id], onDelete: Restrict)
+  bill    PurchaseBill  @relation(fields: [tenantId, billId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([billId])
+  @@map("payment_allocation")
 }

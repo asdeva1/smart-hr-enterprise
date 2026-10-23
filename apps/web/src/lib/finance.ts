@@ -23,7 +23,15 @@ export interface Journal {
   number: string | null;
   date: string;
   narration: string;
-  source: 'MANUAL' | 'REVERSAL' | 'PAYROLL' | 'PAYROLL_PAYMENT';
+  source:
+    | 'MANUAL'
+    | 'REVERSAL'
+    | 'PAYROLL'
+    | 'PAYROLL_PAYMENT'
+    | 'SALES_DOCUMENT'
+    | 'SALES_RECEIPT'
+    | 'PURCHASE_BILL'
+    | 'VENDOR_PAYMENT';
   sourceId: string | null;
   status: JournalStatus;
   total: number;
@@ -66,6 +74,10 @@ export const SOURCE_LABEL = {
   REVERSAL: 'Reversal',
   PAYROLL: 'Payroll',
   PAYROLL_PAYMENT: 'Salary payment',
+  SALES_DOCUMENT: 'Sales invoice',
+  SALES_RECEIPT: 'Payment received',
+  PURCHASE_BILL: 'Vendor bill',
+  VENDOR_PAYMENT: 'Payment to vendor',
 } as const;
 
 export const financeKeys = {

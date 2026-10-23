@@ -87,3 +87,13 @@ Customers, GST invoices, quotations, proforma invoices, delivery challans and cr
 - **Receipts** settle the oldest open invoices first unless allocated by hand; any excess stays unapplied
   (the customer is in credit on their statement).
 - **Reports.** Receivables summary, ageing by customer, and a customer statement with a running balance.
+
+## Purchases and payables
+
+Vendor bills and payments, booked to the company's books. Routes sit under `/v1/finance/purchases`; permissions reuse `finance.view`, `finance.manage` and `finance.configure`.
+
+- **Bills and debit notes** start as drafts. Each line names the expense (or asset) account it is booked to, with an HSN or SAC code and a GST rate. Posting a bill gives it a number (`BILL/2026-27/0001`, debit notes `DN/…`) and journals: debit each expense account and the input GST accounts (1410/1420/1430); credit Payables (2000) for the total less TDS, and TDS payable (2250) for the TDS held back. GST splits into CGST and SGST within the state, IGST otherwise.
+- **Debit notes** reverse a posted bill, in part or whole, and reduce what is owed on it.
+- **Payments made** (`PAY/…`) debit Payables and credit the chosen bank or cash account. Without explicit allocations they settle the oldest bills by due date first. A bill's status moves to part paid or paid as the settled amount grows; a database check keeps settled at or below total less TDS.
+- **Reports**: summary (owed, overdue, due in 7 days, paid this month), payables ageing by vendor, and a vendor ledger with a running balance.
+- Posted bills cannot be edited; drafts can be changed or discarded. Posting is idempotent per bill and moves its date forward when the period is closed.

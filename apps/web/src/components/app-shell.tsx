@@ -181,6 +181,13 @@ const NAV: NavGroup[] = [
         feature: 'finance',
       },
       {
+        label: 'Bills and payments',
+        icon: Receipt,
+        href: '/finance/bills',
+        permission: 'finance.view',
+        feature: 'finance',
+      },
+      {
         label: 'Customers',
         icon: Users,
         href: '/finance/customers',
