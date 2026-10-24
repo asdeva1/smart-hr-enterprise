@@ -36,9 +36,18 @@ const saved = { ...process.env };
 
 beforeEach(() => {
   process.env.CRON_SECRET = SECRET;
+  // The sweeps load the full environment, which requires an encryption key; do not depend on the machine having one.
+  if (!process.env.DATA_ENCRYPTION_KEYS) {
+    process.env.DATA_ENCRYPTION_KEYS = `test:${Buffer.alloc(32, 7).toString('base64')}`;
+    process.env.DATA_ENCRYPTION_KEY_ID = 'test';
+  }
 });
 
 afterEach(() => {
+  process.env.DATA_ENCRYPTION_KEYS = saved.DATA_ENCRYPTION_KEYS;
+  process.env.DATA_ENCRYPTION_KEY_ID = saved.DATA_ENCRYPTION_KEY_ID;
+  if (saved.DATA_ENCRYPTION_KEYS === undefined) delete process.env.DATA_ENCRYPTION_KEYS;
+  if (saved.DATA_ENCRYPTION_KEY_ID === undefined) delete process.env.DATA_ENCRYPTION_KEY_ID;
   process.env.CRON_SECRET = saved.CRON_SECRET;
   if (saved.CRON_SECRET === undefined) delete process.env.CRON_SECRET;
 });
