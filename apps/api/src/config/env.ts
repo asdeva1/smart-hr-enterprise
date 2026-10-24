@@ -32,6 +32,10 @@ export const apiEnvSchema = baseServerEnvSchema
       .default('smarthr'),
     /** Public URL of the web app, used in emailed links. */
     APP_PUBLIC_URL: z.url().default('http://localhost:3000'),
+    /** Public URL of this API as the browser sees it, used for the single sign-on return address. */
+    API_PUBLIC_URL: z.url().optional(),
+    /** Lets single sign-on talk to an identity provider on a private network or over http. Never in production. */
+    SSO_ALLOW_PRIVATE_NETWORK: z.stringbool().default(false),
 
     // Sessions
     AUTH_SESSION_IDLE_MINUTES: minutes(30),
@@ -239,6 +243,13 @@ export const apiEnvSchema = baseServerEnvSchema
           message: 'online purchase is not available in-house',
         });
       }
+    }
+    if (env.NODE_ENV === 'production' && env.SSO_ALLOW_PRIVATE_NETWORK) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SSO_ALLOW_PRIVATE_NETWORK'],
+        message: 'cannot be true in production',
+      });
     }
     if (env.NODE_ENV === 'production' && !env.AUTH_COOKIE_SECURE) {
       ctx.addIssue({

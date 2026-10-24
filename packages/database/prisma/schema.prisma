@@ -148,6 +148,7 @@ model Tenant {
   workLocations    WorkLocation[]
   rosterEntries    RosterEntry[]
   overtimeApprovals OvertimeApproval[]
+  ssoConnection SsoConnection?
 }
 
 enum UserStatus {
@@ -425,6 +426,8 @@ model UserSession {
   revokeReason      String?   @map("revoke_reason")
   ipAddress         String?   @map("ip_address")
   userAgent         String?   @map("user_agent")
+  /// Set when the session came from an organisation's single sign-on: it can only ever work in that organisation.
+  ssoTenantId       String?   @map("sso_tenant_id") @db.Uuid
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeTenant      Tenant?   @relation(fields: [activeTenantId], references: [id], onDelete: SetNull)
 
@@ -1407,6 +1410,33 @@ model AttendanceDay {
   @@unique([tenantId, employeeId, date])
   @@index([tenantId, date])
   @@map("attendance_day")
+}
+
+/// An organisation's single sign-on through its own OpenID Connect identity provider (Microsoft Entra, Okta,
+/// Google Workspace and others). People still need an active membership here: signing in never creates one.
+model SsoConnection {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  tenantId            String    @unique @map("tenant_id") @db.Uuid
+  /// The provider's issuer URL; its discovery document is read from `<issuer>/.well-known/openid-configuration`.
+  issuer              String
+  clientId            String    @map("client_id")
+  /// Sealed with DATA_ENCRYPTION_KEYS, bound to this organisation. Never returned by the API.
+  clientSecretSealed  String    @map("client_secret_sealed")
+  /// Only email addresses on these domains may sign in this way.
+  allowedDomains      String[]  @map("allowed_domains")
+  /// The provider must confirm the email address. Turn off only for providers that never send the claim.
+  requireVerifiedEmail Boolean  @default(true) @map("require_verified_email")
+  enabled             Boolean   @default(false)
+  /// Members on the allowed domains must use single sign-on; organisation administrators can still use a password.
+  enforced            Boolean   @default(false)
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedByUserId     String?   @map("updated_by_user_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@map("sso_connection")
 }
 
 enum GeofenceMode {

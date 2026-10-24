@@ -175,16 +175,17 @@ export class AuthService {
   }
 
   /** The user's only tenant, if they have exactly one; otherwise they choose after sign-in. */
-  private async defaultTenant(userId: string): Promise<string | null> {
-    const memberships = await this.activeMemberships(userId);
+  private async defaultTenant(userId: string, ssoTenantId?: string | null): Promise<string | null> {
+    const memberships = await this.activeMemberships(userId, ssoTenantId);
     return memberships.length === 1 ? memberships[0]!.tenantId : null;
   }
 
-  private async activeMemberships(userId: string) {
+  private async activeMemberships(userId: string, ssoTenantId?: string | null) {
     return withContext(this.db, { userId }, (tx) =>
       tx.tenantMembership.findMany({
         // Offboarding organisations stay reachable, read-only, so members can export their data.
-        where: { userId, status: 'ACTIVE', tenant: { status: { in: ['ACTIVE', 'OFFBOARDING'] } } },
+        // A single sign-on session only ever sees the organisation that signed the person in.
+        where: { userId, status: 'ACTIVE', ...(ssoTenantId ? { tenantId: ssoTenantId } : {}), tenant: { status: { in: ['ACTIVE', 'OFFBOARDING'] } } },
         include: {
           tenant: {
             select: {
@@ -299,7 +300,7 @@ export class AuthService {
   }
 
   async view(session: UserSession, user: User): Promise<SessionView> {
-    const memberships = session.mfaPending ? [] : await this.activeMemberships(user.id);
+    const memberships = session.mfaPending ? [] : await this.activeMemberships(user.id, session.ssoTenantId);
     const active = memberships.find((m) => m.tenantId === session.activeTenantId);
     const activeDetail = active
       ? await withContext(this.db, { tenantId: active.tenantId, userId: user.id }, async (tx) => ({
@@ -365,7 +366,7 @@ export class AuthService {
 
   /** Switches the active tenant after re-checking membership. The client's choice is a request, not proof. */
   async switchTenant(auth: AuthContext, tenantId: string, meta: RequestMeta): Promise<IssuedSession> {
-    const membership = (await this.activeMemberships(auth.user.id)).find((m) => m.tenantId === tenantId);
+    const membership = (await this.activeMemberships(auth.user.id, auth.session.ssoTenantId)).find((m) => m.tenantId === tenantId);
     if (!membership) {
       await this.audit.record(
         {
@@ -590,6 +591,9 @@ export class AuthService {
     meta: RequestMeta,
   ): Promise<IssuedSession> {
     const { user } = auth;
+    if (auth.session.ssoTenantId) {
+      throw new AppError('SSO_MANAGED', 'Your sign-in is managed by your organisation’s identity provider', 403);
+    }
     if (!user.passwordHash || !(await verifyPassword(user.passwordHash, input.currentPassword))) {
       await this.registerFailure(user, 'bad_current_password', meta);
       throw new AppError('INVALID_CREDENTIALS', 'Your current password is incorrect', 401);

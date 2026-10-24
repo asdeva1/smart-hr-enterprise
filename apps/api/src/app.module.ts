@@ -37,6 +37,7 @@ import { PlatformModule } from './platform/platform.module.js';
 import { RbacModule } from './rbac/rbac.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { SignupModule } from './signup/signup.module.js';
+import { SsoModule } from './sso/sso.module.js';
 import { TenantModule } from './tenant/tenant.module.js';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
@@ -94,6 +95,7 @@ export class AppModule {
         FinanceModule,
         PlatformModule,
         SignupModule,
+        SsoModule,
         BillingModule,
         ...extraModules,
       ],

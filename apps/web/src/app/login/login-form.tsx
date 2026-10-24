@@ -13,6 +13,7 @@ import { Field, fieldAria } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useSignOut } from '@/hooks/use-sign-out';
 import { ApiError, apiFetch, safeNextPath, type SessionView } from '@/lib/api';
+import { SSO_ERRORS } from '@/lib/sso';
 import { useSession, useSetSession } from '@/lib/session';
 
 const REASONS: Record<string, { tone: 'info' | 'warning' | 'success'; text: string }> = {
@@ -48,7 +49,9 @@ export function LoginForm() {
   const [chosenStep, setStep] = useState<'password' | 'mfa' | null>(null);
   // A refresh in the middle of two-step sign-in returns to the code step.
   const step = chosenStep ?? (existing?.mfaPending ? 'mfa' : 'password');
-  const reason = REASONS[params.get('reason') ?? ''];
+  const ssoError = SSO_ERRORS[params.get('sso_error') ?? ''];
+  const reason: { tone: 'info' | 'warning' | 'success'; text: string } | undefined =
+    REASONS[params.get('reason') ?? ''] ?? (ssoError ? { tone: 'warning', text: ssoError } : undefined);
   const next = safeNextPath(params.get('next'));
 
   function proceed(view: SessionView) {
@@ -65,7 +68,7 @@ export function LoginForm() {
   return (
     <div className="flex flex-col gap-5">
       {step === 'password' ? (
-        <PasswordStep onSuccess={proceed} notice={reason} />
+        <PasswordStep onSuccess={proceed} notice={reason} next={next} />
       ) : (
         <SecondFactorStep onSuccess={proceed} />
       )}
@@ -76,8 +79,10 @@ export function LoginForm() {
 function PasswordStep({
   onSuccess,
   notice,
+  next,
 }: {
   onSuccess: (view: SessionView) => void;
+  next: string;
   notice: { tone: 'info' | 'warning' | 'success'; text: string } | undefined;
 }) {
   const [formError, setFormError] = useState<string>();
@@ -86,6 +91,28 @@ function PasswordStep({
     defaultValues: { email: '', password: '' },
   });
   const { errors, isSubmitting } = form.formState;
+
+  /** Asks whether this email signs in through an identity provider and, if so, hands over to it. */
+  async function singleSignOn() {
+    setFormError(undefined);
+    const email = form.getValues('email').trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setFormError('Enter your work email first, then choose single sign-on.');
+      return;
+    }
+    try {
+      const found = await apiFetch<{ sso: boolean }>(`/v1/sso/discover?email=${encodeURIComponent(email)}`);
+      if (!found.sso) {
+        setFormError(SSO_ERRORS.unavailable);
+        return;
+      }
+      // A full page load: the sign-in starts on the API and leaves for the identity provider.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`/v1/sso/start?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+    } catch (error) {
+      setFormError(errorText(error));
+    }
+  }
 
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(undefined);
@@ -134,9 +161,11 @@ function PasswordStep({
       <Button type="submit" size="lg" disabled={isSubmitting}>
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </Button>
+      <Button type="button" variant="outline" size="lg" onClick={() => void singleSignOn()}>
+        Sign in with single sign-on
+      </Button>
       <p className="text-xs text-muted-foreground">
-        After several failed attempts the account is locked for a short time. Your administrator can turn on
-        single sign-on for your organisation.
+        After several failed attempts the account is locked for a short time.
       </p>
       {process.env.NEXT_PUBLIC_SIGNUP_ENABLED === 'true' && (
         <p className="text-center text-[13px] text-muted-foreground">

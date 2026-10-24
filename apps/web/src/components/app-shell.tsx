@@ -301,6 +301,13 @@ const NAV: NavGroup[] = [
       },
       { label: 'Security policy', icon: ShieldCheck, href: '/admin/security', permission: 'security.manage' },
       {
+        label: 'Single sign-on',
+        icon: KeyRound,
+        href: '/admin/sso',
+        permission: 'security.manage',
+        feature: 'sso',
+      },
+      {
         label: 'Approval policies',
         icon: Workflow,
         href: '/admin/approvals',

@@ -78,6 +78,14 @@ export class AuthGuard implements CanActivate {
       }
     }
 
+    if (this.flag(ctx, AUTH_META.recentAuth) && auth.session.ssoTenantId) {
+      // Sign-in details of a single sign-on account live at the organisation's identity provider.
+      throw new AppError(
+        'SSO_MANAGED',
+        'Your sign-in is managed by your organisation’s identity provider. Change this there.',
+        403,
+      );
+    }
     if (this.flag(ctx, AUTH_META.recentAuth)) {
       const at = auth.session.reauthenticatedAt;
       if (!at || Date.now() - at.getTime() > this.env.AUTH_REAUTH_MINUTES * 60_000) {
@@ -104,6 +112,10 @@ export class AuthGuard implements CanActivate {
     if (needsAdmin || required.length > 0 || feature || this.flag(ctx, AUTH_META.tenant)) {
       const tenantId = auth.session.activeTenantId;
       if (!tenantId) throw new AppError('TENANT_REQUIRED', 'Choose an organisation first', 403);
+      // A single sign-on session belongs to the organisation that issued it and no other.
+      if (auth.session.ssoTenantId && auth.session.ssoTenantId !== tenantId) {
+        throw new AppError('FORBIDDEN', 'You do not have access to this organisation with this sign-in', 403);
+      }
       // Re-checked every request: a suspended membership or tenant, or a removed role, takes effect immediately.
       const { membership, entitlements } = await withContext(
         this.db,
@@ -117,7 +129,13 @@ export class AuthGuard implements CanActivate {
               tenant: { status: { in: ['ACTIVE', 'OFFBOARDING'] } },
             },
             include: {
-              tenant: { select: { requireMfa: true, status: true } },
+              tenant: {
+                select: {
+                  requireMfa: true,
+                  status: true,
+                  ssoConnection: { select: { enabled: true, enforced: true } },
+                },
+              },
               assignments: { select: ASSIGNMENT_SELECT },
             },
           }),
@@ -136,10 +154,20 @@ export class AuthGuard implements CanActivate {
       }
 
       // Organisation policy: members must turn on two-step verification before using the organisation.
-      if (membership.tenant.requireMfa && !auth.user.mfaEnabledAt) {
+      if (membership.tenant.requireMfa && !auth.user.mfaEnabledAt && !auth.session.ssoTenantId) {
         throw new AppError(
           'MFA_ENROLMENT_REQUIRED',
           'Your organisation requires two-step verification. Turn it on to continue.',
+          403,
+        );
+      }
+
+      // When the organisation requires single sign-on, members use it; administrators keep a password as a way back in.
+      const sso = membership.tenant.ssoConnection;
+      if (sso?.enabled && sso.enforced && !auth.session.ssoTenantId && !membership.isTenantAdmin) {
+        throw new AppError(
+          'SSO_REQUIRED',
+          'Your organisation requires you to sign in with single sign-on.',
           403,
         );
       }

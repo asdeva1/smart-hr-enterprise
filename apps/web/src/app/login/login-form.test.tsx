@@ -124,4 +124,37 @@ describe('LoginForm', () => {
     renderForm();
     expect((await screen.findByRole('status')).textContent).toContain('Your session ended');
   });
+
+  it('hands over to single sign-on only when the address uses it', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    fetchMock.mockImplementation((url: string) =>
+      url.includes('/v1/sso/discover?email=asha%40acme.in')
+        ? json(200, { sso: true, organisation: 'Acme', enforced: false })
+        : url.includes('/v1/sso/discover')
+          ? json(200, { sso: false })
+          : json(401, {}),
+    );
+    renderForm();
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in with single sign-on' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Enter your work email first');
+
+    await userEvent.type(screen.getByLabelText('Work email'), 'ravi@other.in');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in with single sign-on' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('isn’t set up');
+    expect(assign).not.toHaveBeenCalled();
+
+    await userEvent.clear(screen.getByLabelText('Work email'));
+    await userEvent.type(screen.getByLabelText('Work email'), 'asha@acme.in');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in with single sign-on' }));
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('/v1/sso/start?email=asha%40acme.in&next=%2F'),
+    );
+  });
+
+  it('explains a failed single sign-on', async () => {
+    search = new URLSearchParams({ sso_error: 'no_access' });
+    renderForm();
+    expect((await screen.findByRole('status')).textContent).toContain('hasn’t been added');
+  });
 });

@@ -31,6 +31,8 @@ export class SessionService {
       mfaPending: boolean;
       activeTenantId: string | null;
       reauthenticated: boolean;
+      /** Set when the session came from an organisation's single sign-on. */
+      ssoTenantId?: string;
       /** Shorter idle window, e.g. for a session still waiting for its second factor. */
       idleMinutes?: number;
     },
@@ -44,6 +46,7 @@ export class SessionService {
         tokenHash: hashToken(token),
         csrfToken: generateToken(),
         activeTenantId: options.activeTenantId,
+        ssoTenantId: options.ssoTenantId ?? null,
         mfaPending: options.mfaPending,
         reauthenticatedAt: options.reauthenticated ? now : null,
         idleExpiresAt:
