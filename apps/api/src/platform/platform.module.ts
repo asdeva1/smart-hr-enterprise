@@ -5,7 +5,8 @@ import {
   PlatformTenantsController,
 } from './platform.controller.js';
 import { DocumentsModule } from '../documents/documents.module.js';
-import { PlatformLicenceController } from './licence.controller.js';
+import { LicenceRegisterService } from './licence-register.service.js';
+import { PlatformLicenceController, PlatformLicenceRegisterController } from './licence.controller.js';
 import { PlansService } from './plans.service.js';
 import { SubscriptionsService } from './subscriptions.service.js';
 import { PlatformTenantsService } from './tenants.service.js';
@@ -18,7 +19,8 @@ import { PlatformTenantsService } from './tenants.service.js';
     PlatformSubscriptionsController,
     PlatformTenantsController,
     PlatformLicenceController,
+    PlatformLicenceRegisterController,
   ],
-  providers: [PlansService, SubscriptionsService, PlatformTenantsService],
+  providers: [LicenceRegisterService, PlansService, SubscriptionsService, PlatformTenantsService],
 })
 export class PlatformModule {}

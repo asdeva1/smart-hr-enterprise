@@ -226,6 +226,7 @@ model User {
   installedLicences    InstallationLicence[]
 
   @@map("app_user")
+  issuedLicences IssuedLicence[]
 }
 
 /// Grants a user access to a tenant. `isTenantAdmin` marks an organisation owner, who holds every permission;
@@ -1015,6 +1016,43 @@ model InstallationLicence {
 
   @@index([replacedAt])
   @@map("installation_licence")
+}
+
+enum IssuedLicenceStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// A register of the signed licences Smartclues has issued to in-house customers. The signing key never
+/// lives on this server; an operator records each issued licence here (by pasting it) to track renewals.
+model IssuedLicence {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  licenceId        String              @unique @map("licence_id") @db.Uuid
+  /// The licence exactly as issued, so it can be sent again. It is signed, not secret.
+  token            String
+  customerName     String              @map("customer_name")
+  planCode         String              @map("plan_code")
+  planName         String              @map("plan_name")
+  supportLevel     String              @map("support_level")
+  issuedAt         DateTime            @map("issued_at") @db.Timestamptz(6)
+  notBefore        DateTime            @map("not_before") @db.Timestamptz(6)
+  expiresAt        DateTime            @map("expires_at") @db.Timestamptz(6)
+  graceDays        Int                 @map("grace_days")
+  /// Whether the signature was checked against a trusted key when the licence was recorded.
+  signatureChecked Boolean             @map("signature_checked")
+  notes            String?
+  status           IssuedLicenceStatus @default(ACTIVE)
+  revokedAt        DateTime?           @map("revoked_at") @db.Timestamptz(6)
+  revokedReason    String?             @map("revoked_reason")
+  /// The renewal that replaced this licence, if any.
+  renewedById      String?             @map("renewed_by_id") @db.Uuid
+  recordedByUserId String?             @map("recorded_by_user_id") @db.Uuid
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recordedBy User? @relation(fields: [recordedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, expiresAt])
+  @@map("issued_licence")
 }
 
 // ---------------------------------------------------------------------------------------------

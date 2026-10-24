@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FEATURES, LIMITS } from '@smart-hr/entitlements';
 import Link from 'next/link';
 import { Table, Td, Th } from '@/components/ui/table';
@@ -12,6 +12,7 @@ import { ApiError, apiFetch, type SessionView } from '@/lib/api';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Loading, PageHeader } from '@/components/ui/page-header';
+import { daysText, REGISTER_KEY, STAGE, type LicenceRegister } from '@/lib/licence-register';
 import { formatDate, planKeys, usePlans, usePlatformTenants, type PlatformTenantRow } from '@/lib/plan';
 
 function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
@@ -21,6 +22,57 @@ function Stat({ label, value, hint }: { label: string; value: number | string; h
       <b className="text-[28px] leading-none font-semibold tracking-tight">{value}</b>
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
     </div>
+  );
+}
+
+/** Licences and subscriptions that end soon, so nobody lapses unnoticed. Quiet when nothing needs chasing. */
+function RenewalsCard() {
+  const register = useQuery({
+    queryKey: REGISTER_KEY,
+    queryFn: () => apiFetch<LicenceRegister>('/v1/platform/licence-register'),
+  });
+  if (!register.data) return null;
+  const { licences, renewals, summary } = register.data;
+  const items = [
+    ...licences
+      .filter(
+        (l) =>
+          l.status === 'ACTIVE' && !l.renewedById && ['SOON', 'DUE', 'GRACE', 'EXPIRED'].includes(l.stage),
+      )
+      .map((l) => ({ key: l.id, name: l.customerName, what: 'Licence', stage: l.stage, days: l.daysLeft })),
+    ...renewals.map((r) => ({
+      key: r.tenantId,
+      name: r.organisation,
+      what: r.kind === 'TRIAL' ? 'Trial' : 'Subscription',
+      stage: r.stage,
+      days: r.daysLeft,
+    })),
+  ].sort((a, b) => a.days - b.days);
+  const total =
+    summary.licencesDue + summary.licencesLapsed + summary.subscriptionsDue + summary.subscriptionsLapsed;
+  if (total === 0) return null;
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[15px] font-semibold">Renewals to chase</h2>
+        <Link href="/platform/licence-register" className="text-sm font-semibold underline">
+          Open the licence register
+        </Link>
+      </div>
+      <ul className="flex flex-col gap-2 text-sm">
+        {items.slice(0, 6).map((i) => (
+          <li key={i.key} className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <b>{i.name}</b> <span className="text-muted-foreground">{i.what}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{daysText(i.days)}</span>
+              <Badge tone={STAGE[i.stage].tone}>{STAGE[i.stage].text}</Badge>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -152,6 +204,8 @@ export function PlatformDashboard({ session }: { session: SessionView }) {
         />
         <Stat label="Published plans" value={publishedPlans} hint="Open for new subscriptions" />
       </div>
+
+      <RenewalsCard />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">

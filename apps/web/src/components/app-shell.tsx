@@ -342,6 +342,7 @@ const NAV: NavGroup[] = [
         modes: ['saas', 'dedicated'],
       },
       { label: 'Licence', icon: FileKey, href: '/platform/licence', platform: true, modes: ['inhouse'] },
+      { label: 'Licence register', icon: FileKey, href: '/platform/licence-register', platform: true },
       { label: 'Operators', icon: ShieldUser, href: '/platform/operators', platform: true },
     ],
   },

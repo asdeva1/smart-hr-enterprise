@@ -10,3 +10,19 @@ export const installLicenceSchema = z.object({
     .regex(/^SHRL\d+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/, 'This doesn’t look like a Smart HR licence'),
 });
 export type InstallLicenceInput = z.input<typeof installLicenceSchema>;
+
+/** Recording a licence that was issued to a customer, optionally as the renewal of an earlier one. */
+export const recordIssuedLicenceSchema = z.object({
+  licence: installLicenceSchema.shape.licence,
+  notes: z.string().trim().max(1000).optional(),
+  renews: z.uuid().optional(),
+});
+export type RecordIssuedLicenceInput = z.input<typeof recordIssuedLicenceSchema>;
+
+export const revokeIssuedLicenceSchema = z.object({
+  reason: z.string().trim().min(3, 'Say why it is being revoked').max(300),
+});
+export type RevokeIssuedLicenceInput = z.input<typeof revokeIssuedLicenceSchema>;
+
+export const issuedLicenceNotesSchema = z.object({ notes: z.string().trim().max(1000) });
+export type IssuedLicenceNotesInput = z.input<typeof issuedLicenceNotesSchema>;
