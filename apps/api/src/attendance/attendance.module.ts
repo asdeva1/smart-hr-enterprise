@@ -1,6 +1,7 @@
 import { Module, type OnModuleInit } from '@nestjs/common';
 import { TenantExportService } from '../tenant/export.service.js';
-import { AttendanceController } from './attendance.controller.js';
+import { AdvancedAttendanceService } from './advanced-attendance.service.js';
+import { AdvancedAttendanceController, AttendanceController } from './attendance.controller.js';
 import { BiometricController, IclockController } from './biometric.controller.js';
 import { BiometricIngestService } from './biometric-ingest.service.js';
 import { BiometricService } from './biometric.service.js';
@@ -9,8 +10,15 @@ import { CorrectionsService } from './corrections.service.js';
 import { ShiftsService } from './shifts.service.js';
 
 @Module({
-  controllers: [AttendanceController, BiometricController, IclockController],
-  providers: [AttendanceService, ShiftsService, CorrectionsService, BiometricService, BiometricIngestService],
+  controllers: [AttendanceController, AdvancedAttendanceController, BiometricController, IclockController],
+  providers: [
+    AttendanceService,
+    AdvancedAttendanceService,
+    ShiftsService,
+    CorrectionsService,
+    BiometricService,
+    BiometricIngestService,
+  ],
   exports: [AttendanceService],
 })
 export class AttendanceModule implements OnModuleInit {
@@ -33,6 +41,14 @@ export class AttendanceModule implements OnModuleInit {
     );
     this.exporter.register('biometricEnrollments', (tx) =>
       tx.biometricEnrollment.findMany({ orderBy: { deviceCode: 'asc' } }),
+    );
+    this.exporter.register('attendancePolicy', (tx) => tx.attendancePolicy.findMany());
+    this.exporter.register('workLocations', (tx) => tx.workLocation.findMany({ orderBy: { name: 'asc' } }));
+    this.exporter.register('rosterEntries', (tx) =>
+      tx.rosterEntry.findMany({ orderBy: [{ employeeId: 'asc' }, { date: 'asc' }], take: 500_000 }),
+    );
+    this.exporter.register('overtimeApprovals', (tx) =>
+      tx.overtimeApproval.findMany({ orderBy: [{ employeeId: 'asc' }, { date: 'asc' }] }),
     );
     this.exporter.register('attendanceCorrections', (tx) =>
       tx.attendanceCorrection.findMany({ orderBy: [{ employeeId: 'asc' }, { date: 'asc' }] }),

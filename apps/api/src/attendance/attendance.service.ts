@@ -22,14 +22,19 @@ import { OrgIndex } from '../employees/org-index.js';
 import { DATABASE } from '../infra/tokens.js';
 import {
   addDays,
+  applyOvertimePolicy,
   attendanceDateFor,
   computeDay,
   implicitDay,
+  insideLocation,
   localDate,
+  weekday,
   zonedInstant,
   type DayResult,
+  type GeoLocation,
   type ShiftRule,
 } from './attendance-calc.js';
+import { loadPolicy } from './attendance-policy.js';
 import { DayMarks } from './day-marks.js';
 
 /** Used when an organisation hasn't set up shifts yet: 09:00–18:00 with an hour's break, Sundays off. */
@@ -92,15 +97,25 @@ export function scopeOfEmployee(tenantId: string, e: AttendanceEmployee): ScopeR
   return { type: 'TENANT', id: tenantId };
 }
 
-/** Loads shifts and assignments once, then answers "which shift on this date" without more queries. */
+/** Loads shifts, assignments and rosters once, then answers "which shift on this date" without more queries. */
 export class ShiftBook {
   private constructor(
     private readonly shifts: Map<string, ShiftRow>,
     private readonly fallback: ShiftRow,
     private readonly assignments: Map<string, { from: string; shiftId: string }[]>,
+    /** employee → date → the rostered shift, or null for a rostered day off. */
+    private readonly rosters: Map<string, Map<string, string | null>>,
   ) {}
 
-  static async load(tx: TenantTransaction, employeeIds: string[]): Promise<ShiftBook> {
+  /**
+   * `range` limits which roster entries are read. For one employee every entry is read; for a group, the
+   * entries within 120 days of today unless the caller names the dates it needs.
+   */
+  static async load(
+    tx: TenantTransaction,
+    employeeIds: string[],
+    range?: { from: string; to: string },
+  ): Promise<ShiftBook> {
     const shifts = await tx.shift.findMany();
     const rows = employeeIds.length
       ? await tx.shiftAssignment.findMany({
@@ -117,13 +132,47 @@ export class ShiftBook {
       list.push({ from: iso(r.effectiveFrom)!, shiftId: r.shiftId });
       assignments.set(r.employeeId, list);
     }
-    return new ShiftBook(byId, def ?? FALLBACK_SHIFT, assignments);
+    const today = new Date();
+    const window =
+      range ??
+      (employeeIds.length === 1
+        ? null
+        : {
+            from: addDays(today.toISOString().slice(0, 10), -120),
+            to: addDays(today.toISOString().slice(0, 10), 120),
+          });
+    const entries = employeeIds.length
+      ? await tx.rosterEntry.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            ...(window ? { date: { gte: toDate(window.from), lte: toDate(window.to) } } : {}),
+          },
+          select: { employeeId: true, date: true, shiftId: true },
+        })
+      : [];
+    const rosters = new Map<string, Map<string, string | null>>();
+    for (const r of entries) {
+      const byDate = rosters.get(r.employeeId) ?? new Map<string, string | null>();
+      byDate.set(iso(r.date)!, r.shiftId);
+      rosters.set(r.employeeId, byDate);
+    }
+    return new ShiftBook(byId, def ?? FALLBACK_SHIFT, assignments, rosters);
   }
 
-  /** The shift in force for an employee on a date: their latest assignment on or before it, else the default. */
+  /**
+   * The shift in force for an employee on a date: the roster if it names one, else their latest assignment on
+   * or before it, else the default. A rostered day off makes the date a weekly off; a rostered shift makes it
+   * a working day even if the shift's usual weekly off falls on it.
+   */
   on(employeeId: string, date: string): ShiftRow {
     const hit = this.assignments.get(employeeId)?.find((a) => a.from <= date);
-    return (hit && this.shifts.get(hit.shiftId)) || this.fallback;
+    const base = (hit && this.shifts.get(hit.shiftId)) || this.fallback;
+    const rostered = this.rosters.get(employeeId)?.get(date);
+    if (rostered === undefined) return base;
+    const day = weekday(date);
+    if (rostered === null) return { ...base, weeklyOffs: [...new Set([...base.weeklyOffs, day])] };
+    const shift = this.shifts.get(rostered) ?? base;
+    return { ...shift, weeklyOffs: shift.weeklyOffs.filter((d) => d !== day) };
   }
 
   current(employeeId: string, today: string): ShiftRow {
@@ -309,7 +358,14 @@ export class AttendanceService {
       })
     ).filter((p) => attendanceDateFor(p.at, shift, tz) === date);
     const marks = await DayMarks.load(tx, [e], date, date);
-    const result = computeDay({ date, shift, punches, timeZone: tz, now, mark: marks.on(e.id, date) });
+    const mark = marks.on(e.id, date);
+    const raw = computeDay({ date, shift, punches, timeZone: tz, now, mark });
+    const policy = await loadPolicy(tx);
+    const offDay = shift.weeklyOffs.includes(weekday(date)) || !!mark.holiday;
+    const result: DayResult = {
+      ...raw,
+      overtimeMinutes: applyOvertimePolicy(raw.overtimeMinutes, policy.overtime, offDay),
+    };
     const data = {
       shiftId: shift.id || null,
       status: result.status,
@@ -453,18 +509,83 @@ export class AttendanceService {
         },
         nextAction: last?.direction === 'IN' ? ('OUT' as const) : ('IN' as const),
         canPunch: me.status !== 'EXITED',
+        // Whether the browser should share its location with the clock-in.
+        geofence:
+          (await loadPolicy(tx)).geofenceMode !== 'OFF' &&
+          (await tx.workLocation.count({ where: { status: 'ACTIVE' } })) > 0
+            ? (await loadPolicy(tx)).geofenceMode
+            : 'OFF',
       };
     });
   }
 
-  async punch(tenant: TenantContext, auth: AuthContext, direction: 'IN' | 'OUT', now = new Date()) {
+  async punch(
+    tenant: TenantContext,
+    auth: AuthContext,
+    direction: 'IN' | 'OUT',
+    now = new Date(),
+    location?: { latitude: number; longitude: number; accuracy?: number | undefined },
+  ) {
     await this.run(tenant, auth, async (tx) => {
       const me = await this.requireSelf(tx, tenant);
       if (me.status === 'EXITED')
         throw new AppError('EMPLOYEE_EXITED', 'You have left the organisation', 409);
-      await this.addPunch(tx, me, { at: now, direction, source: 'WEB', recordedByUserId: auth.user.id }, now);
+      const where = await this.checkLocation(tx, location);
+      await this.addPunch(
+        tx,
+        me,
+        { at: now, direction, source: 'WEB', recordedByUserId: auth.user.id, where },
+        now,
+      );
     });
     return this.today(tenant, auth, now);
+  }
+
+  /**
+   * Applies the organisation's geofence rule to a self clock-in or clock-out. With no work locations set up
+   * there is nothing to check against, so the rule does not apply. When the rule is on, a punch must say where
+   * it came from; enforcing refuses one outside every work location, warning only flags it.
+   */
+  private async checkLocation(
+    tx: TenantTransaction,
+    location: { latitude: number; longitude: number; accuracy?: number | undefined } | undefined,
+  ) {
+    const policy = await loadPolicy(tx);
+    if (policy.geofenceMode === 'OFF') return undefined;
+    const rows = await tx.workLocation.findMany({ where: { status: 'ACTIVE' } });
+    if (rows.length === 0) return undefined;
+    if (!location) {
+      if (policy.geofenceMode === 'ENFORCE') {
+        throw new AppError(
+          'LOCATION_REQUIRED',
+          'Your organisation needs your location to clock in. Allow location access in your browser and try again.',
+          422,
+        );
+      }
+      return undefined;
+    }
+    const places: GeoLocation[] = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      latitude: Number(r.latitude),
+      longitude: Number(r.longitude),
+      radiusMeters: r.radiusMeters,
+    }));
+    const inside = insideLocation(location, places);
+    if (!inside && policy.geofenceMode === 'ENFORCE') {
+      throw new AppError(
+        'OUTSIDE_WORK_LOCATION',
+        'You’re not at a work location. Move closer to the office, or ask HR to add a correction.',
+        422,
+      );
+    }
+    return {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracyMeters: location.accuracy === undefined ? null : Math.round(location.accuracy),
+      locationId: inside?.id ?? null,
+      outsideGeofence: !inside,
+    };
   }
 
   /**
@@ -481,6 +602,15 @@ export class AttendanceService {
       note?: string;
       recordedByUserId: string | null;
       correctionId?: string;
+      where?:
+        | {
+            latitude: number;
+            longitude: number;
+            accuracyMeters: number | null;
+            locationId: string | null;
+            outsideGeofence: boolean;
+          }
+        | undefined;
     },
     now = new Date(),
   ) {
@@ -513,6 +643,15 @@ export class AttendanceService {
         note: p.note ?? null,
         recordedByUserId: p.recordedByUserId,
         correctionId: p.correctionId ?? null,
+        ...(p.where
+          ? {
+              latitude: p.where.latitude,
+              longitude: p.where.longitude,
+              accuracyMeters: p.where.accuracyMeters,
+              locationId: p.where.locationId,
+              outsideGeofence: p.where.outsideGeofence,
+            }
+          : {}),
       },
     });
     await this.recompute(tx, e, date, book, now);
@@ -544,7 +683,7 @@ export class AttendanceService {
 
   // ---- Team --------------------------------------------------------------------------------------
 
-  private async visibleEmployees(
+  async visibleEmployees(
     tx: TenantTransaction,
     tenant: TenantContext,
     filters: {

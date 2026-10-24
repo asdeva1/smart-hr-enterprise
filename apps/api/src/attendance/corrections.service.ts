@@ -11,6 +11,7 @@ import type { RequestMeta } from '../common/request-context.js';
 import { displayName } from '../employees/employees.service.js';
 import { OrgIndex } from '../employees/org-index.js';
 import { addDays, localDate, zonedInstant } from './attendance-calc.js';
+import { loadPolicy } from './attendance-policy.js';
 import {
   ATTENDANCE_EMPLOYEE_SELECT,
   AttendanceService,
@@ -114,6 +115,35 @@ export class CorrectionsService implements OnModuleInit {
         throw invalid('date', `Corrections are for the last ${MAX_AGE_DAYS} days. Ask HR about older days.`);
       }
       if (input.date < iso(e.dateOfJoining)) throw invalid('date', 'This is before the joining date');
+
+      // The organisation's limits apply to people correcting their own days; HR recording for someone else
+      // is not held to them.
+      if (e.id === me?.id) {
+        const policy = await loadPolicy(tx);
+        const back = policy.maxCorrectionBackdateDays;
+        if (back !== null && input.date < addDays(today, -back)) {
+          throw invalid(
+            'date',
+            back === 0
+              ? 'Corrections are only allowed for today. Ask HR about earlier days.'
+              : `Corrections can go back ${back} day${back === 1 ? '' : 's'}. Ask HR about earlier days.`,
+          );
+        }
+        const cap = policy.maxCorrectionsPerMonth;
+        if (cap !== null) {
+          const monthStart = toDate(`${today.slice(0, 7)}-01`);
+          const used = await tx.attendanceCorrection.count({
+            where: { employeeId: e.id, createdAt: { gte: monthStart }, status: { not: 'CANCELLED' } },
+          });
+          if (used >= cap) {
+            throw new AppError(
+              'CORRECTION_LIMIT',
+              `You’ve used your ${cap} correction${cap === 1 ? '' : 's'} for this month. Ask HR to record it for you.`,
+              422,
+            );
+          }
+        }
+      }
 
       const shift = (await ShiftBook.load(tx, [e.id])).on(e.id, input.date);
       // Times are local. A clock-out at or before the clock-in (or before the shift start, for a night shift)

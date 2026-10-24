@@ -278,3 +278,76 @@ export function implicitDay(input: {
   if (leave) return date < today ? 'HALF_DAY' : 'ON_LEAVE';
   return date < today ? 'ABSENT' : null;
 }
+
+// ---- Overtime rules -------------------------------------------------------------------------------
+
+export interface OvertimePolicy {
+  enabled: boolean;
+  /** Minutes beyond the full day that do not count (working days only). */
+  thresholdMinutes: number;
+  /** Overtime is rounded down to a multiple of this. */
+  roundMinutes: number;
+  /** The most that counts on one day; null = no limit. */
+  dailyCapMinutes: number | null;
+  /** Work on a weekly off or holiday counts. */
+  offDayCounts: boolean;
+}
+
+/** What organisations without a policy get: everything beyond the day counts, to the minute. */
+export const LEGACY_OVERTIME: OvertimePolicy = {
+  enabled: true,
+  thresholdMinutes: 0,
+  roundMinutes: 1,
+  dailyCapMinutes: null,
+  offDayCounts: true,
+};
+
+/** Turns the raw extra minutes of a day into the overtime the organisation counts. */
+export function applyOvertimePolicy(raw: number, policy: OvertimePolicy, offDay: boolean): number {
+  if (!policy.enabled || raw <= 0) return 0;
+  if (offDay && !policy.offDayCounts) return 0;
+  let minutes = offDay ? raw : raw - policy.thresholdMinutes;
+  if (minutes <= 0) return 0;
+  const step = Math.max(1, policy.roundMinutes);
+  minutes = Math.floor(minutes / step) * step;
+  if (policy.dailyCapMinutes !== null) minutes = Math.min(minutes, policy.dailyCapMinutes);
+  return Math.max(0, minutes);
+}
+
+// ---- Geofence -------------------------------------------------------------------------------------
+
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface GeoLocation extends GeoPoint {
+  id: string;
+  name: string;
+  radiusMeters: number;
+}
+
+/** Great-circle distance between two points, in metres (haversine). */
+export function distanceMeters(a: GeoPoint, b: GeoPoint): number {
+  const R = 6_371_000;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLng = rad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * Which work location a point is inside. A poor GPS fix widens nothing in the employee's favour: the
+ * reported accuracy is not added to the radius, so a weak signal near the edge is treated as outside.
+ */
+export function insideLocation(point: GeoPoint, locations: readonly GeoLocation[]): GeoLocation | null {
+  let best: { location: GeoLocation; distance: number } | null = null;
+  for (const location of locations) {
+    const distance = distanceMeters(point, location);
+    if (distance <= location.radiusMeters && (!best || distance < best.distance))
+      best = { location, distance };
+  }
+  return best?.location ?? null;
+}

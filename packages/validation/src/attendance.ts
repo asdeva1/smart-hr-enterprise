@@ -77,7 +77,19 @@ export const assignShiftSchema = z
   });
 export type AssignShiftInput = z.input<typeof assignShiftSchema>;
 
-export const punchSchema = z.object({ direction: z.enum(['IN', 'OUT']) });
+/** Where the browser says the employee is. Only used when the organisation asks for a location. */
+export const punchLocationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  /** Metres of uncertainty reported by the device. */
+  accuracy: z.number().min(0).max(100_000).optional(),
+});
+export type PunchLocationInput = z.input<typeof punchLocationSchema>;
+
+export const punchSchema = z.object({
+  direction: z.enum(['IN', 'OUT']),
+  location: punchLocationSchema.optional(),
+});
 
 export const adminPunchSchema = z.object({
   employeeId: z.uuid('Choose an employee'),

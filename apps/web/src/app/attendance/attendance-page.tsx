@@ -11,18 +11,25 @@ import { hasFeature } from '@/lib/permissions';
 export function AttendancePage({
   children,
   permission,
+  feature,
 }: {
   children: (session: SessionView) => ReactNode;
   permission?: string;
+  /** An extra module the page needs on top of attendance itself. */
+  feature?: string;
 }) {
   return (
     <RequireSession {...(permission ? { permission } : {})}>
       {(session) => (
         <AppShell active="Attendance" session={session}>
-          {hasFeature(session, 'attendance.basic') ? (
+          {hasFeature(session, 'attendance.basic') && (!feature || hasFeature(session, feature)) ? (
             children(session)
           ) : (
-            <Alert tone="info">Your organisation’s plan doesn’t include attendance.</Alert>
+            <Alert tone="info">
+              {feature
+                ? 'Your organisation’s plan doesn’t include this part of attendance.'
+                : 'Your organisation’s plan doesn’t include attendance.'}
+            </Alert>
           )}
         </AppShell>
       )}

@@ -38,6 +38,8 @@ export interface Today {
   };
   nextAction: 'IN' | 'OUT';
   canPunch: boolean;
+  /** Whether clocking in sends the browser's location, and whether being away from a work location is refused. */
+  geofence?: 'OFF' | 'WARN' | 'ENFORCE';
 }
 
 export interface Shift {

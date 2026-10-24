@@ -83,6 +83,19 @@ export function MyAttendance({ session }: { session: SessionView }) {
   );
 }
 
+/** The browser's position, or nothing if the person declines or the device can't tell. */
+function currentPosition(): Promise<{ latitude: number; longitude: number; accuracy: number } | undefined> {
+  if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return Promise.resolve(undefined);
+  return new Promise((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      (p) =>
+        resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy }),
+      () => resolve(undefined),
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+    ),
+  );
+}
+
 function TodayCard({ today }: { today: Today }) {
   const client = useQueryClient();
   const [error, setError] = useState<string>();
@@ -92,8 +105,14 @@ function TodayCard({ today }: { today: Today }) {
     return () => clearInterval(timer);
   }, []);
   const punch = useMutation({
-    mutationFn: (direction: 'IN' | 'OUT') =>
-      apiFetch<Today>('/v1/attendance/me/punch', { method: 'POST', body: { direction } }),
+    mutationFn: async (direction: 'IN' | 'OUT') => {
+      // When the organisation checks where people clock in from, send the browser's position with the punch.
+      const location = (today.geofence ?? 'OFF') === 'OFF' ? undefined : await currentPosition();
+      return apiFetch<Today>('/v1/attendance/me/punch', {
+        method: 'POST',
+        body: { direction, ...(location ? { location } : {}) },
+      });
+    },
     onSuccess: async (next) => {
       setError(undefined);
       client.setQueryData(attendanceKeys.today, next);

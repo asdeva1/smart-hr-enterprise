@@ -294,6 +294,10 @@ export class Fixtures {
     await this.db.biometricEnrollment.deleteMany({ where: inTenants });
     await this.db.biometricDevice.deleteMany({ where: inTenants });
     await this.db.attendancePunch.deleteMany({ where: inTenants });
+    await this.db.overtimeApproval.deleteMany({ where: inTenants });
+    await this.db.rosterEntry.deleteMany({ where: inTenants });
+    await this.db.workLocation.deleteMany({ where: inTenants });
+    await this.db.attendancePolicy.deleteMany({ where: inTenants });
     await this.db.attendanceDay.deleteMany({ where: inTenants });
     await this.db.attendanceCorrection.deleteMany({ where: inTenants });
     await this.db.shiftAssignment.deleteMany({ where: inTenants });

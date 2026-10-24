@@ -144,6 +144,10 @@ model Tenant {
   bankStatementLines      BankStatementLine[]
 
   @@map("tenant")
+  attendancePolicy AttendancePolicy?
+  workLocations    WorkLocation[]
+  rosterEntries    RosterEntry[]
+  overtimeApprovals OvertimeApproval[]
 }
 
 enum UserStatus {
@@ -1178,6 +1182,8 @@ model Employee {
   @@index([tenantId, departmentId])
   @@index([tenantId, managerId])
   @@map("employee")
+  rosterEntries    RosterEntry[]
+  overtimeApprovals OvertimeApproval[]
 }
 
 /// Identity and bank details. Numbers are encrypted (AES-256-GCM, bound to the employee and field); only
@@ -1323,6 +1329,7 @@ model Shift {
   @@unique([tenantId, id])
   @@unique([tenantId, code])
   @@map("shift")
+  rosterEntries RosterEntry[]
 }
 
 /// Which shift an employee works from a date onwards. The latest assignment on or before a day applies.
@@ -1355,11 +1362,20 @@ model AttendancePunch {
   note             String?
   recordedByUserId String?        @map("recorded_by_user_id") @db.Uuid
   correctionId     String?        @map("correction_id") @db.Uuid
+  /// Where the employee was when they clocked in or out (self punches only, when the browser shared it).
+  latitude         Decimal?       @db.Decimal(9, 6)
+  longitude        Decimal?       @db.Decimal(9, 6)
+  accuracyMeters   Int?           @map("accuracy_meters")
+  /// The work location the punch was inside, if any.
+  locationId       String?        @map("location_id") @db.Uuid
+  /// Outside every work location when locations are set up (recorded, and refused when the policy enforces).
+  outsideGeofence  Boolean        @default(false) @map("outside_geofence")
   createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 
   tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   employee   Employee              @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
   correction AttendanceCorrection? @relation(fields: [tenantId, correctionId], references: [tenantId, id], onDelete: Restrict)
+  location   WorkLocation?         @relation(fields: [tenantId, locationId], references: [tenantId, id], onDelete: Restrict)
 
   @@index([tenantId, employeeId, at])
   @@map("attendance_punch")
@@ -1391,6 +1407,112 @@ model AttendanceDay {
   @@unique([tenantId, employeeId, date])
   @@index([tenantId, date])
   @@map("attendance_day")
+}
+
+enum GeofenceMode {
+  /// Location is not asked for.
+  OFF
+  /// Location is recorded and a punch outside every work location is flagged, but allowed.
+  WARN
+  /// A punch outside every work location is refused.
+  ENFORCE
+
+  @@map("geofence_mode")
+}
+
+enum OvertimeDecision {
+  APPROVED
+  REJECTED
+
+  @@map("overtime_decision")
+}
+
+/// The organisation's attendance rules. One row per organisation; without a row the defaults apply.
+model AttendancePolicy {
+  id                         String       @id @default(uuid(7)) @db.Uuid
+  tenantId                   String       @unique @map("tenant_id") @db.Uuid
+  overtimeEnabled            Boolean      @default(true) @map("overtime_enabled")
+  /// Minutes beyond the full day that do not count (a buffer before overtime starts).
+  overtimeThresholdMinutes   Int          @default(0) @map("overtime_threshold_minutes")
+  /// Overtime is rounded down to a multiple of this many minutes.
+  overtimeRoundMinutes       Int          @default(15) @map("overtime_round_minutes")
+  /// The most overtime that counts on one day; null = no limit.
+  overtimeDailyCapMinutes    Int?         @map("overtime_daily_cap_minutes")
+  /// Work on a weekly off or holiday counts as overtime.
+  overtimeOffDayCounts       Boolean      @default(true) @map("overtime_off_day_counts")
+  /// Overtime is only payable once a manager or HR approves it.
+  overtimeNeedsApproval      Boolean      @default(true) @map("overtime_needs_approval")
+  /// Corrections one employee may raise in a calendar month; null = no limit.
+  maxCorrectionsPerMonth     Int?         @map("max_corrections_per_month")
+  /// How many days back a correction may reach; null = no limit.
+  maxCorrectionBackdateDays  Int?         @map("max_correction_backdate_days")
+  geofenceMode               GeofenceMode @default(OFF) @map("geofence_mode")
+  updatedAt                  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedByUserId            String?      @map("updated_by_user_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@map("attendance_policy")
+}
+
+/// A place employees may clock in from: a point and a radius.
+model WorkLocation {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  name         String
+  latitude     Decimal      @db.Decimal(9, 6)
+  longitude    Decimal      @db.Decimal(9, 6)
+  radiusMeters Int          @map("radius_meters")
+  status       RecordStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  punches AttendancePunch[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@map("work_location")
+}
+
+/// The shift an employee works on one date, overriding their usual assignment. No shift means a day off.
+model RosterEntry {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  employeeId      String   @map("employee_id") @db.Uuid
+  date            DateTime @db.Date
+  shiftId         String?  @map("shift_id") @db.Uuid
+  createdByUserId String?  @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+  shift    Shift?   @relation(fields: [tenantId, shiftId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, date])
+  @@index([tenantId, date])
+  @@map("roster_entry")
+}
+
+/// A manager's or HR's decision on the overtime an employee worked on one date.
+model OvertimeApproval {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  employeeId      String           @map("employee_id") @db.Uuid
+  date            DateTime         @db.Date
+  decision        OvertimeDecision
+  /// Minutes approved (0 when rejected); never more than the day's computed overtime.
+  approvedMinutes Int              @map("approved_minutes")
+  note            String?
+  decidedByUserId String?          @map("decided_by_user_id") @db.Uuid
+  decidedAt       DateTime         @default(now()) @map("decided_at") @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  employee Employee @relation(fields: [tenantId, employeeId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, employeeId, date])
+  @@index([tenantId, date])
+  @@map("overtime_approval")
 }
 
 enum BiometricVendor {

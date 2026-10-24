@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  applyOvertimePolicy,
   attendanceDateFor,
   computeDay,
+  distanceMeters,
   implicitDay,
+  insideLocation,
+  LEGACY_OVERTIME,
   localDate,
   localMinute,
   shiftWindow,
@@ -212,5 +216,48 @@ describe('leave on rest days', () => {
         mark: holiday,
       }).status,
     ).toBe('HOLIDAY');
+  });
+});
+
+describe('overtime policy', () => {
+  const base = {
+    enabled: true,
+    thresholdMinutes: 30,
+    roundMinutes: 15,
+    dailyCapMinutes: 120,
+    offDayCounts: true,
+  };
+  it('ignores the buffer, rounds down and caps', () => {
+    expect(applyOvertimePolicy(25, base, false)).toBe(0);
+    expect(applyOvertimePolicy(30, base, false)).toBe(0);
+    expect(applyOvertimePolicy(70, base, false)).toBe(30); // 40 → 30
+    expect(applyOvertimePolicy(400, base, false)).toBe(120);
+  });
+  it('counts all work on a day off unless the policy says not to', () => {
+    expect(applyOvertimePolicy(200, base, true)).toBe(120);
+    expect(applyOvertimePolicy(200, { ...base, offDayCounts: false }, true)).toBe(0);
+  });
+  it('is off when disabled, and the legacy policy changes nothing', () => {
+    expect(applyOvertimePolicy(90, { ...base, enabled: false }, false)).toBe(0);
+    expect(applyOvertimePolicy(97, LEGACY_OVERTIME, false)).toBe(97);
+  });
+});
+
+describe('geofence', () => {
+  const office = { id: 'o', name: 'Office', latitude: 17.385, longitude: 78.4867, radiusMeters: 150 };
+  it('measures distance between two points', () => {
+    expect(distanceMeters(office, office)).toBe(0);
+    // About 111 km per degree of latitude.
+    expect(
+      Math.round(distanceMeters({ latitude: 0, longitude: 0 }, { latitude: 1, longitude: 0 }) / 1000),
+    ).toBe(111);
+  });
+  it('is inside within the radius and outside beyond it', () => {
+    expect(insideLocation({ latitude: 17.3856, longitude: 78.4867 }, [office])?.id).toBe('o'); // ~67 m
+    expect(insideLocation({ latitude: 17.39, longitude: 78.4867 }, [office])).toBeNull(); // ~550 m
+  });
+  it('picks the nearest of several overlapping places', () => {
+    const near = { ...office, id: 'n', latitude: 17.3851 };
+    expect(insideLocation({ latitude: 17.3851, longitude: 78.4867 }, [office, near])?.id).toBe('n');
   });
 });
