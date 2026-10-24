@@ -5,7 +5,7 @@ import { createEmployeeSchema, type CreateEmployeeInput } from '@smart-hr/valida
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 import { EmployeePicker } from '@/components/employees/employee-picker';
@@ -113,6 +113,11 @@ export function NewEmployeeForm() {
     },
   });
   const activeCompanies = companies.data?.filter((c) => c.status === 'ACTIVE') ?? [];
+  // One company: choose it for them rather than asking.
+  const onlyCompany = activeCompanies.length === 1 ? activeCompanies[0]!.id : '';
+  useEffect(() => {
+    if (onlyCompany && !form.getValues('companyId')) form.setValue('companyId', onlyCompany);
+  }, [onlyCompany, form]);
   const reg = (name: keyof CreateEmployeeInput) => form.register(name);
   const err = (name: keyof CreateEmployeeInput) => errors[name]?.message;
 
@@ -174,24 +179,26 @@ export function NewEmployeeForm() {
           </Field>
         </Section>
         <Section title="Job" description="Where they work and who they report to.">
-          <Field id="companyId" label="Company" error={err('companyId')}>
-            <Select
-              {...fieldAria('companyId', err('companyId'))}
-              {...form.register('companyId', {
-                onChange: () => {
-                  form.setValue('branchId', '');
-                  form.setValue('departmentId', '');
-                },
-              })}
-            >
-              <option value="">Choose…</option>
-              {activeCompanies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {activeCompanies.length !== 1 && (
+            <Field id="companyId" label="Company" error={err('companyId')}>
+              <Select
+                {...fieldAria('companyId', err('companyId'))}
+                {...form.register('companyId', {
+                  onChange: () => {
+                    form.setValue('branchId', '');
+                    form.setValue('departmentId', '');
+                  },
+                })}
+              >
+                <option value="">Choose…</option>
+                {activeCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           <Field id="branchId" label="Branch (optional)" error={err('branchId')}>
             <Select disabled={!companyId} {...fieldAria('branchId', err('branchId'))} {...reg('branchId')}>
               <option value="">Not set</option>

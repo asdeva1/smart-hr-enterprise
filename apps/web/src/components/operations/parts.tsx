@@ -282,15 +282,17 @@ export function WorkspaceDialog({
             {chosen.fields.length > 0 && ` Questions: ${chosen.fields.join(', ')}.`}
           </p>
         )}
-        <FormField id="w-company" label="Company">
-          <Select id="w-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
-            {(companies.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
+        {(companies.data?.length ?? 0) !== 1 && (
+          <FormField id="w-company" label="Company">
+            <Select id="w-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
+              {(companies.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField id="w-code" label="Code" hint="A short unique code">
             <Input id="w-code" value={code} onChange={(e) => setCode(e.target.value)} />

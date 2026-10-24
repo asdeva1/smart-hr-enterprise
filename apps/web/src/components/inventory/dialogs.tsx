@@ -184,15 +184,17 @@ export function WarehouseDialog({
         {save.isError && <Alert tone="error">{errorMessage(save.error)}</Alert>}
         {!warehouse && (
           <>
-            <Field id="w-company" label="Company">
-              <Select id="w-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
-                {(companies.data ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {(companies.data?.length ?? 0) !== 1 && (
+              <Field id="w-company" label="Company">
+                <Select id="w-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
+                  {(companies.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Field id="w-code" label="Code">
               <Input id="w-code" value={f.code} onChange={(e) => set({ code: e.target.value })} />
             </Field>

@@ -227,15 +227,17 @@ export function ProjectDialog({
         )}
         {!project && (
           <>
-            <Field id="p-company" label="Company">
-              <Select id="p-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
-                {(companies.data ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {(companies.data?.length ?? 0) !== 1 && (
+              <Field id="p-company" label="Company">
+                <Select id="p-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
+                  {(companies.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Field id="p-code" label="Code" hint="A short unique code">
               <Input id="p-code" value={f.code} onChange={(e) => set({ code: e.target.value })} />
             </Field>

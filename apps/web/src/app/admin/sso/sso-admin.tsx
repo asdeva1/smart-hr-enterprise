@@ -68,7 +68,9 @@ function SsoForm({ settings }: { settings: SsoSettings }) {
     },
     onError: (error) => {
       setFieldErrors(
-        error instanceof ApiError ? Object.fromEntries(error.fieldErrors.map((f) => [f.path, f.message])) : {},
+        error instanceof ApiError
+          ? Object.fromEntries(error.fieldErrors.map((f) => [f.path, f.message]))
+          : {},
       );
       setNotice({ tone: 'error', text: errorMessage(error) });
     },
@@ -113,7 +115,12 @@ function SsoForm({ settings }: { settings: SsoSettings }) {
           <Input id="issuer" value={issuer} onChange={(e) => setIssuer(e.target.value)} autoComplete="off" />
         </Field>
         <Field id="clientId" label="Client ID" error={fieldErrors.clientId}>
-          <Input id="clientId" value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" />
+          <Input
+            id="clientId"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            autoComplete="off"
+          />
         </Field>
         <Field
           id="clientSecret"

@@ -85,15 +85,17 @@ export function AssetDialog({ onClose, onSaved }: { onClose: () => void; onSaved
         <Field id="a-tag" label="Asset tag" hint="The label on the item, e.g. LAP-0042">
           <Input id="a-tag" value={f.tag} onChange={(e) => set({ tag: e.target.value })} />
         </Field>
-        <Field id="a-company" label="Company">
-          <Select id="a-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
-            {(companies.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {(companies.data?.length ?? 0) !== 1 && (
+          <Field id="a-company" label="Company">
+            <Select id="a-company" value={company} onChange={(e) => set({ companyId: e.target.value })}>
+              {(companies.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field id="a-name" label="Name">
           <Input id="a-name" value={f.name} onChange={(e) => set({ name: e.target.value })} />
         </Field>

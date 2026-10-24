@@ -148,15 +148,17 @@ function StartDialog({ onClose, onDone }: { onClose: () => void; onDone: (r: Pay
     >
       <div className="flex flex-col gap-4">
         {start.isError && <Alert tone="error">{errorMessage(start.error)}</Alert>}
-        <Field id="run-company" label="Company">
-          <Select id="run-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
-            {(companies.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {(companies.data?.length ?? 0) !== 1 && (
+          <Field id="run-company" label="Company">
+            <Select id="run-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
+              {(companies.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field id="run-month" label="Month">
           <input
             id="run-month"

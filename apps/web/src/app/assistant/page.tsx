@@ -88,7 +88,7 @@ function Assistant({ session }: { session: SessionView }) {
       {s.available && !s.enabled && (
         <Alert tone="info">
           AI is switched off for your organisation.
-          {admin ? ' You can turn it on above or in AI controls.' : ' An administrator can turn it on.'}
+          {admin ? ' You can turn it on above.' : ' An administrator can turn it on.'}
         </Alert>
       )}
       {policy.isError && <Alert tone="error">{errorMessage(policy.error)}</Alert>}

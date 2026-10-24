@@ -87,20 +87,22 @@ export function EmployeeDirectory({ session }: { session: SessionView }) {
             <option value="ALL">Everyone</option>
           </Select>
         </label>
-        <label className="flex min-w-0 flex-[1_1_170px] flex-col gap-1.5">
-          <span className="text-[13px] font-medium">Company</span>
-          <Select
-            value={filters.companyId}
-            onChange={(e) => set({ companyId: e.target.value, departmentId: '' })}
-          >
-            <option value="">All companies</option>
-            {companies.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </label>
+        {(companies.data?.length ?? 0) > 1 && (
+          <label className="flex min-w-0 flex-[1_1_170px] flex-col gap-1.5">
+            <span className="text-[13px] font-medium">Company</span>
+            <Select
+              value={filters.companyId}
+              onChange={(e) => set({ companyId: e.target.value, departmentId: '' })}
+            >
+              <option value="">All companies</option>
+              {companies.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+        )}
         <label className="flex min-w-0 flex-[1_1_170px] flex-col gap-1.5">
           <span className="text-[13px] font-medium">Department</span>
           <Select value={filters.departmentId} onChange={(e) => set({ departmentId: e.target.value })}>

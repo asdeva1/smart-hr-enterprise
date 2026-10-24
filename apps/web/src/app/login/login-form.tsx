@@ -108,7 +108,9 @@ function PasswordStep({
       }
       // A full page load: the sign-in starts on the API and leaves for the identity provider.
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign(`/v1/sso/start?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`);
+      window.location.assign(
+        `/v1/sso/start?email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
+      );
     } catch (error) {
       setFormError(errorText(error));
     }

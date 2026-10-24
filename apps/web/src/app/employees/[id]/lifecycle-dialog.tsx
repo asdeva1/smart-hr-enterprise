@@ -221,21 +221,23 @@ export function LifecycleDialog({
         {error && <Alert tone="error">{error}</Alert>}
         {action === 'transfer' && (
           <>
-            <Field id="lc-company" label="Company" error={fieldErrors.companyId}>
-              <Select
-                id="lc-company"
-                value={v.companyId}
-                onChange={(ev) => set({ companyId: ev.target.value, branchId: '', departmentId: '' })}
-              >
-                {companies.data
-                  ?.filter((c) => c.status === 'ACTIVE' || c.id === e.companyId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
+            {(companies.data?.length ?? 0) !== 1 && (
+              <Field id="lc-company" label="Company" error={fieldErrors.companyId}>
+                <Select
+                  id="lc-company"
+                  value={v.companyId}
+                  onChange={(ev) => set({ companyId: ev.target.value, branchId: '', departmentId: '' })}
+                >
+                  {companies.data
+                    ?.filter((c) => c.status === 'ACTIVE' || c.id === e.companyId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+            )}
             <Field id="lc-branch" label="Branch" error={fieldErrors.branchId}>
               <Select id="lc-branch" value={v.branchId} onChange={(ev) => set({ branchId: ev.target.value })}>
                 <option value="">Not set</option>

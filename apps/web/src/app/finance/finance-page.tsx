@@ -118,7 +118,8 @@ export function PurchasesTabs({ active }: { active: string }) {
 
 export function CompanyPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const companies = useCompanies();
-  if (!companies.data?.length) return null;
+  // With a single company there is nothing to choose.
+  if ((companies.data?.length ?? 0) < 2) return null;
   return (
     <div className="max-w-xs">
       <Field id="books-company" label="Company">

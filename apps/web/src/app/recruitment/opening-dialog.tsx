@@ -109,7 +109,7 @@ export function OpeningDialog({
             onChange={(e) => set({ title: e.target.value })}
           />
         </Field>
-        {!opening && (
+        {!opening && (companies.data?.length ?? 0) !== 1 && (
           <Field id="op-company" label="Company" error={errors.companyId}>
             <Select
               id="op-company"

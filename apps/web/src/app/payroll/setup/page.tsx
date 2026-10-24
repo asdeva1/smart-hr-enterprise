@@ -197,15 +197,17 @@ function CompanySettings() {
         Statutory settings
       </h2>
       <div className="max-w-xs">
-        <Field id="st-company" label="Company">
-          <Select id="st-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
-            {(companies.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {(companies.data?.length ?? 0) !== 1 && (
+          <Field id="st-company" label="Company">
+            <Select id="st-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
+              {(companies.data ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
       {settings.data && <SettingsForm key={company} companyId={company} initial={settings.data} />}
     </section>

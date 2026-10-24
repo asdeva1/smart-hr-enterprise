@@ -260,7 +260,7 @@ export function OrderDialog({
       <div className="flex flex-col gap-4">
         {save.isError && <Alert tone="error">{errorMessage(save.error)}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
-          {!order && (
+          {!order && (companies.data?.length ?? 0) !== 1 && (
             <Field id="po-company" label="Company">
               <Select id="po-company" value={company} onChange={(e) => setCompanyId(e.target.value)}>
                 {(companies.data ?? []).map((c) => (

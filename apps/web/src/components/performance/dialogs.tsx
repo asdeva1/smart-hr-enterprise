@@ -86,15 +86,17 @@ export function CycleDialog({ onClose }: { onClose: () => void }) {
     >
       <div className="flex flex-col gap-4">
         {save.isError && <Alert tone="error">{errorMessage(save.error)}</Alert>}
-        <Field id="c-company" label="Company">
-          <Select id="c-company" value={companyId} onChange={set('companyId')}>
-            {companies.data?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {(companies.data?.length ?? 0) !== 1 && (
+          <Field id="c-company" label="Company">
+            <Select id="c-company" value={companyId} onChange={set('companyId')}>
+              {companies.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field id="c-name" label="Name" hint="For example, Annual review 2026-27">
           <Input id="c-name" value={f.name} onChange={set('name')} />
         </Field>

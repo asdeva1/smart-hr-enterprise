@@ -4,8 +4,7 @@ import { AppShell } from '@/components/app-shell';
 import { Dashboard } from '@/components/home/dashboard';
 import { MyHome, TeamCard } from '@/components/home/cards';
 import { RequireSession } from '@/components/require-session';
-import { SystemStatus } from '@/components/system-status';
-import { can, hasFeature } from '@/lib/permissions';
+import { hasFeature } from '@/lib/permissions';
 
 export default function HomePage() {
   return (
@@ -30,7 +29,6 @@ export default function HomePage() {
                     </p>
                   </section>
                 )}
-                {can(session, 'settings.manage') && <SystemStatus />}
               </>
             }
           />
